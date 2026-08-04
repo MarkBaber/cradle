@@ -1,0 +1,13 @@
+[Unit]
+Description=CRADLE database backup
+
+[Service]
+Type=oneshot
+User=cradle
+Group=cradle
+WorkingDirectory=/opt/cradle
+ExecStart=/usr/bin/python3 /opt/cradle/scripts/backup.py \
+    --db /opt/cradle/data/cradle.db --dest /opt/cradle/backups --retain 30
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/cradle/backups

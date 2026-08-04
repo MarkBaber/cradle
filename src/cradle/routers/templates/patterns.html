@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% set nav = 'patterns' %}
+{% block title %}Rhythm · CRADLE{% endblock %}
+{% block head %}<script src="/static/vendor/plotly.min.js" defer></script>{% endblock %}
+{% block content %}
+<h1>Rhythm</h1>
+<p class="note">Each row is a day, midnight to midnight. Look for the sleep blocks
+drifting into the same place — that is a pattern forming.</p>
+
+<nav class="pills">
+  {% for d in (7, 14, 30) %}
+  <a href="/patterns?days={{ d }}" class="{{ 'on' if days == d }}">{{ d }} days</a>
+  {% endfor %}
+</nav>
+
+<div class="ribbon">
+  <div class="hours">
+    {% for h in hours %}<span style="left:{{ (h / 24 * 100) }}%">{{ h }}</span>{% endfor %}
+  </div>
+  {% for day in ribbon.days | reverse %}
+  <div class="rrow">
+    <span class="rlabel">{{ day.day.strftime('%a %d') }}</span>
+    <div class="rtrack">
+      <i class="night" style="left:0;width:{{ ribbon.night_end / 24 * 100 }}%"></i>
+      <i class="night" style="left:{{ ribbon.night_start / 24 * 100 }}%;
+         width:{{ (24 - ribbon.night_start) / 24 * 100 }}%"></i>
+      {% for s in day.sleep %}
+      <i class="rsleep" style="left:{{ s.start_hour / 24 * 100 }}%;
+         width:{{ (s.end_hour - s.start_hour) / 24 * 100 }}%"
+         title="{{ '%.1f'|format(s.start_hour) }}-{{ '%.1f'|format(s.end_hour) }}"></i>
+      {% endfor %}
+      {% for f in day.feeds %}
+      <i class="rfeed" style="left:{{ f / 24 * 100 }}%"></i>
+      {% endfor %}
+      {% for n in day.nappies %}
+      <i class="rnappy" style="left:{{ n / 24 * 100 }}%"></i>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<p class="legend">
+  <span><i class="rsleep"></i> sleep</span>
+  <span><i class="rfeed"></i> feed</span>
+  <span><i class="rnappy"></i> nappy</span>
+  <span><i class="night"></i> night</span>
+</p>
+
+<h2>Longest unbroken sleep</h2>
+<div id="sleepchart" data-series="longest_sleep_hours" data-days="{{ days }}"></div>
+<table id="history" class="plain">
+  <tbody>
+  {% for i in range(daily.days | length) | reverse %}
+    <tr>
+      <td class="t">{{ daily.days[i].strftime('%a %d %b') }}</td>
+      <td>{{ daily.feeds[i] }} feeds · {{ daily.wet[i] }} wet · {{ daily.dirty[i] }} dirty</td>
+      <td>{{ '%.1f'|format(daily.sleep_hours[i]) }}h
+        (longest {{ '%.1f'|format(daily.longest_sleep_hours[i]) }}h)</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<script src="/static/series.js" defer></script>
+{% endblock %}

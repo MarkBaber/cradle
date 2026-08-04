@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% set nav = 'settings' %}
+{% block title %}Settings · CRADLE{% endblock %}
+{% block content %}
+{% if first_run %}<h1>Welcome</h1><p class="note">Add the baby's details to get started.</p>
+{% else %}<h1>Settings</h1>{% endif %}
+
+<form method="post" action="/api/settings/profile" class="stack">
+  <label>Name <input type="text" name="name" required
+    value="{{ profile.name if profile else '' }}"></label>
+  <label>Sex
+    <select name="sex">
+      <option value="female" {{ 'selected' if profile and profile.sex.value == 'female' }}>female</option>
+      <option value="male" {{ 'selected' if profile and profile.sex.value == 'male' }}>male</option>
+    </select>
+  </label>
+  <label>Date of birth <input type="date" name="dob" required
+    value="{{ profile.dob.isoformat() if profile else '' }}"></label>
+  <label>Due date <input type="date" name="due_date" required
+    value="{{ profile.due_date.isoformat() if profile else '' }}"></label>
+  <label>Birth weight (g) <input type="number" name="birth_weight_g" inputmode="numeric"
+    required value="{{ profile.birth_weight_g if profile else '' }}"></label>
+  <button type="submit" class="primary">Save</button>
+</form>
+<p class="note">Due date is used to correct age on growth charts if the baby was born
+before 37 weeks.</p>
+
+<h2>Notifications</h2>
+<form method="post" action="/api/settings/test-notification"
+      hx-post="/api/settings/test-notification" hx-target="#ntfy-result" hx-swap="innerHTML">
+  <button type="submit">Send test notification</button>
+</form>
+<p id="ntfy-result" class="note"></p>
+<p class="note">Set the ntfy server and topic in <code>rules_config.toml</code>. The topic
+name is the shared secret — treat it like a password.</p>
+{% endblock %}

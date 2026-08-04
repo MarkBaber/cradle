@@ -1,0 +1,22 @@
+{% if summary %}
+<section class="strip" id="today-strip">
+  <div class="stat {{ 'warn' if summary.feeds_expected_min and summary.feeds_24h < summary.feeds_expected_min }}">
+    <b>{{ summary.feeds_24h }}</b>
+    <span>feeds / 24h{% if summary.feeds_expected_min %} · aim {{ summary.feeds_expected_min }}+{% endif %}</span>
+  </div>
+  <div class="stat {{ 'warn' if summary.wet_expected_min and summary.wet_24h < summary.wet_expected_min }}">
+    <b>{{ summary.wet_24h }}</b>
+    <span>wet{% if summary.wet_expected_min %} · aim {{ summary.wet_expected_min }}+{% endif %}</span>
+  </div>
+  <div class="stat"><b>{{ summary.dirty_24h }}</b><span>dirty</span></div>
+  <div class="stat">
+    <b>{% if summary.since_last_feed %}{{ (summary.since_last_feed.total_seconds() // 3600) | int }}h{{ ((summary.since_last_feed.total_seconds() % 3600) // 60) | int }}m{% else %}—{% endif %}</b>
+    <span>since feed</span>
+  </div>
+  <div class="stat">
+    <b>{{ (summary.sleep_total_24h.total_seconds() // 3600) | int }}h{{ ((summary.sleep_total_24h.total_seconds() % 3600) // 60) | int }}m</b>
+    <span>slept / 24h</span>
+  </div>
+  <div class="stat"><b>day {{ summary.age_days + 1 }}</b><span>of life</span></div>
+</section>
+{% endif %}

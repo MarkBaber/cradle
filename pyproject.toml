@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cradle"
+version = "0.1.0"
+description = "Newborn tracking & development monitor (LAN PWA)"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "jinja2>=3.1",
+  "apscheduler>=3.10,<4",
+  "httpx>=0.27",
+  "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11", "import-linter>=2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cradle"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+strict = true
+mypy_path = "src"
+packages = ["cradle"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.importlinter]
+root_package = "cradle"
+
+[[tool.importlinter.contracts]]
+name = "CRADLE layering"
+type = "layers"
+layers = [
+  "cradle.routers",
+  "cradle.services",
+  "cradle.reference | cradle.alerts | cradle.repos | cradle.ports",
+  "cradle.models",
+]

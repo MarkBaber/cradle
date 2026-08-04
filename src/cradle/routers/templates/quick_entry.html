@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% set nav = 'home' %}
+{% block content %}
+{% include "_alerts.html" %}
+{% include "_today_strip.html" %}
+
+<div id="toast" class="toastwrap" aria-live="polite">
+  {% if logged %}<div class="toast">Logged</div>{% endif %}
+</div>
+
+<section class="grid">
+  <form method="post" action="/api/feed" hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="method" value="breast_left">
+    <button class="big feed"><i>L</i><span>Breast left</span></button>
+  </form>
+  <form method="post" action="/api/feed" hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="method" value="breast_right">
+    <button class="big feed"><i>R</i><span>Breast right</span></button>
+  </form>
+  <form method="post" action="/api/feed" hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="method" value="bottle_formula">
+    <button class="big bottle"><i>🍼</i><span>Bottle</span></button>
+  </form>
+  <form method="post" action="/api/nappy" hx-post="/api/nappy" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="kind" value="wet">
+    <button class="big wet"><i>💧</i><span>Wet</span></button>
+  </form>
+  <form method="post" action="/api/nappy" hx-post="/api/nappy" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="kind" value="dirty">
+    <button class="big dirty"><i>💩</i><span>Dirty</span></button>
+  </form>
+  <form method="post" action="/api/sleep/toggle" hx-post="/api/sleep/toggle" hx-target="#toast" hx-swap="innerHTML">
+    <button class="big sleep {{ 'running' if summary and summary.running_sleep }}">
+      <i>{{ '☀' if summary and summary.running_sleep else '☾' }}</i>
+      <span>{{ 'Wake' if summary and summary.running_sleep else 'Sleep' }}</span>
+    </button>
+  </form>
+</section>
+
+<details class="more">
+  <summary>More: weight, temperature, milestone, note</summary>
+  <form method="post" action="/api/growth" class="row">
+    <select name="measure">
+      <option value="weight">Weight (g)</option>
+      <option value="length">Length (mm)</option>
+      <option value="head_circ">Head circ (mm)</option>
+    </select>
+    <input type="number" name="value" inputmode="numeric" placeholder="value" required>
+    <select name="source"><option value="home">home</option><option value="midwife">midwife</option></select>
+    <button type="submit">Save</button>
+  </form>
+  <form method="post" action="/api/temperature" class="row">
+    <input type="number" step="0.1" name="temp_c" inputmode="decimal" placeholder="°C" required>
+    <button type="submit">Save</button>
+  </form>
+  <form method="post" action="/api/milestone" class="row">
+    <select name="category">
+      <option value="first">first</option><option value="motor">motor</option>
+      <option value="social">social</option><option value="communication">communication</option>
+    </select>
+    <input type="text" name="title" placeholder="First smile…" required>
+    <button type="submit">Save</button>
+  </form>
+  <form method="post" action="/api/note" class="row">
+    <input type="text" name="text" placeholder="Note…" required>
+    <button type="submit">Save</button>
+  </form>
+</details>
+{% endblock %}

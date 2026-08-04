@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Export · CRADLE{% endblock %}
+{% block content %}
+<h1>Export</h1>
+<p class="note">Everything logged, in formats that will still open in ten years.</p>
+
+<h2>Complete record</h2>
+<p><a class="dl" href="/export/cradle.json">cradle.json</a></p>
+<p class="note">Profile, every event (including deleted ones) and the alert history.
+This is the file to keep; it restores exactly.</p>
+
+<h2>Spreadsheets</h2>
+<p class="dl-row">
+{% for d in domains %}<a class="dl" href="/export/{{ d }}.csv">{{ d }}.csv</a>{% endfor %}
+</p>
+<p class="note">One file per kind of record, deleted rows omitted.</p>
+{% endblock %}

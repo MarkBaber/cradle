@@ -1,0 +1,3 @@
+measure,sex,age_days,value,expected_z,note
+# Task R4: >=40 hand-checked vectors from published UK-WHO chart values,
+# both sexes, weight/length/head_circ, including preterm corrected-age cases.

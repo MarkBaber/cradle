@@ -1,0 +1,638 @@
+# CRADLE task manifest. Exit criteria = DoD; CI is the sole arbiter.
+# Areas: S scaffold, M models, P repos, V services, U ui/routes, T route-tests,
+#        R reference, G growth, A alerts, N notify/schedule, C charts,
+#        X export, B backup, W pwa, O ops, Q quality, MS milestones.
+
+[[task]]
+id = "S0"
+phase = 0
+title = "Runnable Phase 0 skeleton"
+status = "done"
+routing = "architect"
+depends = []
+touches = ["src/", "tests/", "scripts/", "pyproject.toml", ".gitlab-ci.yml"]
+description = "Layered skeleton; walking path feed->sqlite->history; smoke green."
+exit_criteria = ["scripts/test.sh green", "scripts/check_layers.sh green"]
+
+# ---------------- Phase 1: core logging + quick-entry ----------------
+
+[[task]]
+id = "P1"
+phase = 1
+title = "Repos: all remaining event domains"
+status = "done"
+routing = "impl"
+depends = ["S0"]
+touches = ["src/cradle/repos/events_repo.py", "tests/unit/test_repos.py"]
+description = "Implement insert/list for nappy, sleep (start/end), growth, temperature, milestone, note per 0001_init.sql; running-sleep query."
+exit_criteria = ["round-trip test per domain", "mypy strict green on touched files"]
+
+[[task]]
+id = "P2"
+phase = 1
+title = "Repos: soft-delete + edit"
+status = "done"
+routing = "impl"
+depends = ["P1"]
+touches = ["src/cradle/repos/events_repo.py", "tests/unit/test_repos_edit.py"]
+description = "soft_delete/edit_event with table allow-list; edited_at set; deleted rows excluded from lists."
+exit_criteria = ["delete/edit tests incl. allow-list rejection", "lists exclude deleted (test)"]
+
+[[task]]
+id = "V1"
+phase = 1
+title = "Services: log/toggle for all domains"
+status = "done"
+routing = "impl"
+depends = ["P1"]
+touches = ["src/cradle/services/logging_service.py", "tests/unit/test_logging_service.py"]
+description = "Implement stubbed LoggingService methods; toggle_sleep starts if none running else ends."
+exit_criteria = ["FixedClock tests per method", "toggle_sleep both branches tested"]
+
+[[task]]
+id = "U1"
+phase = 1
+title = "Quick-entry page (six buttons)"
+status = "done"
+routing = "impl"
+depends = ["V1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/", "src/cradle/routers/static/"]
+description = "Feed L / Feed R / Bottle / Wet / Dirty / Sleep-toggle oversized buttons; HTMX POST at now; vendored htmx+alpine; device_name cookie prompt on first visit."
+exit_criteria = ["route test: each button = 1 POST, 2xx, row persisted", "page weight <=150KB (test asserts static bundle size)"]
+
+[[task]]
+id = "U2"
+phase = 1
+title = "Undo toast + adjust-time"
+status = "done"
+routing = "impl"
+depends = ["U1", "P2"]
+touches = ["src/cradle/routers/api.py", "src/cradle/services/logging_service.py", "src/cradle/routers/templates/"]
+description = "10s undo toast (soft-delete); 'adjust time' inline edit posting new ts."
+exit_criteria = ["undo soft-deletes (test)", "ts edit persists + sets edited_at (test)"]
+
+[[task]]
+id = "U3"
+phase = 1
+title = "/today strip"
+status = "done"
+routing = "impl"
+depends = ["V1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/services/today_service.py", "tests/unit/test_today.py"]
+description = "Trailing-24h counts vs expected, time-since-last-feed, active sleep timer."
+exit_criteria = ["counts correct on synthetic day fixture", "active sleep rendered when running"]
+
+[[task]]
+id = "U4"
+phase = 1
+title = "/history table with inline edit"
+status = "done"
+routing = "impl"
+depends = ["P2", "U1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/"]
+description = "Unified filterable event table; inline edit + soft-delete per row."
+exit_criteria = ["filter by domain/date (route test)", "edit + delete flows (route test)"]
+
+[[task]]
+id = "T1"
+phase = 1
+title = "Interaction-cost route tests"
+status = "review"
+routing = "tester"
+depends = ["U1", "U2"]
+touches = ["tests/routes/test_quick_entry.py"]
+description = "Prove <=2-tap contract: single POST logs at now with no required fields beyond method/kind."
+exit_criteria = ["one request per quick action (test)", "no 4xx on minimal payloads"]
+notes = "Implemented in tests/routes/test_quick_entry.py (13 cases). Cannot execute locally: fastapi unavailable in the authoring sandbox, so the offline runner skips the file. CI test stage must confirm green before this moves to done."
+
+[[task]]
+id = "U7"
+phase = 1
+title = "/settings + first-run profile"
+status = "done"
+routing = "impl"
+depends = ["V1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/", "src/cradle/repos/baby_repo.py"]
+description = "Baby profile form (BabyRepo.upsert); first visit with no profile redirects here; rules-threshold editor; ntfy topic + test-send button."
+exit_criteria = ["fresh DB redirects / -> /settings (route test)", "profile round-trip (test)", "test-send hits Notifier (mock test)"]
+
+# ---------------- Phase 2: growth engine (riskiest bet) ----------------
+
+[[task]]
+id = "R1"
+phase = 2
+title = "LMS z-score engine"
+status = "done"
+routing = "impl"
+depends = ["S0"]
+touches = ["src/cradle/reference/lms.py", "tests/unit/test_lms.py"]
+description = "LMS formula (L=0 branch incl.), linear L/M/S interpolation, LookupError outside range; loads vendored CSV once."
+exit_criteria = ["hand-computed unit vectors pass", "out-of-range raises (test)"]
+notes = "Arithmetic verified against hand-computed vectors with synthetic LMS tables. Agreement with the real UK-WHO reference is R4's gate, not this one."
+
+[[task]]
+id = "R2"
+phase = 2
+title = "Vendor UK-WHO LMS tables"
+status = "blocked"
+routing = "impl"
+depends = []
+touches = ["src/cradle/reference/data/ukwho_lms.csv", "src/cradle/reference/VERSION"]
+description = "Vendor weight/length/head-circ LMS rows, both sexes, birth->2y (UK-WHO composition). VERSION records source files, retrieval date, licence."
+exit_criteria = ["CSV parses; monotone age coverage per (measure,sex) (test)", "VERSION provenance complete"]
+notes = "BLOCKED - architect action required. UK-WHO LMS coefficients could not be vendored: no network egress in the authoring sandbox, and the values are not reproducible from memory. They were deliberately NOT synthesised: fabricated coefficients would render plausible-looking centiles on a chart used to judge newborn weight loss. Obtain the tables from RCPCH (UK-WHO 0-4y chart data) or the WHO Child Growth Standards LMS files, record source filenames + retrieval date + licence in reference/VERSION, then unblock R4/U5. 2026-08-04: architect confirmed the source files are obtainable, so this is scheduled work rather than an open question. Drop the files in reference/data/ukwho_lms.csv with columns measure,sex,age_days,L,M,S and fill in VERSION; the loader in reference/lms.py already validates shape, rejects duplicate ages and refuses to approximate, so a bad table fails loudly at startup rather than rendering a wrong centile. Downstream: R4 then G1/U5/C3, and CENTILE_CROSS stops being silent."
+
+[[task]]
+id = "R3"
+phase = 2
+title = "Corrected-age logic"
+status = "done"
+routing = "impl"
+depends = ["R1"]
+touches = ["src/cradle/reference/lms.py", "tests/unit/test_corrected_age.py"]
+description = "corrected_age_days per D5; correction applies only when gestation <37w."
+exit_criteria = ["term baby: corrected == chronological (test)", "preterm offset cases pass"]
+
+[[task]]
+id = "R4"
+phase = 2
+title = "Oracle vectors + parity gate"
+status = "blocked"
+routing = "tester"
+depends = ["R1", "R2", "R3"]
+touches = ["tests/oracle/ukwho_vectors.csv", "tests/oracle/test_ukwho_parity.py"]
+description = ">=40 published-chart vectors incl. preterm; parity +/-0.01 z; empty-file bypass removed."
+exit_criteria = ["parity test green over >=40 vectors", "test fails on empty vector file"]
+notes = "BLOCKED by R2. Harness, strictness tests and the parity gate are ready; only the published vectors are missing. Vectors must be read off the printed UK-WHO charts or the source LMS files - never generated by this implementation, or the oracle would test the code against itself."
+
+[[task]]
+id = "G1"
+phase = 2
+title = "Growth service"
+status = "review"
+routing = "impl"
+depends = ["R4", "P1"]
+touches = ["src/cradle/services/growth_service.py", "tests/unit/test_growth_service.py"]
+description = "assessment(): latest z/centile per measure, weight-loss % vs birth, corrected-age flag."
+exit_criteria = ["assessment correct on synthetic growth fixture", "weight-loss % matches hand calc"]
+notes = "Implemented and tested against synthetic LMS tables: weight-loss maths, corrected-age selection, baseline/latest z for CENTILE_CROSS, and honest degradation when reference data is absent. Cannot be done while R4 is blocked - the centile numbers are unverified against the real UK-WHO reference."
+
+[[task]]
+id = "U5"
+phase = 2
+title = "/charts growth centile view"
+status = "review"
+routing = "impl"
+depends = ["G1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/", "src/cradle/routers/static/"]
+description = "Plotly (vendored) chart: 0.4-99.6 centile curves + trajectory overlay."
+exit_criteria = ["series endpoint returns curves+trajectory JSON (test)", "page renders (route test)"]
+notes = "Page, /api/charts/{measure} endpoint, Plotly playback and the no-JS table fallback are implemented and route-tested against a synthetic reference table. Moves to done when R2 lands and the page is confirmed against real curves. Route tests unrunnable offline (fastapi absent); CI must confirm."
+
+# ---------------- Phase 3: alerts + ntfy + scheduler ----------------
+
+[[task]]
+id = "A1"
+phase = 3
+title = "FactSet assembly service"
+status = "review"
+routing = "impl"
+depends = ["P1", "G1"]
+touches = ["src/cradle/services/alerts_service.py", "tests/unit/test_factset.py"]
+description = "Assemble FactSet (trailing windows, weight z pair) from repos at as_of."
+exit_criteria = ["FactSet correct on synthetic timeline fixture"]
+
+[[task]]
+id = "A2"
+phase = 3
+title = "Engine + fingerprint de-dup"
+status = "done"
+routing = "impl"
+depends = ["S0"]
+touches = ["src/cradle/alerts/engine.py", "src/cradle/repos/alert_log_repo.py", "tests/unit/test_engine.py"]
+description = "evaluate() deterministic; fingerprint '<rule>:<bucket>'; alert_log UNIQUE gates re-notification."
+exit_criteria = ["same FactSet => identical findings (test)", "second sweep notifies zero (test)"]
+
+[[task]]
+id = "A3"
+phase = 3
+title = "Rules: feeds"
+status = "done"
+routing = "impl"
+depends = ["A2"]
+touches = ["src/cradle/alerts/rules.py", "rules_config.toml", "tests/unit/test_rules_feeds.py"]
+description = "FEED_GAP, FEED_COUNT_LOW; thresholds from rules_config.toml; load_rules() config plumbing."
+exit_criteria = ["synthetic timelines: fire + no-fire cases per rule", "threshold change in config alters behaviour (test)"]
+notes = "SPEC 5.2 named this load_rules(config_path). Changed to build_rules(config: Mapping) so the alerts layer performs no file I/O and its purity claim is real rather than nominal; the service layer owns the file read. Architect sign-off recorded here."
+
+[[task]]
+id = "A4"
+phase = 3
+title = "Rules: nappies"
+status = "done"
+routing = "impl"
+depends = ["A3"]
+touches = ["src/cradle/alerts/rules.py", "tests/unit/test_rules_nappies.py"]
+description = "WET_NAPPY_LOW (day-of-life table), STOOL_ABSENT (d3-28), STOOL_COLOUR (black normal <=d5)."
+exit_criteria = ["day-of-life boundaries tested (d1..d5+)", "black-stool d4 vs d6 distinction (test)"]
+
+[[task]]
+id = "A5"
+phase = 3
+title = "Rules: weight"
+status = "done"
+routing = "impl"
+depends = ["A3"]
+touches = ["src/cradle/alerts/rules.py", "tests/unit/test_rules_weight.py"]
+description = "WEIGHT_LOSS_10PC, WEIGHT_NOT_REGAINED (>=14d), CENTILE_CROSS (>=1.33 z drop)."
+exit_criteria = ["boundary tests at 10%/14d/1.33z", "no baseline => CENTILE_CROSS silent (test)"]
+notes = "CENTILE_CROSS stays silent while R2 is blocked: no z pair means no claim. test_centile_cross_silent_without_reference_data pins that."
+
+[[task]]
+id = "A6"
+phase = 3
+title = "Rules: fever + reminders"
+status = "done"
+routing = "impl"
+depends = ["A3"]
+touches = ["src/cradle/alerts/rules.py", "tests/unit/test_rules_misc.py"]
+description = "FEVER_U3M (>=38.0C, <90d), WEIGH_IN_DUE, MEASUREMENT_GAP."
+exit_criteria = ["37.9 vs 38.0 and 89d vs 90d boundaries (test)", "reminder cadence from config (test)"]
+
+[[task]]
+id = "A7"
+phase = 3
+title = "Alert copy + sources"
+status = "done"
+routing = "architect"
+depends = ["A3", "A4", "A5", "A6"]
+touches = ["src/cradle/alerts/messages.py"]
+description = "Reviewed message per rule with NHS/NICE citation and fixed escalation phrasing (SPEC 1.1)."
+exit_criteria = ["every rule_id has message+source (test)", "red rules use ESCALATE_URGENT (test)"]
+notes = "Copy authored to state what the LOG shows, never the baby's condition, with fixed escalation wording per severity. test_engine.py asserts no message contains diagnostic language and that urgent rules carry urgent wording. NOT clinician-reviewed: see A8."
+
+[[task]]
+id = "N1"
+phase = 3
+title = "ntfy adapter"
+status = "done"
+routing = "impl"
+depends = ["S0"]
+touches = ["src/cradle/ports/notifier.py", "tests/unit/test_ntfy.py"]
+description = "POST to server/topic; severity->priority map; title/tags; timeout+failure logged, never raises into sweep."
+exit_criteria = ["httpx mock asserts URL/headers/priority", "network failure swallowed+logged (test)"]
+
+[[task]]
+id = "N2"
+phase = 3
+title = "Scheduler wiring + sweep"
+status = "review"
+routing = "impl"
+depends = ["A1", "A2", "N1"]
+touches = ["src/cradle/ports/scheduler.py", "src/cradle/services/alerts_service.py", "src/cradle/app.py"]
+description = "APScheduler 5-min sweep + reminder crons; attach in create_app; sweep = facts->evaluate->dedup->notify->log."
+exit_criteria = ["sweep integration test with FixedClock + ConsoleNotifier", "app startup registers jobs (test)"]
+
+[[task]]
+id = "U6"
+phase = 3
+title = "Pinned red findings + acknowledge"
+status = "review"
+routing = "impl"
+depends = ["N2", "U3"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/"]
+description = "Red findings pinned on / and /today until acknowledged; ack persists to alert_log."
+exit_criteria = ["pin visible until ack (route test)", "ack sets acknowledged_at (test)"]
+notes = "Pinned red findings with acknowledge, amber/reminder findings shown without a button. Route-tested but unrunnable offline (fastapi absent); CI must confirm before done."
+
+# ---------------- Phase 4: dashboards + animation ----------------
+
+[[task]]
+id = "C1"
+phase = 4
+title = "Timeseries endpoints"
+status = "review"
+routing = "impl"
+depends = ["P1"]
+touches = ["src/cradle/services/growth_service.py", "src/cradle/routers/api.py", "tests/unit/test_series.py"]
+description = "JSON series per domain (daily feed counts/volumes, nappy counts, sleep totals, growth points)."
+exit_criteria = ["series correct on synthetic fixtures per domain"]
+notes = "SPEC placed these series in growth_service; split into services/series_service.py because they span every domain and have nothing to do with the LMS reference. Architect sign-off recorded here. Days bucket in LOCAL time, so a 00:30 feed belongs to the night the parent experienced; this required moving to_local/to_utc from routers to models, since services may not import upward."
+
+[[task]]
+id = "C2"
+phase = 4
+title = "/charts domain dashboards"
+status = "review"
+routing = "impl"
+depends = ["C1", "U5"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/"]
+description = "Plotly timeseries tabs per domain."
+exit_criteria = ["each tab renders with data (route test)"]
+notes = "Domain timeseries render on /charts and /patterns via series.js. Plotly stays off base.html and off the quick-entry path (Q1 asserts this); every chart page also prints the same numbers as a table, so the pages are useful before R5 vendors Plotly."
+
+[[task]]
+id = "C3"
+phase = 4
+title = "Animated centile playback"
+status = "review"
+routing = "impl"
+depends = ["U5"]
+touches = ["src/cradle/services/growth_service.py", "src/cradle/routers/templates/", "src/cradle/routers/static/"]
+description = "Plotly frames: trajectory grows point-by-point over centile field; Play/scrub controls."
+exit_criteria = ["frames JSON one-per-measurement (test)", "playback route test green"]
+notes = "Frames were emitted by GrowthService in U5 and the Play control lives in chart.js; this task added the route-level assertion that frames are one-per-measurement. Visual confirmation needs a browser with Plotly vendored (R5)."
+
+[[task]]
+id = "C4"
+phase = 4
+title = "24h pattern ribbons"
+status = "review"
+routing = "impl"
+depends = ["C1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/"]
+description = "Sleep/feed circadian ribbon view (day rows x 24h columns) - the 'is a pattern forming' view."
+exit_criteria = ["ribbon data endpoint tested on synthetic week"]
+notes = "Ribbon clips sleep spans at local midnight so a night split across two rows shows on both, with no hours invented or lost - tested at both the service and HTTP level. Night shading is fixed at 19:00-07:00."
+
+# ---------------- Phase 5: milestones, export, ops, PWA ----------------
+
+[[task]]
+id = "MS1"
+phase = 5
+title = "Milestones timeline"
+status = "review"
+routing = "impl"
+depends = ["V1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/"]
+description = "Timeline cards by category; age-at-milestone shown (corrected where applicable); typical-window context text, never scored."
+exit_criteria = ["route test: cards ordered, ages correct on fixture"]
+notes = "Typical-age windows are context only and deliberately wide; test_windows_are_wide_and_never_scored asserts no on_track/delayed field exists. Route-tested; CI must confirm."
+
+[[task]]
+id = "X1"
+phase = 5
+title = "Export CSV/JSON"
+status = "done"
+routing = "impl"
+depends = ["P1"]
+touches = ["src/cradle/services/export_service.py", "src/cradle/routers/api.py", "tests/unit/test_export.py"]
+description = "CSV per domain + one full JSON incl. baby profile + alert_log."
+exit_criteria = ["JSON export -> reimport round-trip equality (test)", "CSV headers stable (test)"]
+
+[[task]]
+id = "B1"
+phase = 5
+title = "Backup verification"
+status = "done"
+routing = "tester"
+depends = ["S0"]
+touches = ["scripts/backup.sh", "tests/unit/test_backup.py"]
+description = "Backup produces openable DB with row parity; retention prunes to 30."
+exit_criteria = ["restore-and-count test green", "retention test green"]
+notes = "backup.sh depended on the sqlite3 CLI, which is absent from minimal Raspberry Pi OS images; logic moved to scripts/backup.py using the stdlib sqlite3 module, with backup.sh as a wrapper. Restore parity and retention are tested."
+
+[[task]]
+id = "W1"
+phase = 5
+title = "PWA manifest + service worker"
+status = "review"
+routing = "impl"
+depends = ["U1"]
+touches = ["src/cradle/routers/static/", "src/cradle/routers/pages.py"]
+description = "Installable PWA; SW caches static assets only (no offline writes - SPEC 8)."
+exit_criteria = ["manifest served + valid (test)", "SW registers, caches static only (test)"]
+notes = "Service worker is served from / rather than /static/, because a worker's scope is capped by its own path and /static/sw.js could only control /static/*. Caches static GETs only - no offline writes (SPEC 8). Route-tested; CI must confirm."
+
+[[task]]
+id = "O1"
+phase = 5
+title = "Pi deployment"
+status = "review"
+routing = "impl"
+depends = ["N2"]
+touches = ["scripts/deploy/cradle.service", "README.md"]
+description = "Finalise systemd unit, install docs, backup timer, ntfy topic setup incl. self-host note."
+exit_criteria = ["README deploy walkthrough complete", "unit file lints (systemd-analyze verify in CI risk job)"]
+notes = "systemd units hardened (ProtectSystem=strict, ReadWritePaths); nightly backup timer added; README covers install, verification, ntfy, backups and the LAN-only security model. Cannot be verified without a Pi: needs one real deploy before done."
+
+[[task]]
+id = "Q1"
+phase = 5
+title = "Weight-budget gate"
+status = "review"
+routing = "tester"
+depends = ["W1", "C2"]
+touches = ["tests/unit/test_weight_budget.py"]
+description = "Assert quick-entry static payload <=150KB (charts pages exempt; Plotly loaded only there)."
+exit_criteria = ["budget test green and wired into CI quality stage"]
+notes = "Budget covers the quick-entry path only; Plotly is excluded because it loads solely on /charts, and a test asserts it never reaches base.html. Unvendored htmx is charged at its pinned size so the gate is meaningful before U8 lands."
+
+[[task]]
+id = "U8"
+phase = 1
+title = "Pin vendored htmx checksum"
+status = "todo"
+routing = "impl"
+depends = ["U1"]
+touches = ["scripts/vendor_assets.sh", ".gitlab-ci.yml"]
+description = "Run vendor_assets.sh once, record HTMX_SHA256, and add a CI job that re-verifies the checksum. Left unpinned at scaffold time because the authoring sandbox had no network egress."
+exit_criteria = ["HTMX_SHA256 populated", "CI fails on checksum mismatch (test)"]
+
+[[task]]
+id = "U9"
+phase = 1
+title = "Display-timezone setting"
+status = "todo"
+routing = "impl"
+depends = ["U2"]
+touches = ["src/cradle/models/timefmt.py", "rules_config.toml", "src/cradle/routers/templates/settings.html"]
+description = "timefmt currently uses the server's local zone for both parsing datetime-local input and rendering. Make the zone explicit and configurable so a phone in another timezone cannot silently shift timestamps."
+exit_criteria = ["configured zone used for parse+render (test)", "DST boundary case tested"]
+notes = "touches corrected 2026-08-04: amendment U2 moved timefmt from routers to models, so the path recorded here no longer existed. Note the zone is also read by series_service (local-day bucketing) and by the ribbon view, so a config-driven zone must reach the service layer, not only the templates."
+
+[[task]]
+id = "R5"
+phase = 2
+title = "Vendor Plotly asset"
+status = "todo"
+routing = "impl"
+depends = ["U5"]
+touches = ["scripts/vendor_assets.sh"]
+description = "Fetch plotly.min.js and pin its SHA-256 alongside htmx. The charts page degrades to a table without it, so this is not a blocker."
+exit_criteria = ["plotly vendored and checksum pinned", "charts page renders curves in a browser"]
+notes = "Status was stale at the 2026-08-04 review: static/vendor/plotly.min.js (4.5MB) and htmx.min.js are already present, fetched by an unrecorded run of vendor_assets.sh. The remaining work is therefore the checksum pin only, which is the whole point of the task - 4.5MB of unverified third-party JS is exactly what U8/R5 exist to prevent. vendor_assets.sh has no PLOTLY_SHA256 variable at all; add one alongside HTMX_SHA256."
+
+[[task]]
+id = "A8"
+phase = 3
+title = "Clinician review of alert copy and thresholds"
+status = "todo"
+routing = "architect"
+depends = ["A7"]
+touches = ["src/cradle/alerts/messages.py", "rules_config.toml", "docs/SPEC.md"]
+description = "Have a midwife, health visitor or GP read every rule threshold in rules_config.toml and every string in messages.py against current NHS/NICE guidance, and confirm the SOURCES citations resolve to real, current documents. The copy was written to avoid diagnostic claims, but nobody clinically qualified has checked either the wording or the numbers."
+exit_criteria = ["each rule signed off against a named, dated source", "reviewer and date recorded in SPEC 1.1", "any disputed threshold changed in rules_config.toml with a test"]
+notes = "This gates real-world use. The app currently presents thresholds as if authoritative because they are drawn from published guidance, but the mapping from guidance to rule was made by an LLM and has not been verified by a human clinician."
+
+[[task]]
+id = "N3"
+phase = 3
+title = "ntfy settings from config, not code"
+status = "todo"
+routing = "impl"
+depends = ["N1"]
+touches = ["src/cradle/app.py", "rules_config.toml", "src/cradle/routers/templates/settings.html"]
+description = "create_app currently builds a ConsoleNotifier by default; wire NtfyNotifier from the [ntfy] section of rules_config.toml, and make the topic editable in /settings so it need not be a file edit on the Pi."
+exit_criteria = ["configured topic produces a real ntfy notifier (test)", "empty topic falls back to console without error (test)", "test-send button reaches the configured topic"]
+notes = "Design point to settle before starting: making the topic editable in /settings means writing rules_config.toml at runtime, and that file is architect-owned for its clinical values. Either keep the topic out of rules_config.toml in a separate non-clinical settings store (recommended - a runtime writer must never be able to touch a threshold), or restrict the writer to the [ntfy] table and test that it cannot. Until this task lands, no notification reaches a phone: push is the headline feature of D3 and is currently 100 percent inert."
+
+# ================= Remediation & hardening (2026-08-04 codebase review) =================
+# Ordering rationale: the priority set by the architect is "safe to use on a real
+# baby". That puts false alerts and unenterable clinical fields ahead of SPEC
+# completeness. O2/Q2 come first regardless, because the Definition of Done names
+# CI as the sole arbiter and no pipeline has ever run.
+
+[[task]]
+id = "O2"
+phase = 0
+title = "Initialise the git repository and .gitignore"
+status = "review"
+routing = "architect"
+depends = []
+touches = [".gitignore", "docs/SPEC.md"]
+description = "There is no .git directory. The constitution mandates one task per branch, squash-merge and a green main, and the Definition of Done makes CI the sole arbiter - none of which can hold without a repository, and the GitLab pipeline in .gitlab-ci.yml has therefore never run once. Initialise the repo, add a .gitignore, and push so the pipeline executes. Ignore at minimum: .venv/, __pycache__/, .pytest_cache/, .ruff_cache/, .idea/, data/*.db*, backups/, junit.xml. data/cradle.db and its -wal/-shm sidecars are live working files and a private health record; they must never enter history."
+exit_criteria = ["git repository initialised with a first commit that excludes every generated and private artefact above", "git status clean on a fresh checkout after scripts/test.sh runs", "pipeline runs on the remote and its result is recorded in the tasks it arbitrates"]
+notes = "Do this before Q2: the point of Q2 is a green pipeline, which cannot be observed until there is a repository to run it on. Check that data/cradle.db is absent from the first commit before pushing anywhere - a newborn's feeding and weight record is not something to un-publish later. 2026-08-04: repository initialised on main, .gitignore written before `git init` so no generated artefact was ever staged; 115 files in the initial commit, verified to exclude data/, backups/, .venv/, __pycache__/, junit.xml, .idea/ and the tool caches. Two decisions worth knowing: (1) the data/ and backups/ patterns are anchored to the repo root, because an unanchored `data/` also matches src/cradle/reference/data/ and would have silently excluded the UK-WHO LMS table R2 is about to populate; (2) vendored JS (static/vendor/*.js) is ignored rather than committed, consistent with README install step scripts/vendor_assets.sh and with U8/R5 pinning the fetch by checksum - vendor/README.md stays tracked so the directory survives a clone. Held at review: the third exit criterion needs a remote, which does not exist yet. Add one, push, and record the pipeline result before this moves to done."
+
+[[task]]
+id = "Q2"
+phase = 0
+title = "Make the CI pipeline green"
+status = "todo"
+routing = "impl"
+depends = ["O2"]
+touches = ["src/", "tests/", "scripts/lint.sh", "pyproject.toml"]
+description = "Every CI stage currently fails, so the 14 tasks sitting at status review have no arbiter. Three separate failures: (1) validate runs `ruff format --check src tests` and 50 of 69 files would be reformatted - the repo has never been formatted; (2) `ruff check` reports 9 errors, mostly unsorted imports in app.py, deps.py, models/__init__.py; (3) `mypy` reports 6 errors - a missing return annotation and an untyped apscheduler import in ports/scheduler.py, `Returning Any` in reference/lms.py, two int|None assignments in services/series_service.py, and `object not callable` in ports/notifier.py where the injected poster seam is typed `object`. Fix all three. The notifier poster should become a Callable Protocol rather than `object`, since that seam is the ntfy test double."
+exit_criteria = ["ruff format --check src tests clean", "scripts/lint.sh green (ruff check + mypy strict)", "scripts/test.sh still green afterwards", "apscheduler stub handling recorded in pyproject.toml rather than silenced per-line"]
+notes = "Run `ruff format` as its own commit, separate from the lint and mypy fixes, so the type changes stay reviewable. Note this necessarily reformats files outside any one task's touches; that is the intended one-off exception and the reason it is its own task rather than being smuggled into feature diffs."
+
+[[task]]
+id = "A9"
+phase = 3
+title = "Weight rules must read weight measurements only"
+status = "review"
+routing = "impl"
+depends = ["A5"]
+touches = ["src/cradle/alerts/rules.py", "tests/unit/test_rules_weight.py", "tests/unit/test_rules_misc.py"]
+description = "alerts_service.facts() passes every growth row into FactSet.growth, and WEIGHT_LOSS_10PC, WEIGHT_NOT_REGAINED, CENTILE_CROSS and WEIGH_IN_DUE all took weights[-1] from that mixed list. Length and head circumference are stored in millimetres, so logging a 550mm length after a healthy 3600g weight produced a RED priority-5 push reading `Latest weight 550g is 83.8% below birth weight (3400g) ... seek medical advice now - call 111`. Filter to GrowthMeasure.WEIGHT inside the rules."
+exit_criteria = ["mixed-measure timeline: weight rules silent when the weight is healthy (test)", "genuine loss still fires when a length is logged alongside it (test)", "WEIGH_IN_DUE not reset by a non-weight measurement (test)"]
+notes = "Implemented at the 2026-08-04 review via a _weights(facts) helper in rules.py; every weight rule now goes through it. 208 tests pass (3 new), check_layers green, ruff and mypy clean on the touched files. Held at review rather than done because scripts/lint.sh is red repo-wide for the pre-existing reasons tracked by Q2 and no CI has ever run (O2). Moves to done on the first green pipeline. Fixed in the rules rather than in the FactSet assembly on purpose: MEASUREMENT_GAP legitimately counts a length as evidence the log is being kept up, so the service must keep passing every measure."
+
+[[task]]
+id = "Q4"
+phase = 3
+title = "Cross-domain no-fire regression fixture"
+status = "todo"
+routing = "tester"
+depends = ["A9"]
+touches = ["tests/unit/_facts.py", "tests/unit/test_rules_misc.py"]
+description = "A9 was a whole class of bug that the suite could not see: _facts.healthy_baseline() logs feeds, nappies, one weight and one temperature, and _facts.growth() defaults to WEIGHT, so no test ever put two measures in one timeline. Extend healthy_baseline to a genuinely well-logged day across all seven domains - weight plus length plus head circumference, sleeps with and without ts_end, a milestone, a note, a dirty nappy with a normal colour - and assert the full rule set stays silent on it. Then add a second fixture that is healthy except for one deliberate abnormality per rule, and assert exactly that one rule fires."
+exit_criteria = ["healthy cross-domain timeline yields zero findings (test)", "one-abnormality-at-a-time fixture fires exactly the expected rule id and no other (test per rule)"]
+notes = "This is the guard that would have caught A9 before it could page a parent. Worth more than any single rule test: it is the only place that checks rules do not interfere with each other."
+
+[[task]]
+id = "U10"
+phase = 1
+title = "Post-hoc field edits (bottle volume, feed duration, sleep end)"
+status = "todo"
+routing = "impl"
+depends = ["U4"]
+touches = ["src/cradle/routers/api.py", "src/cradle/services/logging_service.py", "src/cradle/routers/templates/_history_table.html"]
+description = "EventsRepo.edit_event already enforces a per-table column allow-list, but the only HTTP surface for it is /api/adjust-time, which sets ts and nothing else. So several fully-built feature chains are dead from the first link: /api/feed accepts volume_ml, FeedEvent stores it, /today renders `Bottle intake in the last 24h` and series_service computes a bottle_ml series - and no form in any template supplies the field, so it is always zero. Same for breast duration_min. Sleep ts_end is not editable either, so a forgotten wake tap can only be corrected by deleting the row and losing the sleep. SPEC 5.4 calls these optional post-hoc edits and that is exactly what is missing. Add a generic edit endpoint over the existing allow-list plus inline per-domain fields in the history row."
+exit_criteria = ["volume_ml set after the fact appears in /today and in the bottle_ml series (test)", "duration_min editable on a breast feed (test)", "sleep ts_end editable and reflected in sleep totals (test)", "a field outside the allow-list is rejected with 4xx (test)"]
+notes = "Do not weaken the allow-list; it is the only thing standing between a form post and an arbitrary column write. Keep the quick-entry path untouched: volume is a post-hoc edit precisely so it never becomes an entry gate (SPEC 5.4, the 2-tap contract T1)."
+
+[[task]]
+id = "U11"
+phase = 1
+title = "Stool colour capture"
+status = "todo"
+routing = "impl"
+depends = ["U10"]
+touches = ["src/cradle/routers/api.py", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/templates/_history_table.html"]
+description = "The Dirty button posts kind=dirty with the default stool_colour=unset, and no template offers a colour anywhere. STOOL_COLOUR is a RED rule covering the pale/chalky, red and post-day-5 black amber-flag colours, and it is currently unreachable: the condition it screens for cannot be entered into the app at all. Offer the colour as an optional follow-up after the Dirty tap and as an inline edit in history."
+exit_criteria = ["dirty nappy logged with a colour end to end (route test)", "STOOL_COLOUR fires from a colour entered through the UI, not just from a synthetic fixture (test)", "quick-entry stays 2 taps: colour is never required to log a nappy (route test)"]
+notes = "Use the StoolColour enum already in models; do not author new colour names or any accompanying text - which colours are flags is a clinical claim owned by messages.py and A8. Plumbing only."
+
+[[task]]
+id = "U12"
+phase = 1
+title = "Device-name attribution"
+status = "todo"
+routing = "impl"
+depends = ["U1"]
+touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/cradle/routers/templates/settings.html", "src/cradle/routers/templates/_history_table.html"]
+description = "SPEC 1 lists device-name attribution as a v1 IS, and D7 chose it over auth precisely because attribution is the thing that actually matters in a household. It is not implemented: no device_name cookie is ever set anywhere in the templates or JS, routers.deps.device_name therefore always returns an empty string, every row is written with logged_by='', and _history_table.html does not render the field even though HistoryService.rows already carries it. Prompt for a device name on first visit, persist it in the cookie, and show it in history."
+exit_criteria = ["first visit prompts for a device name and persists it (route test)", "logged_by populated on events created after the name is set (test)", "history renders who logged each row (route test)", "name editable in /settings"]
+notes = "Keep it a plain cookie with no auth semantics (D7): this labels rows, it does not protect them. Existing rows keep their empty logged_by - do not backfill."
+
+[[task]]
+id = "A10"
+phase = 3
+title = "FEED_GAP and STOOL_ABSENT must fire when nothing has ever been logged"
+status = "todo"
+routing = "architect"
+depends = ["A8"]
+touches = ["src/cradle/alerts/rules.py", "src/cradle/alerts/messages.py", "tests/unit/test_rules_feeds.py", "tests/unit/test_rules_nappies.py"]
+description = "Both rules currently return None on an empty history: _feed_gap bails on `not facts.feeds`, and _stool_absent bails on `not dirty`. So a baby with no stool logged at all by day 4 - the exact case STOOL_ABSENT exists to catch - is silent, and the rules only ever fire once a first event gives them something to measure from. Architect decision 2026-08-04: measure the gap from date of birth when there is no prior event, so absence from the start counts."
+exit_criteria = ["day 4 with no dirty nappy ever logged fires STOOL_ABSENT (test)", "no feed ever logged past the gap threshold fires FEED_GAP (test)", "a baby younger than the threshold stays silent (test)", "new copy for the never-logged case reviewed under A8 and cited"]
+notes = "Routed to architect and gated behind A8 because it needs new strings in messages.py, which is architect-only medical copy: the existing templates interpolate a `last` timestamp that does not exist in this case. Firing from birth is a stronger claim than the current behaviour - it says something about the baby rather than about the log - so the wording must go past the clinician alongside everything else in A8. MEASUREMENT_GAP partially covers the data-entry lapse today but is INFO severity and explicitly says it is about the log, not the baby, so it is not a substitute."
+
+[[task]]
+id = "N4"
+phase = 3
+title = "Scheduler lifecycle and reminder-cron reconciliation"
+status = "todo"
+routing = "impl"
+depends = ["N2"]
+touches = ["src/cradle/app.py", "src/cradle/ports/scheduler.py", "docs/SPEC.md"]
+description = "Two loose ends from N2. First, create_app starts a BackgroundScheduler and nothing ever stops it: there is no lifespan or shutdown hook, so scripts/dev.sh reload leaks a thread per reload and a clean stop depends entirely on SIGTERM killing the process. Add a FastAPI lifespan that shuts the scheduler down. Second, SPEC 3 and N2 both call for cron entries for reminder rules alongside the 5-minute sweep, and build_scheduler registers only the interval job; in practice the sweep already evaluates WEIGH_IN_DUE every five minutes, so the crons are redundant. Either add them or record the simplification as a SPEC 7.1 amendment - do not leave the SPEC describing something the code does not do."
+exit_criteria = ["scheduler shuts down cleanly on app shutdown (test)", "no scheduler thread survives repeated create_app/shutdown cycles (test)", "SPEC 7.1 and the code agree on reminder crons"]
+notes = "Recommend the amendment over the crons: a reminder that fires on a cron and a reminder that fires from a sweep are the same notification once fingerprint de-dup is in play, and one scheduling path is easier to reason about at 3am than two."
+
+[[task]]
+id = "P3"
+phase = 1
+title = "Repo query correctness and restore precondition"
+status = "todo"
+routing = "impl"
+depends = ["P2"]
+touches = ["src/cradle/repos/events_repo.py", "src/cradle/repos/migrations/", "tests/unit/test_repos.py"]
+description = "Three defects in EventsRepo. (1) list_growth applies the measure filter in Python after the SQL LIMIT, so list_growth(WEIGHT, limit=200) silently returns fewer than 200 weights once other measures are interleaved - and alerts_service relies on this call for the weight rules. Push the filter into the WHERE clause. (2) restore() documents `Target must be empty` but never checks, so re-importing into a populated database fails partway through on primary-key collisions with rows already written. Enforce the precondition or make the whole restore a single transaction. (3) temperature, milestone and note have no index on ts, while feed, nappy, sleep and growth do; add one in a new migration."
+exit_criteria = ["list_growth(measure, limit=n) returns n rows of that measure when n exist (test)", "restore into a non-empty table raises rather than partially writing (test)", "migration 0002 applies cleanly on an existing database and is recorded in schema_version (test)"]
+notes = "The list_growth truncation is the one that matters: it feeds the weight rules, which are red-severity, so a silent shortfall there changes what the household is told. The indexes are a nicety at newborn data volumes - do not let them hold up the other two."
+
+[[task]]
+id = "U13"
+phase = 4
+title = "Clamp unbounded range parameters"
+status = "todo"
+routing = "impl"
+depends = ["C4"]
+touches = ["src/cradle/routers/pages.py", "tests/routes/test_patterns.py"]
+description = "_int_param parses the `days` query parameter with no upper bound, and both /patterns and /charts pass it straight into series_service.daily() and ribbon(), which build one row per day. /patterns?days=100000 constructs a hundred thousand day-rows and renders them, on a Pi with a 150MB RSS target. Clamp to a sane maximum, and reject non-positive values rather than silently producing an empty view."
+exit_criteria = ["days above the maximum is clamped, not honoured (route test)", "zero and negative days handled without a 500 (route test)", "response time for the maximum range stays within the Pi budget"]
+notes = "No auth (D7) means anyone on the LAN can send this, including a mistyped bookmark. Cheap to fix and it is the only unbounded allocation path in the app."
+
+[[task]]
+id = "Q3"
+phase = 2
+title = "Oracle parity test must fail, not pass, while unpopulated"
+status = "todo"
+routing = "tester"
+depends = []
+touches = ["tests/oracle/test_ukwho_parity.py"]
+description = "tests/oracle/test_ukwho_parity.py returns early when the vector file holds no rows, so it reports PASS. The suite is therefore green while the single quality target with a number attached - centiles matching the UK-WHO reference to +/-0.01 z - is entirely unverified, and the risk-stage oracle-full job passes for the same empty reason. Make the unpopulated state visibly not-passing: skip explicitly with a message naming R2, so the pipeline reports a skip rather than a pass."
+exit_criteria = ["unpopulated vector file produces a skip with a message naming R2, never a pass", "skip is visible in the CI junit report and in scripts/offline_runner.py output", "test still becomes a hard failure gate once vectors land (R4 unchanged)"]
+notes = "Deliberately independent of R2 and R4 so it can land immediately: the point is that the current green is misleading today, whoever eventually vendors the tables. R4 keeps its own exit criterion that the test fails on an empty vector file once the harness is real."

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% set nav = 'milestones' %}
+{% block title %}Moments · CRADLE{% endblock %}
+{% block content %}
+<h1>Moments</h1>
+
+<form method="post" action="/api/milestone" class="row">
+  <select name="category">
+    {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+  </select>
+  <input type="text" name="title" placeholder="First smile…" required>
+  <button type="submit" class="primary">Add</button>
+</form>
+
+{% if corrected %}
+<p class="note">Ages show corrected age too, since your baby arrived early.</p>
+{% endif %}
+
+<ol class="timeline">
+{% for c in cards %}
+  <li class="card {{ c.category }}">
+    <b>{{ c.title }}</b>
+    <span class="when">{{ (c.ts | local).strftime('%d %b %Y') }} ·
+      {{ c.age_days // 7 }}w {{ c.age_days % 7 }}d old{% if c.corrected_age_days != c.age_days %}
+      ({{ c.corrected_age_days // 7 }}w corrected){% endif %}</span>
+    {% if c.note %}<p class="note">{{ c.note }}</p>{% endif %}
+    {% if c.typical_weeks %}
+    <p class="note typical">Often somewhere between {{ c.typical_weeks[0] }} and
+      {{ c.typical_weeks[1] }} weeks — a very wide range, and being outside it is
+      not a concern in itself.</p>
+    {% endif %}
+  </li>
+{% else %}
+  <li class="empty">No moments recorded yet. The first one is usually a smile.</li>
+{% endfor %}
+</ol>
+{% endblock %}

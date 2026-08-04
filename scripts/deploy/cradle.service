@@ -1,0 +1,25 @@
+[Unit]
+Description=CRADLE newborn tracker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cradle
+Group=cradle
+WorkingDirectory=/opt/cradle
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/cradle/.venv/bin/uvicorn --factory cradle.app:create_app \
+    --host 0.0.0.0 --port 8134 --app-dir /opt/cradle/src
+Restart=on-failure
+RestartSec=5
+
+# The app needs its own data and backups directories and nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/cradle/data /opt/cradle/backups
+
+[Install]
+WantedBy=multi-user.target

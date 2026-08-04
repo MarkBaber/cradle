@@ -1,0 +1,14 @@
+{% for f in pinned %}
+<div class="alert red" id="alert-{{ loop.index }}" role="alert">
+  <p>{{ f.message }}</p>
+  <form method="post" action="/api/alerts/acknowledge"
+        hx-post="/api/alerts/acknowledge" hx-target="#alert-{{ loop.index }}"
+        hx-swap="outerHTML">
+    <input type="hidden" name="fingerprint" value="{{ f.fingerprint }}">
+    <button type="submit">Acknowledge</button>
+  </form>
+</div>
+{% endfor %}
+{% for f in outstanding if f.severity.value != 'red' %}
+<div class="alert {{ f.severity.value }}"><p>{{ f.message }}</p></div>
+{% endfor %}

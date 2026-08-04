@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% set nav = 'charts' %}
+{% block title %}Charts · CRADLE{% endblock %}
+{% block head %}<script src="/static/vendor/plotly.min.js" defer></script>{% endblock %}
+{% block content %}
+<h1>Growth</h1>
+
+<nav class="pills">
+  {% for m in measures %}
+  <a href="/charts?measure={{ m.value }}"
+     class="{{ 'on' if m == measure }}">{{ m.value.replace('_',' ') }}</a>
+  {% endfor %}
+</nav>
+
+{% if assessment %}
+<section class="strip">
+  {% for m in assessment.measures if m.measure == measure %}
+  <div class="stat"><b>{{ m.value }}{{ m.unit }}</b><span>latest</span></div>
+  <div class="stat">
+    <b>{% if m.centile is not none %}{{ '%.0f' % m.centile }}<sup>th</sup>{% else %}—{% endif %}</b>
+    <span>centile</span>
+  </div>
+  <div class="stat">
+    <b>{% if m.z is not none %}{{ '%+.2f' % m.z }}{% else %}—{% endif %}</b><span>z-score</span>
+  </div>
+  {% endfor %}
+</section>
+{% if assessment.corrected %}
+<p class="note">Ages are corrected for prematurity (born before 37 weeks), as on the
+Red Book charts.</p>
+{% endif %}
+{% if assessment.weight_loss_pct is not none and measure.value == 'weight' %}
+<p class="note">
+  {% if assessment.regained_birth_weight %}Back above birth weight.
+  {% else %}{{ '%.1f' % assessment.weight_loss_pct }}% below birth weight
+  ({{ assessment.baby.birth_weight_g }}g).{% endif %}
+</p>
+{% endif %}
+{% endif %}
+
+{% if series and series.unavailable_reason %}
+<p class="banner warn">Centile curves unavailable: {{ series.unavailable_reason }}
+Your measurements below are unaffected.</p>
+{% endif %}
+
+<div id="chart" data-measure="{{ measure.value }}"
+     {% if series and not series.unavailable_reason %}data-ready="1"{% endif %}></div>
+
+<noscript><p class="note">Charts need JavaScript. The table below always works.</p></noscript>
+
+<table id="history" class="plain">
+  <tbody>
+  {% for age, value in (series.trajectory if series else []) | reverse %}
+    <tr><td class="t">day {{ age }}</td><td>{{ value | int }}{{ series.unit }}</td></tr>
+  {% else %}
+    <tr><td class="empty">No {{ measure.value.replace('_',' ') }} logged yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Daily totals</h2>
+<div id="dailychart" data-days="14"></div>
+<script src="/static/series.js" defer></script>
+
+<p class="disclaimer">Centiles describe how a measurement compares with other babies of
+the same age and sex. A single point matters far less than the trend. If you have any
+concern, discuss it with your midwife or health visitor, or call 111.</p>
+
+<script src="/static/chart.js" defer></script>
+{% endblock %}

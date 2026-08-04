@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>{% block title %}CRADLE{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" href="/static/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script src="/static/vendor/htmx.min.js" defer></script>
+{% block head %}{% endblock %}
+</head>
+<body>
+<main>{% block content %}{% endblock %}</main>
+<nav class="tabbar">
+  <a href="/" class="{{ 'on' if nav == 'home' }}">Log</a>
+  <a href="/today" class="{{ 'on' if nav == 'today' }}">Today</a>
+  <a href="/charts" class="{{ 'on' if nav == 'charts' }}">Charts</a>
+  <a href="/patterns" class="{{ 'on' if nav == 'patterns' }}">Rhythm</a>
+  <a href="/history" class="{{ 'on' if nav == 'history' }}">History</a>
+  <a href="/milestones" class="{{ 'on' if nav == 'milestones' }}">Moments</a>
+  <a href="/settings" class="{{ 'on' if nav == 'settings' }}">Settings</a>
+</nav>
+<script src="/static/pwa.js" defer></script>
+</body>
+</html>

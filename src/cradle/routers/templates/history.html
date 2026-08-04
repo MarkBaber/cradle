@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% set nav = 'history' %}
+{% block title %}History · CRADLE{% endblock %}
+{% block content %}
+<h1>History</h1>
+<form method="get" action="/history" class="filters">
+  {% for d in domains %}
+  <label><input type="checkbox" name="domain" value="{{ d }}"
+    {{ 'checked' if d in selected }}> {{ d }}</label>
+  {% endfor %}
+  <input type="date" name="since" value="{{ request.query_params.get('since','') }}">
+  <button type="submit">Filter</button>
+</form>
+<div id="toast" class="toastwrap" aria-live="polite"></div>
+{% include "_history_table.html" %}
+{% endblock %}

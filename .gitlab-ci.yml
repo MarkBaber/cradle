@@ -1,0 +1,44 @@
+image: python:3.12-slim
+
+stages: [validate, test, quality, risk]
+
+cache:
+  key:
+    files: [pyproject.toml]
+  paths: [.cache/pip]
+
+variables:
+  PIP_CACHE_DIR: .cache/pip
+
+validate:
+  stage: validate
+  script:
+    - python3 scripts/validate_tasks.py
+    - pip install ruff
+    - ruff format --check src tests
+
+test:
+  stage: test
+  script:
+    - pip install -e ".[dev]" || echo "install failed -> offline runner fallback"
+    - bash scripts/test.sh
+  artifacts:
+    when: always
+    reports:
+      junit: junit.xml
+
+quality:
+  stage: quality
+  script:
+    - pip install -e ".[dev]"
+    - bash scripts/lint.sh
+    - bash scripts/check_layers.sh
+
+# Deep checks: protected branches / RISK=1 only, keeps the loop fast.
+oracle-full:
+  stage: risk
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $RISK == "1"'
+  script:
+    - pip install -e ".[dev]"
+    - python -m pytest tests/oracle -q

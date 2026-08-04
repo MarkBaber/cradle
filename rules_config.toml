@@ -1,0 +1,42 @@
+# Alert rule thresholds (SPEC 5.2). Code never hard-codes these.
+# Sources: NHS newborn feeding/nappy guidance, NICE CG37/NG194, NICE NG143.
+
+[feed_gap]
+max_gap_hours = 4.0
+max_age_days = 28
+
+[feed_count_low]
+min_feeds_24h = 8
+max_age_days = 28
+
+[wet_nappy_low]
+# minimum wet nappies in trailing 24h by day of life (NHS table)
+by_day_of_life = { "1" = 1, "2" = 2, "3" = 3, "4" = 4, "5plus" = 6 }
+
+[stool_absent]
+max_gap_hours = 24
+from_day = 3
+to_day = 28
+
+[stool_colour]
+black_normal_until_day = 5
+
+[weight]
+loss_red_fraction = 0.10        # >=10% below birth weight
+regain_by_day = 14
+centile_cross_z = 1.33          # ~2 channel widths
+
+[fever_u3m]
+temp_c = 38.0
+max_age_days = 90
+
+[weigh_in_due]
+max_gap_days = 14
+max_age_days = 180
+
+[measurement_gap]
+max_gap_hours = 12
+
+[ntfy]
+server = "https://ntfy.sh"
+topic = ""                      # set in /settings; shared-secret topic (SPEC 8)

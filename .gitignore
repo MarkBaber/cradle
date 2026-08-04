@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling caches and reports
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+junit.xml
+.coverage
+
+# Editors
+.idea/
+.vscode/
+
+# Runtime data. data/cradle.db is the household's live record: a newborn's
+# feeding, weight and health log. It must never enter version history, where
+# it cannot be un-published. Export via /export/cradle.json instead.
+# Anchored to the repo root on purpose: an unanchored `data/` would also match
+# src/cradle/reference/data/, which holds the vendored UK-WHO LMS table (R2).
+/data/
+/backups/
+
+# Vendored front-end assets: fetched by scripts/vendor_assets.sh against a
+# pinned checksum (tasks U8, R5), not committed. plotly.min.js alone is 4.5MB.
+src/cradle/routers/static/vendor/*.js

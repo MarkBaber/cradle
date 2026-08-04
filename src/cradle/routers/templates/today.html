@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% set nav = 'today' %}
+{% block title %}Today · CRADLE{% endblock %}
+{% block content %}
+<h1>Today</h1>
+<div hx-get="/today/fragment" hx-trigger="every 60s" hx-swap="outerHTML">
+  {% include "_alerts.html" %}
+{% include "_today_strip.html" %}
+</div>
+{% if summary and summary.running_sleep %}
+<p class="note">Asleep since {{ (summary.running_sleep.ts | local).strftime('%H:%M') }} in {{ summary.running_sleep.location }}.</p>
+{% endif %}
+{% if summary and summary.bottle_volume_ml_24h %}
+<p class="note">Bottle intake in the last 24h: {{ summary.bottle_volume_ml_24h }} ml.</p>
+{% endif %}
+<p class="disclaimer">Counts are guidance prompts, not a diagnosis. If something worries you,
+speak to your midwife or health visitor, or call 111.</p>
+{% endblock %}
