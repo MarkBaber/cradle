@@ -21,10 +21,16 @@ def make_db(seed_baby: bool = True, dob: date = DOB, due: date | None = None) ->
     db = Db(Path(tempfile.mkdtemp()) / "t.db")
     db.migrate()
     if seed_baby:
-        BabyRepo(db).upsert(Baby(
-            baby_id=1, name="Test", sex=Sex.FEMALE, dob=dob,
-            due_date=due or dob, birth_weight_g=3400,
-        ))
+        BabyRepo(db).upsert(
+            Baby(
+                baby_id=1,
+                name="Test",
+                sex=Sex.FEMALE,
+                dob=dob,
+                due_date=due or dob,
+                birth_weight_g=3400,
+            )
+        )
     return db
 
 

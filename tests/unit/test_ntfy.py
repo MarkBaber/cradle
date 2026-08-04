@@ -11,8 +11,13 @@ from cradle.ports.notifier import ConsoleNotifier, NtfyNotifier  # noqa: E402
 
 
 def _finding(severity: AlertSeverity = AlertSeverity.RED) -> Finding:
-    return Finding(rule_id="FEVER_U3M", severity=severity, message="Temperature 38.6 C",
-                   fingerprint="FEVER_U3M:7", ts=datetime(2026, 7, 15, tzinfo=UTC))
+    return Finding(
+        rule_id="FEVER_U3M",
+        severity=severity,
+        message="Temperature 38.6 C",
+        fingerprint="FEVER_U3M:7",
+        ts=datetime(2026, 7, 15, tzinfo=UTC),
+    )
 
 
 class Recorder:
@@ -35,8 +40,12 @@ def test_posts_to_server_and_topic() -> None:
 
 
 def test_priority_scales_with_severity() -> None:
-    expected = {AlertSeverity.INFO: "2", AlertSeverity.REMINDER: "3",
-                AlertSeverity.AMBER: "4", AlertSeverity.RED: "5"}
+    expected = {
+        AlertSeverity.INFO: "2",
+        AlertSeverity.REMINDER: "3",
+        AlertSeverity.AMBER: "4",
+        AlertSeverity.RED: "5",
+    }
     for severity, priority in expected.items():
         rec = Recorder()
         NtfyNotifier("https://ntfy.sh", "t", rec).send(_finding(severity))

@@ -34,6 +34,13 @@ strict = true
 mypy_path = "src"
 packages = ["cradle"]
 
+# APScheduler ships no stubs and no py.typed marker. Declared once here rather
+# than silenced per-line, so the untyped boundary is visible in one place; it
+# is confined to ports/scheduler.py, which is the only importer (D10).
+[[tool.mypy.overrides]]
+module = ["apscheduler.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

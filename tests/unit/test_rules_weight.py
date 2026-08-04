@@ -29,8 +29,7 @@ def test_weight_loss_silent_without_measurements() -> None:
 
 def test_not_regained_fires_from_day_14() -> None:
     day14 = F.NOW.date() - datetime.timedelta(days=13)
-    f = F.fire("WEIGHT_NOT_REGAINED",
-               F.facts(dob=day14, growths=(F.growth(0, 3300),)))
+    f = F.fire("WEIGHT_NOT_REGAINED", F.facts(dob=day14, growths=(F.growth(0, 3300),)))
     assert f is not None
     assert "day 14" in f.message
 
@@ -47,18 +46,15 @@ def test_not_regained_silent_once_back_to_birth_weight() -> None:
 
 
 def test_centile_cross_fires_past_threshold() -> None:
-    facts = F.facts(growths=(F.growth(0, 3300),),
-                    baseline_weight_z=0.5, latest_weight_z=-0.9)
+    facts = F.facts(growths=(F.growth(0, 3300),), baseline_weight_z=0.5, latest_weight_z=-0.9)
     f = F.fire("CENTILE_CROSS", facts)
     assert f is not None
     assert "1.40" in f.message
 
 
 def test_centile_cross_boundary_at_1_33() -> None:
-    below = F.facts(growths=(F.growth(0, 3300),),
-                    baseline_weight_z=0.0, latest_weight_z=-1.32)
-    at = F.facts(growths=(F.growth(0, 3300),),
-                 baseline_weight_z=0.0, latest_weight_z=-1.33)
+    below = F.facts(growths=(F.growth(0, 3300),), baseline_weight_z=0.0, latest_weight_z=-1.32)
+    at = F.facts(growths=(F.growth(0, 3300),), baseline_weight_z=0.0, latest_weight_z=-1.33)
     assert F.fire("CENTILE_CROSS", below) is None
     assert F.fire("CENTILE_CROSS", at) is not None
 
@@ -72,8 +68,7 @@ def test_centile_cross_silent_without_reference_data() -> None:
 
 
 def test_centile_cross_ignores_upward_movement() -> None:
-    facts = F.facts(growths=(F.growth(0, 3900),),
-                    baseline_weight_z=-1.5, latest_weight_z=0.5)
+    facts = F.facts(growths=(F.growth(0, 3900),), baseline_weight_z=-1.5, latest_weight_z=0.5)
     assert F.fire("CENTILE_CROSS", facts) is None
 
 
@@ -97,6 +92,5 @@ def test_weight_rules_still_fire_when_other_measures_are_present() -> None:
     """The filter must not silence a genuine loss logged alongside a length."""
     from cradle.models import GrowthMeasure
 
-    facts = F.facts(growths=(F.growth(2, 3059),
-                             F.growth(1, 550, GrowthMeasure.LENGTH)))
+    facts = F.facts(growths=(F.growth(2, 3059), F.growth(1, 550, GrowthMeasure.LENGTH)))
     assert F.fire("WEIGHT_LOSS_10PC", facts) is not None

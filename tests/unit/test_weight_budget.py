@@ -29,18 +29,17 @@ def _size(name: str) -> int:
 def test_quick_entry_within_budget() -> None:
     total = sum(_size(n) for n in QUICK_ENTRY_ASSETS)
     vendored_htmx = STATIC / "vendor" / "htmx.min.js"
-    total += (vendored_htmx.stat().st_size if vendored_htmx.exists()
-              else HTMX_ALLOWANCE_BYTES)
-    assert total <= BUDGET_BYTES, (
-        f"quick-entry payload {total} bytes exceeds {BUDGET_BYTES}"
-    )
+    total += vendored_htmx.stat().st_size if vendored_htmx.exists() else HTMX_ALLOWANCE_BYTES
+    assert total <= BUDGET_BYTES, f"quick-entry payload {total} bytes exceeds {BUDGET_BYTES}"
 
 
 def test_plotly_is_not_on_the_quick_entry_path() -> None:
-    quick = (ROOT / "src" / "cradle" / "routers" / "templates"
-             / "quick_entry.html").read_text(encoding="utf-8")
-    base = (ROOT / "src" / "cradle" / "routers" / "templates"
-            / "base.html").read_text(encoding="utf-8")
+    quick = (ROOT / "src" / "cradle" / "routers" / "templates" / "quick_entry.html").read_text(
+        encoding="utf-8"
+    )
+    base = (ROOT / "src" / "cradle" / "routers" / "templates" / "base.html").read_text(
+        encoding="utf-8"
+    )
     assert "plotly" not in quick.lower()
     assert "plotly" not in base.lower(), "plotly must stay scoped to /charts"
 

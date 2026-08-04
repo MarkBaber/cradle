@@ -49,8 +49,7 @@ def test_round_trip_is_exact() -> None:
     original = json.loads(svc.export_json())
 
     fresh_db = make_db(seed_baby=False)
-    target = ExportService(make_repo(fresh_db), BabyRepo(fresh_db),
-                           AlertLogRepo(fresh_db), "0.1.0")
+    target = ExportService(make_repo(fresh_db), BabyRepo(fresh_db), AlertLogRepo(fresh_db), "0.1.0")
     restored_rows = target.import_json(json.dumps(original))
     assert restored_rows > 0
 

@@ -23,10 +23,16 @@ def test_feed_roundtrip(tmp_path=None) -> None:
     db = Db(workdir / "smoke.db")
     assert db.migrate() >= 1
 
-    BabyRepo(db).upsert(Baby(
-        baby_id=1, name="Test Baby", sex=Sex.FEMALE,
-        dob=date(2026, 7, 1), due_date=date(2026, 7, 8), birth_weight_g=3400,
-    ))
+    BabyRepo(db).upsert(
+        Baby(
+            baby_id=1,
+            name="Test Baby",
+            sex=Sex.FEMALE,
+            dob=date(2026, 7, 1),
+            due_date=date(2026, 7, 8),
+            birth_weight_g=3400,
+        )
+    )
     assert BabyRepo(db).get() is not None
 
     now = datetime(2026, 7, 13, 3, 15, tzinfo=UTC)

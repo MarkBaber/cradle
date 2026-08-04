@@ -89,17 +89,30 @@ class EventsRepo:
         return self._insert(
             "feed",
             ("baby_id", "ts", "logged_by", "method", "duration_min", "volume_ml", "note"),
-            (ev.baby_id, ev.ts.isoformat(), ev.logged_by, ev.method.value,
-             ev.duration_min, ev.volume_ml, ev.note),
+            (
+                ev.baby_id,
+                ev.ts.isoformat(),
+                ev.logged_by,
+                ev.method.value,
+                ev.duration_min,
+                ev.volume_ml,
+                ev.note,
+            ),
         )
 
-    def list_feeds(self, limit: int = 200, since: datetime | None = None,
-                   until: datetime | None = None) -> list[FeedEvent]:
+    def list_feeds(
+        self, limit: int = 200, since: datetime | None = None, until: datetime | None = None
+    ) -> list[FeedEvent]:
         return [
             FeedEvent(
-                event_id=r["id"], baby_id=r["baby_id"], ts=_require_dt(r["ts"]),
-                logged_by=r["logged_by"], method=FeedMethod(r["method"]),
-                duration_min=r["duration_min"], volume_ml=r["volume_ml"], note=r["note"],
+                event_id=r["id"],
+                baby_id=r["baby_id"],
+                ts=_require_dt(r["ts"]),
+                logged_by=r["logged_by"],
+                method=FeedMethod(r["method"]),
+                duration_min=r["duration_min"],
+                volume_ml=r["volume_ml"],
+                note=r["note"],
             )
             for r in self._rows("feed", limit, since, until)
         ]
@@ -109,16 +122,19 @@ class EventsRepo:
         return self._insert(
             "nappy",
             ("baby_id", "ts", "logged_by", "kind", "stool_colour"),
-            (ev.baby_id, ev.ts.isoformat(), ev.logged_by, ev.kind.value,
-             ev.stool_colour.value),
+            (ev.baby_id, ev.ts.isoformat(), ev.logged_by, ev.kind.value, ev.stool_colour.value),
         )
 
-    def list_nappies(self, limit: int = 200, since: datetime | None = None,
-                     until: datetime | None = None) -> list[NappyEvent]:
+    def list_nappies(
+        self, limit: int = 200, since: datetime | None = None, until: datetime | None = None
+    ) -> list[NappyEvent]:
         return [
             NappyEvent(
-                event_id=r["id"], baby_id=r["baby_id"], ts=_require_dt(r["ts"]),
-                logged_by=r["logged_by"], kind=NappyKind(r["kind"]),
+                event_id=r["id"],
+                baby_id=r["baby_id"],
+                ts=_require_dt(r["ts"]),
+                logged_by=r["logged_by"],
+                kind=NappyKind(r["kind"]),
                 stool_colour=StoolColour(r["stool_colour"]),
             )
             for r in self._rows("nappy", limit, since, until)
@@ -129,8 +145,13 @@ class EventsRepo:
         return self._insert(
             "sleep",
             ("baby_id", "ts", "ts_end", "logged_by", "location"),
-            (ev.baby_id, ev.ts.isoformat(),
-             ev.ts_end.isoformat() if ev.ts_end else None, ev.logged_by, ev.location),
+            (
+                ev.baby_id,
+                ev.ts.isoformat(),
+                ev.ts_end.isoformat() if ev.ts_end else None,
+                ev.logged_by,
+                ev.location,
+            ),
         )
 
     def end_sleep(self, event_id: int, ts_end: datetime) -> None:
@@ -143,8 +164,12 @@ class EventsRepo:
     @staticmethod
     def _sleep_of(r: Row) -> SleepEvent:
         return SleepEvent(
-            event_id=r["id"], baby_id=r["baby_id"], ts=_require_dt(r["ts"]),
-            logged_by=r["logged_by"], ts_end=_dt(r["ts_end"]), location=r["location"],
+            event_id=r["id"],
+            baby_id=r["baby_id"],
+            ts=_require_dt(r["ts"]),
+            logged_by=r["logged_by"],
+            ts_end=_dt(r["ts_end"]),
+            location=r["location"],
         )
 
     def running_sleep(self) -> SleepEvent | None:
@@ -154,8 +179,9 @@ class EventsRepo:
         ).fetchone()
         return None if r is None else self._sleep_of(r)
 
-    def list_sleeps(self, limit: int = 200, since: datetime | None = None,
-                    until: datetime | None = None) -> list[SleepEvent]:
+    def list_sleeps(
+        self, limit: int = 200, since: datetime | None = None, until: datetime | None = None
+    ) -> list[SleepEvent]:
         return [self._sleep_of(r) for r in self._rows("sleep", limit, since, until)]
 
     # ---------------------------------------------------------------- growth
@@ -163,17 +189,21 @@ class EventsRepo:
         return self._insert(
             "growth",
             ("baby_id", "ts", "logged_by", "measure", "value", "source"),
-            (ev.baby_id, ev.ts.isoformat(), ev.logged_by, ev.measure.value,
-             ev.value, ev.source),
+            (ev.baby_id, ev.ts.isoformat(), ev.logged_by, ev.measure.value, ev.value, ev.source),
         )
 
-    def list_growth(self, measure: GrowthMeasure | None = None,
-                    limit: int = 200) -> list[GrowthEvent]:
+    def list_growth(
+        self, measure: GrowthMeasure | None = None, limit: int = 200
+    ) -> list[GrowthEvent]:
         out = [
             GrowthEvent(
-                event_id=r["id"], baby_id=r["baby_id"], ts=_require_dt(r["ts"]),
-                logged_by=r["logged_by"], measure=GrowthMeasure(r["measure"]),
-                value=r["value"], source=r["source"],
+                event_id=r["id"],
+                baby_id=r["baby_id"],
+                ts=_require_dt(r["ts"]),
+                logged_by=r["logged_by"],
+                measure=GrowthMeasure(r["measure"]),
+                value=r["value"],
+                source=r["source"],
             )
             for r in self._rows("growth", limit)
         ]
@@ -187,12 +217,17 @@ class EventsRepo:
             (ev.baby_id, ev.ts.isoformat(), ev.logged_by, ev.temp_c, ev.site),
         )
 
-    def list_temperatures(self, limit: int = 200, since: datetime | None = None,
-                          until: datetime | None = None) -> list[TemperatureEvent]:
+    def list_temperatures(
+        self, limit: int = 200, since: datetime | None = None, until: datetime | None = None
+    ) -> list[TemperatureEvent]:
         return [
             TemperatureEvent(
-                event_id=r["id"], baby_id=r["baby_id"], ts=_require_dt(r["ts"]),
-                logged_by=r["logged_by"], temp_c=r["temp_c"], site=r["site"],
+                event_id=r["id"],
+                baby_id=r["baby_id"],
+                ts=_require_dt(r["ts"]),
+                logged_by=r["logged_by"],
+                temp_c=r["temp_c"],
+                site=r["site"],
             )
             for r in self._rows("temperature", limit, since, until)
         ]
@@ -208,8 +243,12 @@ class EventsRepo:
     def list_milestones(self, limit: int = 200) -> list[Milestone]:
         return [
             Milestone(
-                event_id=r["id"], baby_id=r["baby_id"], ts=_require_dt(r["ts"]),
-                logged_by=r["logged_by"], category=r["category"], title=r["title"],
+                event_id=r["id"],
+                baby_id=r["baby_id"],
+                ts=_require_dt(r["ts"]),
+                logged_by=r["logged_by"],
+                category=r["category"],
+                title=r["title"],
                 note=r["note"],
             )
             for r in self._rows("milestone", limit)
@@ -226,8 +265,11 @@ class EventsRepo:
     def list_notes(self, limit: int = 200) -> list[Note]:
         return [
             Note(
-                event_id=r["id"], baby_id=r["baby_id"], ts=_require_dt(r["ts"]),
-                logged_by=r["logged_by"], text=r["text"],
+                event_id=r["id"],
+                baby_id=r["baby_id"],
+                ts=_require_dt(r["ts"]),
+                logged_by=r["logged_by"],
+                text=r["text"],
                 tags=tuple(t for t in r["tags"].split(",") if t),
             )
             for r in self._rows("note", limit)
@@ -279,8 +321,7 @@ class EventsRepo:
         assignments = ",".join(f"{c} = ?" for c in fields)
         vals = [v.isoformat() if isinstance(v, datetime) else v for v in fields.values()]
         self._db.conn.execute(
-            f"UPDATE {table} SET {assignments}, edited_at = ?"
-            " WHERE id = ? AND deleted_at IS NULL",
+            f"UPDATE {table} SET {assignments}, edited_at = ? WHERE id = ? AND deleted_at IS NULL",
             (*vals, _now_iso(), event_id),
         )
         self._db.conn.commit()

@@ -34,8 +34,7 @@ def test_feed_gap_silent_with_no_feeds_at_all() -> None:
 def test_feed_gap_fingerprint_is_per_episode() -> None:
     """Two sweeps during one gap must share a fingerprint, so it notifies once."""
     a = F.fire("FEED_GAP", F.facts(feeds=(F.feed(5),)))
-    later = F.facts(now=F.NOW + timedelta(minutes=30),
-                    feeds=(F.feed(5),))  # same feed, later sweep
+    later = F.facts(now=F.NOW + timedelta(minutes=30), feeds=(F.feed(5),))  # same feed, later sweep
     b = F.fire("FEED_GAP", later)
     assert a is not None and b is not None
     assert a.fingerprint == b.fingerprint
@@ -48,7 +47,7 @@ def test_feed_count_low_fires() -> None:
 
 
 def test_feed_count_boundary_at_eight() -> None:
-    assert F.fire("FEED_COUNT_LOW", F.facts(feeds=F.feeds_every(2.5, 8)) ) is None
+    assert F.fire("FEED_COUNT_LOW", F.facts(feeds=F.feeds_every(2.5, 8))) is None
     assert F.fire("FEED_COUNT_LOW", F.facts(feeds=F.feeds_every(2.5, 7))) is not None
 
 
@@ -59,8 +58,10 @@ def test_feed_count_only_counts_last_24h() -> None:
 
 
 def test_thresholds_come_from_config_not_code() -> None:
-    relaxed = {"feed_count_low": {"min_feeds_24h": 3, "max_age_days": 28},
-               "feed_gap": {"max_gap_hours": 12.0, "max_age_days": 28}}
+    relaxed = {
+        "feed_count_low": {"min_feeds_24h": 3, "max_age_days": 28},
+        "feed_gap": {"max_gap_hours": 12.0, "max_age_days": 28},
+    }
     facts = F.facts(feeds=F.feeds_every(3, 5))
     assert F.fire("FEED_COUNT_LOW", facts) is not None, "fires under shipped config"
     assert F.fire("FEED_COUNT_LOW", facts, relaxed) is None, "config must win"

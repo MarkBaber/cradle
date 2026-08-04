@@ -20,17 +20,27 @@ def _table() -> LmsTable:
     return LmsTable({(W.value, "female"): rows}, "synthetic-v1")
 
 
-def _build(table: LmsTable | None = None, birth_g: int = 3400,
-           due: date = DOB) -> tuple[LoggingService, GrowthService]:
+def _build(
+    table: LmsTable | None = None, birth_g: int = 3400, due: date = DOB
+) -> tuple[LoggingService, GrowthService]:
     db = make_db(dob=DOB, due=due)
-    BabyRepo(db).upsert(BabyRepo(db).get().__class__(
-        baby_id=1, name="Test", sex=BabyRepo(db).get().sex, dob=DOB,
-        due_date=due, birth_weight_g=birth_g,
-    ))
+    BabyRepo(db).upsert(
+        BabyRepo(db)
+        .get()
+        .__class__(
+            baby_id=1,
+            name="Test",
+            sex=BabyRepo(db).get().sex,
+            dob=DOB,
+            due_date=due,
+            birth_weight_g=birth_g,
+        )
+    )
     repo = make_repo(db)
-    return (LoggingService(repo, clock()),
-            GrowthService(repo, BabyRepo(db), table,
-                          None if table else "reference data not installed"))
+    return (
+        LoggingService(repo, clock()),
+        GrowthService(repo, BabyRepo(db), table, None if table else "reference data not installed"),
+    )
 
 
 def test_no_profile_returns_none() -> None:

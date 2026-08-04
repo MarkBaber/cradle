@@ -119,6 +119,7 @@ def test_z_for_centile_known_values() -> None:
 
 # ------------------------------------------------------------- loader strictness
 
+
 def _write(text: str) -> Path:
     p = Path(tempfile.mkdtemp()) / "lms.csv"
     p.write_text(text, encoding="utf-8")
@@ -161,8 +162,7 @@ def test_single_row_series_rejected() -> None:
 
 
 def test_duplicate_ages_rejected() -> None:
-    csv = ("measure,sex,age_days,L,M,S\n"
-           "weight,female,0,1,3400,0.1\nweight,female,0,1,3500,0.1\n")
+    csv = "measure,sex,age_days,L,M,S\nweight,female,0,1,3400,0.1\nweight,female,0,1,3500,0.1\n"
     try:
         load_table(_write(csv))
     except ReferenceDataMissingError:
@@ -171,8 +171,7 @@ def test_duplicate_ages_rejected() -> None:
 
 
 def test_valid_table_loads_and_reports_version() -> None:
-    csv = ("measure,sex,age_days,L,M,S\n"
-           "weight,female,0,1,3400,0.1\nweight,female,10,1,3600,0.1\n")
+    csv = "measure,sex,age_days,L,M,S\nweight,female,0,1,3400,0.1\nweight,female,10,1,3600,0.1\n"
     version_file = _write("test-v1\nprovenance notes\n")
     t = load_table(_write(csv), version_file)
     assert t.version == "test-v1"

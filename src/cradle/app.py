@@ -22,10 +22,10 @@ from cradle.services import (
     AlertsService,
     ExportService,
     GrowthService,
-    MilestoneService,
-    SeriesService,
     HistoryService,
     LoggingService,
+    MilestoneService,
+    SeriesService,
     SettingsService,
     TodayService,
 )
@@ -65,8 +65,7 @@ def build_services(
         history=HistoryService(events),
         settings=SettingsService(baby, notifier),
         growth=growth,
-        alerts=AlertsService(events, baby, alert_log, growth,
-                             notifier, clock, config_path),
+        alerts=AlertsService(events, baby, alert_log, growth, notifier, clock, config_path),
         milestones=MilestoneService(events, baby),
         export=ExportService(events, baby, alert_log, __version__),
         series=SeriesService(events, baby, clock),
@@ -84,8 +83,9 @@ def create_app(
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     db = Db(db_path)
     db.migrate()
-    svc = build_services(db, clock or SystemClock(), notifier or ConsoleNotifier(),
-                         config_path, reference)
+    svc = build_services(
+        db, clock or SystemClock(), notifier or ConsoleNotifier(), config_path, reference
+    )
 
     app = FastAPI(title="CRADLE")
     app.state.services = svc  # exposed for operational checks and tests

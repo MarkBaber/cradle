@@ -1,6 +1,7 @@
 """A2: determinism, isolation, and copy integrity."""
 
 import _facts as F
+
 from cradle.alerts import build_rules, evaluate
 from cradle.alerts.messages import MESSAGES, SOURCES, URGENT_RULES
 
@@ -15,8 +16,9 @@ def test_same_facts_yield_identical_findings() -> None:
 
 
 def test_multiple_rules_can_fire_together() -> None:
-    facts = F.facts(feeds=(F.feed(9),), nappies=F.nappies_every(6, 2),
-                    temperatures=(F.temperature(1, 38.6),))
+    facts = F.facts(
+        feeds=(F.feed(9),), nappies=F.nappies_every(6, 2), temperatures=(F.temperature(1, 38.6),)
+    )
     fired = {f.rule_id for f in evaluate(facts, build_rules(F.CONFIG))}
     assert {"FEED_GAP", "WET_NAPPY_LOW", "FEVER_U3M"} <= fired
 

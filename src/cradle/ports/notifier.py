@@ -26,14 +26,30 @@ class Notifier(Protocol):
     def send(self, finding: Finding) -> None: ...
 
 
+class Poster(Protocol):
+    """The HTTP seam of the ntfy adapter: httpx.post live, a double in tests.
+
+    Typed as a Protocol rather than `object` so the injected substitute has to
+    accept the call the adapter actually makes.
+    """
+
+    def __call__(
+        self,
+        url: str,
+        *,
+        content: bytes,
+        headers: dict[str, str],
+        timeout: float,
+    ) -> object: ...
+
+
 class ConsoleNotifier:
     def __init__(self) -> None:
         self.sent: list[Finding] = []
 
     def send(self, finding: Finding) -> None:
         self.sent.append(finding)
-        log.info("[%s] %s: %s", finding.severity.value.upper(),
-                 finding.rule_id, finding.message)
+        log.info("[%s] %s: %s", finding.severity.value.upper(), finding.rule_id, finding.message)
 
 
 class NullNotifier:
@@ -48,7 +64,7 @@ class NtfyNotifier:
     which is already persisted in alert_log by the time this is called.
     """
 
-    def __init__(self, server: str, topic: str, poster: object | None = None) -> None:
+    def __init__(self, server: str, topic: str, poster: Poster | None = None) -> None:
         self._server = server.rstrip("/")
         self._topic = topic.strip()
         self._poster = poster
@@ -78,7 +94,11 @@ class NtfyNotifier:
                 import httpx  # noqa: PLC0415 - keep import cost off the hot path
 
                 post = httpx.post
-            post(self.url, content=finding.message.encode("utf-8"),
-                 headers=self.headers(finding), timeout=TIMEOUT_SECONDS)
+            post(
+                self.url,
+                content=finding.message.encode("utf-8"),
+                headers=self.headers(finding),
+                timeout=TIMEOUT_SECONDS,
+            )
         except Exception:
             log.exception("ntfy delivery failed for %s", finding.rule_id)

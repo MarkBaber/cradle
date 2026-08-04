@@ -28,11 +28,16 @@ class SettingsService:
         due_date: str,
         birth_weight_g: int,
     ) -> None:
-        self._baby_repo.upsert(Baby(
-            baby_id=BABY_ID, name=name.strip(), sex=Sex(sex),
-            dob=date.fromisoformat(dob), due_date=date.fromisoformat(due_date),
-            birth_weight_g=birth_weight_g,
-        ))
+        self._baby_repo.upsert(
+            Baby(
+                baby_id=BABY_ID,
+                name=name.strip(),
+                sex=Sex(sex),
+                dob=date.fromisoformat(dob),
+                due_date=date.fromisoformat(due_date),
+                birth_weight_g=birth_weight_g,
+            )
+        )
 
     def test_notification(self) -> None:
         """Send a harmless test finding so the household can verify ntfy setup."""
@@ -40,10 +45,12 @@ class SettingsService:
 
         from cradle.models import AlertSeverity, Finding
 
-        self._notifier.send(Finding(
-            rule_id="TEST",
-            severity=AlertSeverity.INFO,
-            message="CRADLE notifications are working.",
-            fingerprint="TEST:setup",
-            ts=datetime.now(UTC),
-        ))
+        self._notifier.send(
+            Finding(
+                rule_id="TEST",
+                severity=AlertSeverity.INFO,
+                message="CRADLE notifications are working.",
+                fingerprint="TEST:setup",
+                ts=datetime.now(UTC),
+            )
+        )

@@ -15,8 +15,13 @@ from cradle.ports.clock import FixedClock  # noqa: E402
 from cradle.reference.lms import LmsRow, LmsTable  # noqa: E402
 
 NOW = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
-PROFILE = {"name": "Test", "sex": "female", "dob": "2026-07-01",
-           "due_date": "2026-07-01", "birth_weight_g": 3400}
+PROFILE = {
+    "name": "Test",
+    "sex": "female",
+    "dob": "2026-07-01",
+    "due_date": "2026-07-01",
+    "birth_weight_g": 3400,
+}
 
 
 def _table() -> LmsTable:
@@ -26,8 +31,12 @@ def _table() -> LmsTable:
 
 def _client(with_reference: bool = True) -> TestClient:
     reference = (_table(), None) if with_reference else (None, "task R2 outstanding")
-    app = create_app(db_path=Path(tempfile.mkdtemp()) / "c.db", clock=FixedClock(NOW),
-                     config_path=ROOT / "rules_config.toml", reference=reference)
+    app = create_app(
+        db_path=Path(tempfile.mkdtemp()) / "c.db",
+        clock=FixedClock(NOW),
+        config_path=ROOT / "rules_config.toml",
+        reference=reference,
+    )
     client = TestClient(app, follow_redirects=False)
     client.post("/api/settings/profile", data=PROFILE)
     return client
@@ -69,8 +78,12 @@ def test_missing_reference_data_is_surfaced_not_faked() -> None:
 
 
 def test_charts_redirect_before_profile_exists() -> None:
-    app = create_app(db_path=Path(tempfile.mkdtemp()) / "d.db", clock=FixedClock(NOW),
-                     config_path=ROOT / "rules_config.toml", reference=(_table(), None))
+    app = create_app(
+        db_path=Path(tempfile.mkdtemp()) / "d.db",
+        clock=FixedClock(NOW),
+        config_path=ROOT / "rules_config.toml",
+        reference=(_table(), None),
+    )
     client = TestClient(app, follow_redirects=False)
     r = client.get("/charts")
     assert r.status_code == 303 and "/settings" in r.headers["location"]

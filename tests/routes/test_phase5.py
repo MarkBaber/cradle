@@ -15,14 +15,23 @@ from cradle.app import create_app  # noqa: E402
 from cradle.ports.clock import FixedClock  # noqa: E402
 
 NOW = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
-PROFILE = {"name": "Test", "sex": "female", "dob": "2026-05-01",
-           "due_date": "2026-05-01", "birth_weight_g": 3400}
+PROFILE = {
+    "name": "Test",
+    "sex": "female",
+    "dob": "2026-05-01",
+    "due_date": "2026-05-01",
+    "birth_weight_g": 3400,
+}
 
 
 def _client() -> TestClient:
-    app = create_app(db_path=Path(tempfile.mkdtemp()) / "p5.db", clock=FixedClock(NOW),
-                     config_path=ROOT / "rules_config.toml",
-                     reference=(None, "R2 outstanding"), start_scheduler=False)
+    app = create_app(
+        db_path=Path(tempfile.mkdtemp()) / "p5.db",
+        clock=FixedClock(NOW),
+        config_path=ROOT / "rules_config.toml",
+        reference=(None, "R2 outstanding"),
+        start_scheduler=False,
+    )
     client = TestClient(app, follow_redirects=False)
     client.post("/api/settings/profile", data=PROFILE)
     return client
@@ -38,9 +47,13 @@ def test_milestones_page_lists_entries_with_context() -> None:
 
 
 def test_milestones_redirect_before_profile() -> None:
-    app = create_app(db_path=Path(tempfile.mkdtemp()) / "q.db", clock=FixedClock(NOW),
-                     config_path=ROOT / "rules_config.toml",
-                     reference=(None, "x"), start_scheduler=False)
+    app = create_app(
+        db_path=Path(tempfile.mkdtemp()) / "q.db",
+        clock=FixedClock(NOW),
+        config_path=ROOT / "rules_config.toml",
+        reference=(None, "x"),
+        start_scheduler=False,
+    )
     r = TestClient(app, follow_redirects=False).get("/milestones")
     assert r.status_code == 303
 

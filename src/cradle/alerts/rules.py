@@ -25,9 +25,13 @@ from cradle.models import (
     StoolColour,
 )
 
-RED_STOOL_COLOURS = frozenset({
-    StoolColour.PALE_CHALKY, StoolColour.RED, StoolColour.BLACK,
-})
+RED_STOOL_COLOURS = frozenset(
+    {
+        StoolColour.PALE_CHALKY,
+        StoolColour.RED,
+        StoolColour.BLACK,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,16 +76,20 @@ def _weights(facts: FactSet) -> list[GrowthEvent]:
     )
 
 
-def _finding(rule: str, severity: AlertSeverity, bucket: str, ts: datetime,
-             **fields: object) -> Finding:
+def _finding(
+    rule: str, severity: AlertSeverity, bucket: str, ts: datetime, **fields: object
+) -> Finding:
     return Finding(
-        rule_id=rule, severity=severity,
+        rule_id=rule,
+        severity=severity,
         message=messages.render(rule, **fields),
-        fingerprint=f"{rule}:{bucket}", ts=ts,
+        fingerprint=f"{rule}:{bucket}",
+        ts=ts,
     )
 
 
 # --------------------------------------------------------------------- feeds
+
 
 def _feed_gap(config: Mapping[str, object]) -> Callable[[FactSet], Finding | None]:
     cfg = _cfg(config, "feed_gap")
@@ -97,9 +105,12 @@ def _feed_gap(config: Mapping[str, object]) -> Callable[[FactSet], Finding | Non
             return None
         # Bucketed on the gap's start, so one episode raises one alert.
         return _finding(
-            "FEED_GAP", AlertSeverity.REMINDER, last.isoformat(timespec="hours"),
+            "FEED_GAP",
+            AlertSeverity.REMINDER,
+            last.isoformat(timespec="hours"),
             facts.as_of,
-            hours=gap.total_seconds() / 3600, last=last.strftime("%H:%M"),
+            hours=gap.total_seconds() / 3600,
+            last=last.strftime("%H:%M"),
         )
 
     return predicate
@@ -118,14 +129,19 @@ def _feed_count_low(config: Mapping[str, object]) -> Callable[[FactSet], Finding
         if count >= minimum:
             return None
         return _finding(
-            "FEED_COUNT_LOW", AlertSeverity.AMBER, facts.as_of.date().isoformat(),
-            facts.as_of, count=count, expected=minimum,
+            "FEED_COUNT_LOW",
+            AlertSeverity.AMBER,
+            facts.as_of.date().isoformat(),
+            facts.as_of,
+            count=count,
+            expected=minimum,
         )
 
     return predicate
 
 
 # -------------------------------------------------------------------- nappies
+
 
 def _wet_expected(config: Mapping[str, object], day_of_life: int) -> int | None:
     table = _cfg(config, "wet_nappy_low").get("by_day_of_life", {})
@@ -144,14 +160,20 @@ def _wet_nappy_low(config: Mapping[str, object]) -> Callable[[FactSet], Finding 
             return None
         window = facts.as_of - timedelta(hours=24)
         count = sum(
-            1 for n in facts.nappies
+            1
+            for n in facts.nappies
             if n.ts >= window and n.kind in (NappyKind.WET, NappyKind.MIXED)
         )
         if count >= expected:
             return None
         return _finding(
-            "WET_NAPPY_LOW", AlertSeverity.AMBER, facts.as_of.date().isoformat(),
-            facts.as_of, count=count, expected=expected, day=day,
+            "WET_NAPPY_LOW",
+            AlertSeverity.AMBER,
+            facts.as_of.date().isoformat(),
+            facts.as_of,
+            count=count,
+            expected=expected,
+            day=day,
         )
 
     return predicate
@@ -167,8 +189,7 @@ def _stool_absent(config: Mapping[str, object]) -> Callable[[FactSet], Finding |
         day = _day_of_life(facts)
         if not from_day <= day <= to_day:
             return None
-        dirty = [n.ts for n in facts.nappies
-                 if n.kind in (NappyKind.DIRTY, NappyKind.MIXED)]
+        dirty = [n.ts for n in facts.nappies if n.kind in (NappyKind.DIRTY, NappyKind.MIXED)]
         if not dirty:
             return None
         last = max(dirty)
@@ -176,8 +197,12 @@ def _stool_absent(config: Mapping[str, object]) -> Callable[[FactSet], Finding |
         if gap <= max_gap:
             return None
         return _finding(
-            "STOOL_ABSENT", AlertSeverity.AMBER, last.isoformat(timespec="hours"),
-            facts.as_of, hours=gap.total_seconds() / 3600, day=day,
+            "STOOL_ABSENT",
+            AlertSeverity.AMBER,
+            last.isoformat(timespec="hours"),
+            facts.as_of,
+            hours=gap.total_seconds() / 3600,
+            day=day,
         )
 
     return predicate
@@ -194,8 +219,10 @@ def _stool_colour(config: Mapping[str, object]) -> Callable[[FactSet], Finding |
             if nappy.stool_colour is StoolColour.BLACK and day <= black_until:
                 continue  # meconium is normal in the first days
             return _finding(
-                "STOOL_COLOUR", AlertSeverity.RED,
-                str(nappy.event_id), nappy.ts,
+                "STOOL_COLOUR",
+                AlertSeverity.RED,
+                str(nappy.event_id),
+                nappy.ts,
                 colour=nappy.stool_colour.value.replace("_", " "),
             )
         return None
@@ -204,6 +231,7 @@ def _stool_colour(config: Mapping[str, object]) -> Callable[[FactSet], Finding |
 
 
 # -------------------------------------------------------------------- weight
+
 
 def _weight_loss(config: Mapping[str, object]) -> Callable[[FactSet], Finding | None]:
     fraction = _num(_cfg(config, "weight"), "loss_red_fraction", 0.10)
@@ -217,8 +245,12 @@ def _weight_loss(config: Mapping[str, object]) -> Callable[[FactSet], Finding | 
         if latest.value >= birth * (1 - fraction):
             return None
         return _finding(
-            "WEIGHT_LOSS_10PC", AlertSeverity.RED, str(latest.event_id), latest.ts,
-            weight=latest.value, birth=birth,
+            "WEIGHT_LOSS_10PC",
+            AlertSeverity.RED,
+            str(latest.event_id),
+            latest.ts,
+            weight=latest.value,
+            birth=birth,
             pct=(birth - latest.value) / birth * 100.0,
         )
 
@@ -238,9 +270,13 @@ def _weight_not_regained(
         if not weights or weights[-1].value >= facts.baby.birth_weight_g:
             return None
         return _finding(
-            "WEIGHT_NOT_REGAINED", AlertSeverity.AMBER,
-            facts.as_of.date().isoformat(), facts.as_of,
-            birth=facts.baby.birth_weight_g, day=day, weight=weights[-1].value,
+            "WEIGHT_NOT_REGAINED",
+            AlertSeverity.AMBER,
+            facts.as_of.date().isoformat(),
+            facts.as_of,
+            birth=facts.baby.birth_weight_g,
+            day=day,
+            weight=weights[-1].value,
         )
 
     return predicate
@@ -259,13 +295,18 @@ def _centile_cross(config: Mapping[str, object]) -> Callable[[FactSet], Finding 
         weights = _weights(facts)
         bucket = str(weights[-1].event_id) if weights else facts.as_of.date().isoformat()
         return _finding(
-            "CENTILE_CROSS", AlertSeverity.AMBER, bucket, facts.as_of, drop=drop,
+            "CENTILE_CROSS",
+            AlertSeverity.AMBER,
+            bucket,
+            facts.as_of,
+            drop=drop,
         )
 
     return predicate
 
 
 # ------------------------------------------------------- fever and reminders
+
 
 def _fever(config: Mapping[str, object]) -> Callable[[FactSet], Finding | None]:
     cfg = _cfg(config, "fever_u3m")
@@ -279,8 +320,12 @@ def _fever(config: Mapping[str, object]) -> Callable[[FactSet], Finding | None]:
         if latest.temp_c < threshold:
             return None
         return _finding(
-            "FEVER_U3M", AlertSeverity.RED, str(latest.event_id), latest.ts,
-            temp=latest.temp_c, age=_age_days(facts),
+            "FEVER_U3M",
+            AlertSeverity.RED,
+            str(latest.event_id),
+            latest.ts,
+            temp=latest.temp_c,
+            age=_age_days(facts),
         )
 
     return predicate
@@ -301,8 +346,11 @@ def _weigh_in_due(config: Mapping[str, object]) -> Callable[[FactSet], Finding |
         if days < max_gap:
             return None
         return _finding(
-            "WEIGH_IN_DUE", AlertSeverity.REMINDER, facts.as_of.date().isoformat(),
-            facts.as_of, days=days,
+            "WEIGH_IN_DUE",
+            AlertSeverity.REMINDER,
+            facts.as_of.date().isoformat(),
+            facts.as_of,
+            days=days,
         )
 
     return predicate
@@ -315,13 +363,14 @@ def _birth_instant(facts: FactSet) -> datetime:
 def _measurement_gap(
     config: Mapping[str, object],
 ) -> Callable[[FactSet], Finding | None]:
-    max_gap = timedelta(hours=_num(_cfg(config, "measurement_gap"),
-                                   "max_gap_hours", 12))
+    max_gap = timedelta(hours=_num(_cfg(config, "measurement_gap"), "max_gap_hours", 12))
 
     def predicate(facts: FactSet) -> Finding | None:
         stamps = [
-            *(f.ts for f in facts.feeds), *(n.ts for n in facts.nappies),
-            *(s.ts for s in facts.sleeps), *(g.ts for g in facts.growth),
+            *(f.ts for f in facts.feeds),
+            *(n.ts for n in facts.nappies),
+            *(s.ts for s in facts.sleeps),
+            *(g.ts for g in facts.growth),
             *(t.ts for t in facts.temperatures),
         ]
         if not stamps:
@@ -331,8 +380,11 @@ def _measurement_gap(
         if gap <= max_gap:
             return None
         return _finding(
-            "MEASUREMENT_GAP", AlertSeverity.INFO, last.isoformat(timespec="hours"),
-            facts.as_of, hours=gap.total_seconds() / 3600,
+            "MEASUREMENT_GAP",
+            AlertSeverity.INFO,
+            last.isoformat(timespec="hours"),
+            facts.as_of,
+            hours=gap.total_seconds() / 3600,
         )
 
     return predicate

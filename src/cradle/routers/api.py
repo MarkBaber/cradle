@@ -73,17 +73,14 @@ def build_api_router(svc: Services) -> APIRouter:
         stool_colour: Annotated[str, Form()] = StoolColour.UNSET.value,
     ) -> Response:
         k = NappyKind(kind)
-        event_id = svc.logging.log_nappy(
-            k, StoolColour(stool_colour), logged_by=who(request)
-        )
+        event_id = svc.logging.log_nappy(k, StoolColour(stool_colour), logged_by=who(request))
         return _respond(request, "nappy", event_id, f"{k.value} nappy")
 
     @router.post("/api/sleep/toggle")
     def post_sleep_toggle(request: Request) -> Response:
         was_running = svc.logging.running_sleep() is not None
         event_id = svc.logging.toggle_sleep(logged_by=who(request))
-        return _respond(request, "sleep", event_id,
-                        "wake" if was_running else "sleep start")
+        return _respond(request, "sleep", event_id, "wake" if was_running else "sleep start")
 
     # ------------------------------------------------------- detailed entry
     @router.post("/api/growth")
@@ -114,9 +111,7 @@ def build_api_router(svc: Services) -> APIRouter:
         category: Annotated[str, Form()] = "first",
         note: Annotated[str, Form()] = "",
     ) -> Response:
-        event_id = svc.logging.log_milestone(
-            category, title, note, logged_by=who(request)
-        )
+        event_id = svc.logging.log_milestone(category, title, note, logged_by=who(request))
         return _respond(request, "milestone", event_id, "milestone")
 
     @router.post("/api/note")
@@ -139,8 +134,7 @@ def build_api_router(svc: Services) -> APIRouter:
         try:
             svc.logging.undo(table, event_id)
         except UnknownTableError:
-            return HTMLResponse('<div class="toast err">Unknown record</div>',
-                                status_code=400)
+            return HTMLResponse('<div class="toast err">Unknown record</div>', status_code=400)
         if request.headers.get("HX-Request"):
             return HTMLResponse('<div class="toast">Undone</div>')
         return RedirectResponse("/", status_code=303)
@@ -198,8 +192,9 @@ def build_api_router(svc: Services) -> APIRouter:
         try:
             svc.settings.save_profile(name, sex, dob, due_date, birth_weight_g)
         except ValueError:
-            return HTMLResponse('<p class="err">Check the dates and sex value.</p>',
-                                status_code=400)
+            return HTMLResponse(
+                '<p class="err">Check the dates and sex value.</p>', status_code=400
+            )
         return RedirectResponse("/", status_code=303)
 
     @router.post("/api/settings/test-notification")

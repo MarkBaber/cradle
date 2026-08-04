@@ -89,8 +89,7 @@ class AlertsService:
             try:
                 self._notifier.send(finding)
             except Exception:
-                log.exception("notifier failed for %s; finding is still recorded",
-                              finding.rule_id)
+                log.exception("notifier failed for %s; finding is still recorded", finding.rule_id)
         return notified
 
     def pinned(self) -> list[Finding]:

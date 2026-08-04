@@ -1,9 +1,9 @@
 """U2: timezone normalisation at the browser boundary."""
 
-from datetime import UTC, datetime
-
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from cradle.models.timefmt import to_local, to_utc  # noqa: E402

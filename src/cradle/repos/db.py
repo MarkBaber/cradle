@@ -23,9 +23,7 @@ class Db:
 
     def migrate(self) -> int:
         """Apply pending migrations in filename order. Returns applied count."""
-        self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS schema_version (version TEXT PRIMARY KEY)"
-        )
+        self.conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version TEXT PRIMARY KEY)")
         done = {r["version"] for r in self.conn.execute("SELECT version FROM schema_version")}
         applied = 0
         mig_dir = resources.files("cradle.repos") / "migrations"

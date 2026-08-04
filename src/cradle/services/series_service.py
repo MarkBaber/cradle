@@ -44,7 +44,7 @@ class RibbonSpan:
 class RibbonDay:
     day: date
     sleep: tuple[RibbonSpan, ...]
-    feeds: tuple[float, ...]     # local hour-of-day, 0-24
+    feeds: tuple[float, ...]  # local hour-of-day, 0-24
     nappies: tuple[float, ...]
 
 
@@ -130,8 +130,11 @@ class SeriesService:
                     wakings[i] += 1
 
         return DailySeries(
-            days=tuple(buckets), feeds=tuple(feeds), bottle_ml=tuple(bottle),
-            wet=tuple(wet), dirty=tuple(dirty),
+            days=tuple(buckets),
+            feeds=tuple(feeds),
+            bottle_ml=tuple(bottle),
+            wet=tuple(wet),
+            dirty=tuple(dirty),
             sleep_hours=tuple(round(h, 2) for h in sleep),
             longest_sleep_hours=tuple(round(h, 2) for h in longest),
             night_wakings=tuple(wakings),
@@ -146,8 +149,8 @@ class SeriesService:
         finish = to_local(end)
         while cursor < finish:
             midnight = datetime.combine(
-                cursor.date() + timedelta(days=1), cursor.time().replace(
-                    hour=0, minute=0, second=0, microsecond=0),
+                cursor.date() + timedelta(days=1),
+                cursor.time().replace(hour=0, minute=0, second=0, microsecond=0),
                 tzinfo=cursor.tzinfo,
             )
             segment_end = min(midnight, finish)
@@ -173,15 +176,17 @@ class SeriesService:
             for i, span in self._spans_across_days(s.ts, end, index):
                 sleep_rows[i].append(span)
 
+        # Named apart from the `i` above, which _spans_across_days binds as a
+        # plain int: reusing it would fix its type and hide the None case here.
         for f in self._repo.list_feeds(limit=5000, since=since):
-            i = index.get(to_local(f.ts).date())
-            if i is not None:
-                feed_rows[i].append(round(_hour_of(f.ts), 2))
+            row = index.get(to_local(f.ts).date())
+            if row is not None:
+                feed_rows[row].append(round(_hour_of(f.ts), 2))
 
         for n in self._repo.list_nappies(limit=5000, since=since):
-            i = index.get(to_local(n.ts).date())
-            if i is not None:
-                nappy_rows[i].append(round(_hour_of(n.ts), 2))
+            row = index.get(to_local(n.ts).date())
+            if row is not None:
+                nappy_rows[row].append(round(_hour_of(n.ts), 2))
 
         return Ribbon(
             days=tuple(
@@ -214,8 +219,10 @@ class SeriesService:
             i = index.get(cursor.date())
             if i is not None:
                 start_hour = cursor.hour + cursor.minute / 60.0
-                end_hour = 24.0 if segment_end == midnight else (
-                    segment_end.hour + segment_end.minute / 60.0
+                end_hour = (
+                    24.0
+                    if segment_end == midnight
+                    else (segment_end.hour + segment_end.minute / 60.0)
                 )
                 out.append((i, RibbonSpan(round(start_hour, 2), round(end_hour, 2))))
             cursor = segment_end

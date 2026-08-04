@@ -9,6 +9,10 @@ from cradle.ports.notifier import (
 )
 
 __all__ = [
-    "Clock", "ConsoleNotifier", "Notifier", "NtfyNotifier", "NullNotifier",
+    "Clock",
+    "ConsoleNotifier",
+    "Notifier",
+    "NtfyNotifier",
+    "NullNotifier",
     "SystemClock",
 ]

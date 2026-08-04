@@ -19,46 +19,35 @@ ESCALATE_ROUTINE = "discuss with your midwife/health visitor, or call 111"
 ESCALATE_URGENT = "seek medical advice now - call 111 or your GP"
 
 MESSAGES: dict[str, str] = {
-    "FEED_GAP":
-        "No feed recorded for {hours:.0f} hours (last was {last}). "
-        "If that looks wrong, add the missed feed; if it is right, "
-        + ESCALATE_ROUTINE + ".",
-    "FEED_COUNT_LOW":
-        "{count} feeds recorded in the last 24 hours; {expected} or more is usual "
-        "at this age. Check nothing is missing from the log, then "
-        + ESCALATE_ROUTINE + ".",
-    "WET_NAPPY_LOW":
-        "{count} wet nappies recorded in the last 24 hours; around {expected} is "
-        "usual on day {day}. Wet nappies are the everyday check on how much a baby "
-        "is taking in, so if the log is accurate, " + ESCALATE_ROUTINE + ".",
-    "STOOL_ABSENT":
-        "No dirty nappy recorded for {hours:.0f} hours (day {day}). If that is "
-        "accurate, " + ESCALATE_ROUTINE + ".",
-    "STOOL_COLOUR":
-        "A {colour} nappy was logged. Pale or chalky, red, and black stools after "
-        "the first few days are all worth checking promptly: " + ESCALATE_URGENT + ".",
-    "WEIGHT_LOSS_10PC":
-        "Latest weight {weight}g is {pct:.1f}% below birth weight ({birth}g). "
-        "Weight loss of around a tenth is a recognised point to get feeding "
-        "reviewed: " + ESCALATE_URGENT + ".",
-    "WEIGHT_NOT_REGAINED":
-        "Birth weight ({birth}g) has not been regained by day {day}; latest is "
-        "{weight}g. Most babies are back to birth weight around two weeks. "
-        + ESCALATE_ROUTINE.capitalize() + ".",
-    "CENTILE_CROSS":
-        "Weight has moved down {drop:.2f} standard deviations from the earlier "
-        "measurement on the growth chart. A sustained drop across centile lines is "
-        "worth reviewing: " + ESCALATE_ROUTINE + ".",
-    "FEVER_U3M":
-        "Temperature {temp:.1f} C recorded at {age} days old. A temperature of "
-        "38 C or above in a baby under three months is always treated as urgent: "
-        + ESCALATE_URGENT + ".",
-    "WEIGH_IN_DUE":
-        "No weight recorded for {days} days. Worth a weigh-in at your next "
-        "clinic or health visitor appointment.",
-    "MEASUREMENT_GAP":
-        "Nothing logged for {hours:.0f} hours. This is about the log, not the "
-        "baby - catch up whenever suits.",
+    "FEED_GAP": "No feed recorded for {hours:.0f} hours (last was {last}). "
+    "If that looks wrong, add the missed feed; if it is right, " + ESCALATE_ROUTINE + ".",
+    "FEED_COUNT_LOW": "{count} feeds recorded in the last 24 hours; {expected} or more is usual "
+    "at this age. Check nothing is missing from the log, then " + ESCALATE_ROUTINE + ".",
+    "WET_NAPPY_LOW": "{count} wet nappies recorded in the last 24 hours; around {expected} is "
+    "usual on day {day}. Wet nappies are the everyday check on how much a baby "
+    "is taking in, so if the log is accurate, " + ESCALATE_ROUTINE + ".",
+    "STOOL_ABSENT": "No dirty nappy recorded for {hours:.0f} hours (day {day}). If that is "
+    "accurate, " + ESCALATE_ROUTINE + ".",
+    "STOOL_COLOUR": "A {colour} nappy was logged. Pale or chalky, red, and black stools after "
+    "the first few days are all worth checking promptly: " + ESCALATE_URGENT + ".",
+    "WEIGHT_LOSS_10PC": "Latest weight {weight}g is {pct:.1f}% below birth weight ({birth}g). "
+    "Weight loss of around a tenth is a recognised point to get feeding "
+    "reviewed: " + ESCALATE_URGENT + ".",
+    "WEIGHT_NOT_REGAINED": "Birth weight ({birth}g) has not been regained by day {day}; latest is "
+    "{weight}g. Most babies are back to birth weight around two weeks. "
+    + ESCALATE_ROUTINE.capitalize()
+    + ".",
+    "CENTILE_CROSS": "Weight has moved down {drop:.2f} standard deviations from the earlier "
+    "measurement on the growth chart. A sustained drop across centile lines is "
+    "worth reviewing: " + ESCALATE_ROUTINE + ".",
+    "FEVER_U3M": "Temperature {temp:.1f} C recorded at {age} days old. A temperature of "
+    "38 C or above in a baby under three months is always treated as urgent: "
+    + ESCALATE_URGENT
+    + ".",
+    "WEIGH_IN_DUE": "No weight recorded for {days} days. Worth a weigh-in at your next "
+    "clinic or health visitor appointment.",
+    "MEASUREMENT_GAP": "Nothing logged for {hours:.0f} hours. This is about the log, not the "
+    "baby - catch up whenever suits.",
 }
 
 SOURCES: dict[str, str] = {

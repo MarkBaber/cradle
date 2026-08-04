@@ -71,6 +71,5 @@ def test_weigh_in_due_is_not_satisfied_by_a_length_measurement() -> None:
     """A9: only a weight resets the weigh-in cadence."""
     from cradle.models import GrowthMeasure
 
-    facts = F.facts(growths=(F.growth(15, 3500),
-                             F.growth(1, 550, GrowthMeasure.LENGTH)))
+    facts = F.facts(growths=(F.growth(15, 3500), F.growth(1, 550, GrowthMeasure.LENGTH)))
     assert F.fire("WEIGH_IN_DUE", facts) is not None

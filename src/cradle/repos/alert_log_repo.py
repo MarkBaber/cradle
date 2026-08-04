@@ -19,8 +19,13 @@ class AlertLogRepo:
         cur = self._db.conn.execute(
             "INSERT OR IGNORE INTO alert_log"
             " (fingerprint, rule_id, severity, message, ts) VALUES (?,?,?,?,?)",
-            (finding.fingerprint, finding.rule_id, finding.severity.value,
-             finding.message, finding.ts.isoformat()),
+            (
+                finding.fingerprint,
+                finding.rule_id,
+                finding.severity.value,
+                finding.message,
+                finding.ts.isoformat(),
+            ),
         )
         self._db.conn.commit()
         return cur.rowcount == 1
@@ -34,8 +39,10 @@ class AlertLogRepo:
         sql += " ORDER BY ts DESC"
         return [
             Finding(
-                rule_id=r["rule_id"], severity=AlertSeverity(r["severity"]),
-                message=r["message"], fingerprint=r["fingerprint"],
+                rule_id=r["rule_id"],
+                severity=AlertSeverity(r["severity"]),
+                message=r["message"],
+                fingerprint=r["fingerprint"],
                 ts=datetime.fromisoformat(r["ts"]),
             )
             for r in self._db.conn.execute(sql, params).fetchall()
@@ -51,8 +58,7 @@ class AlertLogRepo:
         return cur.rowcount == 1
 
     def dump(self) -> list[dict[str, object]]:
-        return [dict(r) for r in
-                self._db.conn.execute("SELECT * FROM alert_log ORDER BY id")]
+        return [dict(r) for r in self._db.conn.execute("SELECT * FROM alert_log ORDER BY id")]
 
     def restore(self, rows: list[dict[str, object]]) -> int:
         if not rows:

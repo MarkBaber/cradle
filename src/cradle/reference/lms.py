@@ -30,14 +30,15 @@ DATA_DIR = Path(__file__).parent / "data"
 TABLE_PATH = DATA_DIR / "ukwho_lms.csv"
 VERSION_PATH = Path(__file__).parent / "VERSION"
 
-TERM_GESTATION_DAYS = 40 * 7      # a due date is, by definition, 40 weeks
-PRETERM_THRESHOLD_DAYS = 37 * 7   # born before this gestation => correct age (D5)
-CORRECTION_UNTIL_DAYS = 365 * 2   # RCPCH: correct until 2 years
+TERM_GESTATION_DAYS = 40 * 7  # a due date is, by definition, 40 weeks
+PRETERM_THRESHOLD_DAYS = 37 * 7  # born before this gestation => correct age (D5)
+CORRECTION_UNTIL_DAYS = 365 * 2  # RCPCH: correct until 2 years
 
 
 def gestation_at_birth_days(dob: date, due_date: date) -> int:
     """40 weeks minus however early (or late) the birth was."""
     return TERM_GESTATION_DAYS - (due_date - dob).days
+
 
 _NORMAL = NormalDist()
 
@@ -79,8 +80,7 @@ class LmsTable:
         ages = self._ages[(measure.value, sex.value)]
         if age_days < ages[0] or age_days > ages[-1]:
             raise LookupError(
-                f"age {age_days}d outside {measure.value}/{sex.value} table "
-                f"[{ages[0]}, {ages[-1]}]"
+                f"age {age_days}d outside {measure.value}/{sex.value} table [{ages[0]}, {ages[-1]}]"
             )
         i = bisect_left(ages, age_days)
         if ages[i] == age_days:
@@ -143,7 +143,9 @@ class LmsTable:
         base = 1 + row.L * row.S * z
         if base <= 0:
             raise ValueError("centile outside the representable range for this age")
-        return row.M * base ** (1 / row.L)
+        # float ** float is typed Any (it may return complex); this one cannot,
+        # because base > 0 is checked above.
+        return float(row.M * base ** (1 / row.L))
 
 
 def z_for_centile(centile: float) -> float:
@@ -153,6 +155,7 @@ def z_for_centile(centile: float) -> float:
 
 
 # --------------------------------------------------------------- table loading
+
 
 def load_table(path: Path = TABLE_PATH, version_path: Path = VERSION_PATH) -> LmsTable:
     """Parse the vendored CSV. Raises ReferenceDataMissingError if unusable.
@@ -173,10 +176,14 @@ def load_table(path: Path = TABLE_PATH, version_path: Path = VERSION_PATH) -> Lm
                 continue
             try:
                 key = (record["measure"].strip(), record["sex"].strip())
-                rows.setdefault(key, []).append(LmsRow(
-                    age_days=int(record["age_days"]),
-                    L=float(record["L"]), M=float(record["M"]), S=float(record["S"]),
-                ))
+                rows.setdefault(key, []).append(
+                    LmsRow(
+                        age_days=int(record["age_days"]),
+                        L=float(record["L"]),
+                        M=float(record["M"]),
+                        S=float(record["S"]),
+                    )
+                )
             except (KeyError, TypeError, ValueError) as exc:
                 raise ReferenceDataMissingError(f"malformed LMS row {record!r}") from exc
     if not rows:
@@ -192,7 +199,8 @@ def load_table(path: Path = TABLE_PATH, version_path: Path = VERSION_PATH) -> Lm
             raise ReferenceDataMissingError(f"{key} needs at least two age rows")
     version = (
         version_path.read_text(encoding="utf-8").strip().splitlines()[0]
-        if version_path.exists() else "unknown"
+        if version_path.exists()
+        else "unknown"
     )
     return LmsTable(rows, version)
 
@@ -214,6 +222,7 @@ def reset_cache() -> None:
 
 
 # ------------------------------------------------------------------ public API
+
 
 def zscore(
     measure: GrowthMeasure,

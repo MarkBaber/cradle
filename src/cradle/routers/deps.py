@@ -6,10 +6,10 @@ from cradle.services import (
     AlertsService,
     ExportService,
     GrowthService,
-    MilestoneService,
-    SeriesService,
     HistoryService,
     LoggingService,
+    MilestoneService,
+    SeriesService,
     SettingsService,
     TodayService,
 )

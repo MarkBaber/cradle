@@ -65,8 +65,7 @@ def test_longest_sleep_tracked_separately() -> None:
     base = to_local(NOW).replace(hour=9, minute=0, second=0, microsecond=0)
     for offset, length in ((0, 1), (3, 3)):
         sid = log.toggle_sleep(ts=base + timedelta(hours=offset))
-        log.edit("sleep", sid,
-                 {"ts_end": (base + timedelta(hours=offset + length)).isoformat()})
+        log.edit("sleep", sid, {"ts_end": (base + timedelta(hours=offset + length)).isoformat()})
     d = series.daily(days=1)
     assert abs(d.sleep_hours[-1] - 4.0) < 0.01
     assert abs(d.longest_sleep_hours[-1] - 3.0) < 0.01
@@ -117,8 +116,11 @@ def test_ribbon_sleep_span_clipped_at_midnight() -> None:
 
     r = series.ribbon(days=2)
     first, second = r.days[0], r.days[1]
-    assert first.sleep == (__import__("cradle.services.series_service",
-                                      fromlist=["RibbonSpan"]).RibbonSpan(23.0, 24.0),)
+    assert first.sleep == (
+        __import__("cradle.services.series_service", fromlist=["RibbonSpan"]).RibbonSpan(
+            23.0, 24.0
+        ),
+    )
     assert second.sleep[0].start_hour == 0.0
     assert abs(second.sleep[0].end_hour - 2.0) < 0.01
 

@@ -64,12 +64,18 @@ class MilestoneService:
             if m.event_id is None:
                 continue
             on = m.ts.date()
-            cards.append(MilestoneCard(
-                event_id=m.event_id, ts=m.ts, category=m.category, title=m.title,
-                note=m.note, age_days=(on - baby.dob).days,
-                corrected_age_days=corrected_age_days(baby.dob, baby.due_date, on),
-                typical_weeks=typical_window(m.title),
-            ))
+            cards.append(
+                MilestoneCard(
+                    event_id=m.event_id,
+                    ts=m.ts,
+                    category=m.category,
+                    title=m.title,
+                    note=m.note,
+                    age_days=(on - baby.dob).days,
+                    corrected_age_days=corrected_age_days(baby.dob, baby.due_date, on),
+                    typical_weeks=typical_window(m.title),
+                )
+            )
         cards.sort(key=lambda c: c.ts, reverse=True)
         return tuple(cards)
 

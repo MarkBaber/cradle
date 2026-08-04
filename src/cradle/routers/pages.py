@@ -12,8 +12,8 @@ from fastapi.responses import (
 )
 from fastapi.templating import Jinja2Templates
 
-from cradle.routers.deps import Services
 from cradle.models import GrowthMeasure, to_local, to_utc
+from cradle.routers.deps import Services
 from cradle.services.export_service import DOMAINS as EXPORT_DOMAINS
 from cradle.services.history_service import DOMAINS
 from cradle.services.milestone_service import CATEGORIES as MILESTONE_CATEGORIES
@@ -30,11 +30,14 @@ def build_pages_router(svc: Services) -> APIRouter:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
         return TEMPLATES.TemplateResponse(
-            request, "quick_entry.html",
-            {"summary": svc.today.summary(),
-             "pinned": svc.alerts.pinned(),
-             "outstanding": svc.alerts.outstanding(),
-             "logged": request.query_params.get("logged", "")},
+            request,
+            "quick_entry.html",
+            {
+                "summary": svc.today.summary(),
+                "pinned": svc.alerts.pinned(),
+                "outstanding": svc.alerts.outstanding(),
+                "logged": request.query_params.get("logged", ""),
+            },
         )
 
     @router.get("/today", response_class=HTMLResponse)
@@ -42,9 +45,13 @@ def build_pages_router(svc: Services) -> APIRouter:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
         return TEMPLATES.TemplateResponse(
-            request, "today.html",
-            {"summary": svc.today.summary(), "pinned": svc.alerts.pinned(),
-             "outstanding": svc.alerts.outstanding()}
+            request,
+            "today.html",
+            {
+                "summary": svc.today.summary(),
+                "pinned": svc.alerts.pinned(),
+                "outstanding": svc.alerts.outstanding(),
+            },
         )
 
     @router.get("/today/fragment", response_class=HTMLResponse)
@@ -56,15 +63,21 @@ def build_pages_router(svc: Services) -> APIRouter:
     @router.get("/history", response_class=HTMLResponse)
     def history(request: Request) -> Response:
         return TEMPLATES.TemplateResponse(
-            request, "history.html",
-            {"rows": _rows(request, svc), "domains": DOMAINS,
-             "selected": _selected(request), "focus": request.query_params.get("focus", "")},
+            request,
+            "history.html",
+            {
+                "rows": _rows(request, svc),
+                "domains": DOMAINS,
+                "selected": _selected(request),
+                "focus": request.query_params.get("focus", ""),
+            },
         )
 
     @router.get("/history/fragment", response_class=HTMLResponse)
     def history_fragment(request: Request) -> Response:
         return TEMPLATES.TemplateResponse(
-            request, "_history_table.html",
+            request,
+            "_history_table.html",
             {"rows": _rows(request, svc), "focus": request.query_params.get("focus", "")},
         )
 
@@ -73,14 +86,19 @@ def build_pages_router(svc: Services) -> APIRouter:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
         raw = request.query_params.get("measure", GrowthMeasure.WEIGHT.value)
-        measure = (GrowthMeasure(raw)
-                   if raw in {m.value for m in GrowthMeasure} else GrowthMeasure.WEIGHT)
+        measure = (
+            GrowthMeasure(raw) if raw in {m.value for m in GrowthMeasure} else GrowthMeasure.WEIGHT
+        )
         return TEMPLATES.TemplateResponse(
-            request, "charts.html",
-            {"measure": measure, "measures": list(GrowthMeasure),
-             "series": svc.growth.centile_chart_series(measure),
-             "assessment": svc.growth.assessment(),
-             "daily": svc.series.daily(_int_param(request, "days", 14))},
+            request,
+            "charts.html",
+            {
+                "measure": measure,
+                "measures": list(GrowthMeasure),
+                "series": svc.growth.centile_chart_series(measure),
+                "assessment": svc.growth.assessment(),
+                "daily": svc.series.daily(_int_param(request, "days", 14)),
+            },
         )
 
     @router.get("/patterns", response_class=HTMLResponse)
@@ -89,35 +107,50 @@ def build_pages_router(svc: Services) -> APIRouter:
             return RedirectResponse("/settings?first_run=1", status_code=303)
         days = _int_param(request, "days", 14)
         return TEMPLATES.TemplateResponse(
-            request, "patterns.html",
-            {"ribbon": svc.series.ribbon(days), "daily": svc.series.daily(days),
-             "days": days, "hours": range(0, 25, 3)},
+            request,
+            "patterns.html",
+            {
+                "ribbon": svc.series.ribbon(days),
+                "daily": svc.series.daily(days),
+                "days": days,
+                "hours": range(0, 25, 3),
+            },
         )
 
     @router.get("/api/series/daily")
     def daily_series(request: Request) -> Response:
         d = svc.series.daily(_int_param(request, "days", 14))
-        return JSONResponse({
-            "days": [x.isoformat() for x in d.days],
-            "feeds": list(d.feeds), "bottle_ml": list(d.bottle_ml),
-            "wet": list(d.wet), "dirty": list(d.dirty),
-            "sleep_hours": list(d.sleep_hours),
-            "longest_sleep_hours": list(d.longest_sleep_hours),
-            "night_wakings": list(d.night_wakings),
-        })
+        return JSONResponse(
+            {
+                "days": [x.isoformat() for x in d.days],
+                "feeds": list(d.feeds),
+                "bottle_ml": list(d.bottle_ml),
+                "wet": list(d.wet),
+                "dirty": list(d.dirty),
+                "sleep_hours": list(d.sleep_hours),
+                "longest_sleep_hours": list(d.longest_sleep_hours),
+                "night_wakings": list(d.night_wakings),
+            }
+        )
 
     @router.get("/api/series/ribbon")
     def ribbon_series(request: Request) -> Response:
         r = svc.series.ribbon(_int_param(request, "days", 14))
-        return JSONResponse({
-            "night_start": r.night_start, "night_end": r.night_end,
-            "days": [
-                {"day": day.day.isoformat(),
-                 "sleep": [[s.start_hour, s.end_hour] for s in day.sleep],
-                 "feeds": list(day.feeds), "nappies": list(day.nappies)}
-                for day in r.days
-            ],
-        })
+        return JSONResponse(
+            {
+                "night_start": r.night_start,
+                "night_end": r.night_end,
+                "days": [
+                    {
+                        "day": day.day.isoformat(),
+                        "sleep": [[s.start_hour, s.end_hour] for s in day.sleep],
+                        "feeds": list(day.feeds),
+                        "nappies": list(day.nappies),
+                    }
+                    for day in r.days
+                ],
+            }
+        )
 
     @router.get("/api/charts/{measure}")
     def charts_series(measure: str) -> Response:
@@ -126,46 +159,52 @@ def build_pages_router(svc: Services) -> APIRouter:
         series = svc.growth.centile_chart_series(GrowthMeasure(measure))
         if series is None:
             return JSONResponse({"error": "no baby profile"}, status_code=404)
-        return JSONResponse({
-            "measure": series.measure.value,
-            "unit": series.unit,
-            "ages": list(series.ages),
-            "curves": {k: list(v) for k, v in series.curves.items()},
-            "trajectory": [list(p) for p in series.trajectory],
-            "frames": list(series.frames),
-            "unavailable_reason": series.unavailable_reason,
-        })
+        return JSONResponse(
+            {
+                "measure": series.measure.value,
+                "unit": series.unit,
+                "ages": list(series.ages),
+                "curves": {k: list(v) for k, v in series.curves.items()},
+                "trajectory": [list(p) for p in series.trajectory],
+                "frames": list(series.frames),
+                "unavailable_reason": series.unavailable_reason,
+            }
+        )
 
     @router.get("/sw.js")
     def service_worker() -> Response:
         """Served from root: a worker's scope is capped by its own path, so
         /static/sw.js could only ever control /static/* (task W1)."""
         path = Path(__file__).parent / "static" / "sw.js"
-        return Response(path.read_text(encoding="utf-8"),
-                        media_type="application/javascript",
-                        headers={"Service-Worker-Allowed": "/"})
+        return Response(
+            path.read_text(encoding="utf-8"),
+            media_type="application/javascript",
+            headers={"Service-Worker-Allowed": "/"},
+        )
 
     @router.get("/milestones", response_class=HTMLResponse)
     def milestones(request: Request) -> Response:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
         return TEMPLATES.TemplateResponse(
-            request, "milestones.html",
-            {"cards": svc.milestones.timeline() or (),
-             "corrected": svc.milestones.uses_corrected_age(),
-             "categories": MILESTONE_CATEGORIES},
+            request,
+            "milestones.html",
+            {
+                "cards": svc.milestones.timeline() or (),
+                "corrected": svc.milestones.uses_corrected_age(),
+                "categories": MILESTONE_CATEGORIES,
+            },
         )
 
     @router.get("/export", response_class=HTMLResponse)
     def export_page(request: Request) -> Response:
-        return TEMPLATES.TemplateResponse(
-            request, "export.html", {"domains": EXPORT_DOMAINS}
-        )
+        return TEMPLATES.TemplateResponse(request, "export.html", {"domains": EXPORT_DOMAINS})
 
     @router.get("/export/cradle.json")
     def export_json() -> Response:
         return Response(
-            svc.export.export_json(), media_type="application/json",
+            svc.export.export_json(),
+            media_type="application/json",
             headers={"Content-Disposition": 'attachment; filename="cradle.json"'},
         )
 
@@ -174,16 +213,20 @@ def build_pages_router(svc: Services) -> APIRouter:
         if domain not in EXPORT_DOMAINS:
             return JSONResponse({"error": "unknown domain"}, status_code=404)
         return Response(
-            svc.export.export_csv(domain), media_type="text/csv",
+            svc.export.export_csv(domain),
+            media_type="text/csv",
             headers={"Content-Disposition": f'attachment; filename="{domain}.csv"'},
         )
 
     @router.get("/settings", response_class=HTMLResponse)
     def settings(request: Request) -> Response:
         return TEMPLATES.TemplateResponse(
-            request, "settings.html",
-            {"profile": svc.settings.profile(),
-             "first_run": request.query_params.get("first_run") == "1"},
+            request,
+            "settings.html",
+            {
+                "profile": svc.settings.profile(),
+                "first_run": request.query_params.get("first_run") == "1",
+            },
         )
 
     return router
@@ -212,6 +255,6 @@ def _rows(request: Request, svc: Services) -> list[object]:
         except ValueError:
             return None
 
-    return list(svc.history.rows(
-        domains=_selected(request), since=parse("since"), until=parse("until")
-    ))
+    return list(
+        svc.history.rows(domains=_selected(request), since=parse("since"), until=parse("until"))
+    )

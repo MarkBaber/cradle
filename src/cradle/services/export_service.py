@@ -41,9 +41,14 @@ class ExportService:
             "format": EXPORT_FORMAT,
             "app_version": self._app_version,
             "exported_at": datetime.now(UTC).isoformat(),
-            "baby": None if baby is None else {
-                "baby_id": baby.baby_id, "name": baby.name, "sex": baby.sex.value,
-                "dob": baby.dob.isoformat(), "due_date": baby.due_date.isoformat(),
+            "baby": None
+            if baby is None
+            else {
+                "baby_id": baby.baby_id,
+                "name": baby.name,
+                "sex": baby.sex.value,
+                "dob": baby.dob.isoformat(),
+                "due_date": baby.due_date.isoformat(),
                 "birth_weight_g": baby.birth_weight_g,
             },
             "events": {d: self._repo.dump(d) for d in DOMAINS},
@@ -75,12 +80,16 @@ class ExportService:
         if baby is not None:
             from datetime import date  # noqa: PLC0415
 
-            self._baby_repo.upsert(Baby(
-                baby_id=baby["baby_id"], name=baby["name"], sex=Sex(baby["sex"]),
-                dob=date.fromisoformat(baby["dob"]),
-                due_date=date.fromisoformat(baby["due_date"]),
-                birth_weight_g=baby["birth_weight_g"],
-            ))
+            self._baby_repo.upsert(
+                Baby(
+                    baby_id=baby["baby_id"],
+                    name=baby["name"],
+                    sex=Sex(baby["sex"]),
+                    dob=date.fromisoformat(baby["dob"]),
+                    due_date=date.fromisoformat(baby["due_date"]),
+                    birth_weight_g=baby["birth_weight_g"],
+                )
+            )
 
         restored = 0
         for domain, rows in data.get("events", {}).items():
@@ -91,5 +100,13 @@ class ExportService:
 
 def _csv_header(domain: str) -> list[str]:
     """Stable header even when a domain has no rows yet."""
-    return ["id", "baby_id", "ts", "logged_by", *sorted(EDITABLE[domain] - {"ts"}),
-            "created_at", "edited_at", "deleted_at"]
+    return [
+        "id",
+        "baby_id",
+        "ts",
+        "logged_by",
+        *sorted(EDITABLE[domain] - {"ts"}),
+        "created_at",
+        "edited_at",
+        "deleted_at",
+    ]

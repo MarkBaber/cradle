@@ -509,13 +509,13 @@ notes = "Do this before Q2: the point of Q2 is a green pipeline, which cannot be
 id = "Q2"
 phase = 0
 title = "Make the CI pipeline green"
-status = "todo"
+status = "review"
 routing = "impl"
 depends = ["O2"]
 touches = ["src/", "tests/", "scripts/lint.sh", "pyproject.toml"]
 description = "Every CI stage currently fails, so the 14 tasks sitting at status review have no arbiter. Three separate failures: (1) validate runs `ruff format --check src tests` and 50 of 69 files would be reformatted - the repo has never been formatted; (2) `ruff check` reports 9 errors, mostly unsorted imports in app.py, deps.py, models/__init__.py; (3) `mypy` reports 6 errors - a missing return annotation and an untyped apscheduler import in ports/scheduler.py, `Returning Any` in reference/lms.py, two int|None assignments in services/series_service.py, and `object not callable` in ports/notifier.py where the injected poster seam is typed `object`. Fix all three. The notifier poster should become a Callable Protocol rather than `object`, since that seam is the ntfy test double."
 exit_criteria = ["ruff format --check src tests clean", "scripts/lint.sh green (ruff check + mypy strict)", "scripts/test.sh still green afterwards", "apscheduler stub handling recorded in pyproject.toml rather than silenced per-line"]
-notes = "Run `ruff format` as its own commit, separate from the lint and mypy fixes, so the type changes stay reviewable. Note this necessarily reformats files outside any one task's touches; that is the intended one-off exception and the reason it is its own task rather than being smuggled into feature diffs."
+notes = "Run `ruff format` as its own commit, separate from the lint and mypy fixes, so the type changes stay reviewable. Note this necessarily reformats files outside any one task's touches; that is the intended one-off exception and the reason it is its own task rather than being smuggled into feature diffs. 2026-08-04: all four exit criteria met locally - ruff format (51 files, own commit), 9 ruff lint errors, 6 mypy errors, 208 tests still green, check_layers green, and the offline runner green too. Three fixes worth recording rather than reading back out of the diff. (1) notifier.py gained a Poster Protocol replacing `poster: object`, so the injected test double must now accept the call the adapter actually makes; httpx.post satisfies it unchanged. (2) lms.py value_at_z wraps its result in float() because `float ** float` is typed Any in typeshed (it may return complex) - the guard above it already proves this one cannot. (3) series_service.ribbon bound `i` first as an int from _spans_across_days and then reused it for index.get, which returns int|None; the later loops use a separate name so the None case stays visible rather than being silenced. Held at review for the same reason as O2: no remote exists, so no pipeline has arbitrated this."
 
 [[task]]
 id = "A9"

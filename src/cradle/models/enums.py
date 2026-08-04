@@ -28,10 +28,10 @@ class StoolColour(StrEnum):
     YELLOW = "yellow"
     GREEN = "green"
     BROWN = "brown"
-    MECONIUM = "meconium"        # normal days 1-2
+    MECONIUM = "meconium"  # normal days 1-2
     PALE_CHALKY = "pale_chalky"  # red flag
-    RED = "red"                  # red flag
-    BLACK = "black"              # red flag after day 5
+    RED = "red"  # red flag
+    BLACK = "black"  # red flag after day 5
 
 
 class SleepLocation(StrEnum):
@@ -42,8 +42,8 @@ class SleepLocation(StrEnum):
 
 
 class GrowthMeasure(StrEnum):
-    WEIGHT = "weight"        # grams
-    LENGTH = "length"        # millimetres
+    WEIGHT = "weight"  # grams
+    LENGTH = "length"  # millimetres
     HEAD_CIRC = "head_circ"  # millimetres
 
 

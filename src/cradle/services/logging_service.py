@@ -43,10 +43,18 @@ class LoggingService:
         volume_ml: int | None = None,
         note: str = "",
     ) -> int:
-        return self._repo.insert_feed(FeedEvent(
-            event_id=None, baby_id=BABY_ID, ts=self._at(ts), logged_by=logged_by,
-            method=method, duration_min=duration_min, volume_ml=volume_ml, note=note,
-        ))
+        return self._repo.insert_feed(
+            FeedEvent(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=self._at(ts),
+                logged_by=logged_by,
+                method=method,
+                duration_min=duration_min,
+                volume_ml=volume_ml,
+                note=note,
+            )
+        )
 
     def recent_feeds(self, limit: int = 50) -> list[FeedEvent]:
         return self._repo.list_feeds(limit)
@@ -59,10 +67,16 @@ class LoggingService:
         logged_by: str = "",
         ts: datetime | None = None,
     ) -> int:
-        return self._repo.insert_nappy(NappyEvent(
-            event_id=None, baby_id=BABY_ID, ts=self._at(ts), logged_by=logged_by,
-            kind=kind, stool_colour=stool_colour,
-        ))
+        return self._repo.insert_nappy(
+            NappyEvent(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=self._at(ts),
+                logged_by=logged_by,
+                kind=kind,
+                stool_colour=stool_colour,
+            )
+        )
 
     # ----------------------------------------------------------------- sleep
     def toggle_sleep(
@@ -80,10 +94,16 @@ class LoggingService:
         if running is not None and running.event_id is not None:
             self._repo.end_sleep(running.event_id, at)
             return running.event_id
-        return self._repo.insert_sleep_start(SleepEvent(
-            event_id=None, baby_id=BABY_ID, ts=at, logged_by=logged_by,
-            ts_end=None, location=location,
-        ))
+        return self._repo.insert_sleep_start(
+            SleepEvent(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=at,
+                logged_by=logged_by,
+                ts_end=None,
+                location=location,
+            )
+        )
 
     def running_sleep(self) -> SleepEvent | None:
         return self._repo.running_sleep()
@@ -97,10 +117,17 @@ class LoggingService:
         logged_by: str = "",
         ts: datetime | None = None,
     ) -> int:
-        return self._repo.insert_growth(GrowthEvent(
-            event_id=None, baby_id=BABY_ID, ts=self._at(ts), logged_by=logged_by,
-            measure=measure, value=value, source=source,
-        ))
+        return self._repo.insert_growth(
+            GrowthEvent(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=self._at(ts),
+                logged_by=logged_by,
+                measure=measure,
+                value=value,
+                source=source,
+            )
+        )
 
     # ----------------------------------------------------------- temperature
     def log_temperature(
@@ -110,10 +137,16 @@ class LoggingService:
         logged_by: str = "",
         ts: datetime | None = None,
     ) -> int:
-        return self._repo.insert_temperature(TemperatureEvent(
-            event_id=None, baby_id=BABY_ID, ts=self._at(ts), logged_by=logged_by,
-            temp_c=temp_c, site=site,
-        ))
+        return self._repo.insert_temperature(
+            TemperatureEvent(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=self._at(ts),
+                logged_by=logged_by,
+                temp_c=temp_c,
+                site=site,
+            )
+        )
 
     # ------------------------------------------------------------- milestone
     def log_milestone(
@@ -124,10 +157,17 @@ class LoggingService:
         logged_by: str = "",
         ts: datetime | None = None,
     ) -> int:
-        return self._repo.insert_milestone(Milestone(
-            event_id=None, baby_id=BABY_ID, ts=self._at(ts), logged_by=logged_by,
-            category=category, title=title, note=note,
-        ))
+        return self._repo.insert_milestone(
+            Milestone(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=self._at(ts),
+                logged_by=logged_by,
+                category=category,
+                title=title,
+                note=note,
+            )
+        )
 
     # ------------------------------------------------------------------ note
     def log_note(
@@ -137,10 +177,16 @@ class LoggingService:
         logged_by: str = "",
         ts: datetime | None = None,
     ) -> int:
-        return self._repo.insert_note(Note(
-            event_id=None, baby_id=BABY_ID, ts=self._at(ts), logged_by=logged_by,
-            text=text, tags=tags,
-        ))
+        return self._repo.insert_note(
+            Note(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=self._at(ts),
+                logged_by=logged_by,
+                text=text,
+                tags=tags,
+            )
+        )
 
     # --------------------------------------------------------- undo / adjust
     def undo(self, table: str, event_id: int) -> None:

@@ -16,8 +16,13 @@ from cradle.ports.clock import FixedClock  # noqa: E402
 from cradle.reference.lms import LmsRow, LmsTable  # noqa: E402
 
 NOW = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
-PROFILE = {"name": "Test", "sex": "female", "dob": "2026-07-01",
-           "due_date": "2026-07-01", "birth_weight_g": 3400}
+PROFILE = {
+    "name": "Test",
+    "sex": "female",
+    "dob": "2026-07-01",
+    "due_date": "2026-07-01",
+    "birth_weight_g": 3400,
+}
 
 
 def _table() -> LmsTable:
@@ -26,9 +31,13 @@ def _table() -> LmsTable:
 
 
 def _client() -> TestClient:
-    app = create_app(db_path=Path(tempfile.mkdtemp()) / "c4.db", clock=FixedClock(NOW),
-                     config_path=ROOT / "rules_config.toml",
-                     reference=(_table(), None), start_scheduler=False)
+    app = create_app(
+        db_path=Path(tempfile.mkdtemp()) / "c4.db",
+        clock=FixedClock(NOW),
+        config_path=ROOT / "rules_config.toml",
+        reference=(_table(), None),
+        start_scheduler=False,
+    )
     client = TestClient(app, follow_redirects=False)
     client.post("/api/settings/profile", data=PROFILE)
     return client
@@ -40,8 +49,15 @@ def test_daily_series_endpoint_shape() -> None:
     client.post("/api/nappy", data={"kind": "wet"})
     d = client.get("/api/series/daily?days=7").json()
     assert len(d["days"]) == 7
-    for key in ("feeds", "bottle_ml", "wet", "dirty", "sleep_hours",
-                "longest_sleep_hours", "night_wakings"):
+    for key in (
+        "feeds",
+        "bottle_ml",
+        "wet",
+        "dirty",
+        "sleep_hours",
+        "longest_sleep_hours",
+        "night_wakings",
+    ):
         assert len(d[key]) == 7, key
     assert d["feeds"][-1] == 1
     assert d["bottle_ml"][-1] == 80
@@ -76,20 +92,24 @@ def test_patterns_page_renders_rows_and_table_fallback() -> None:
 
 
 def test_patterns_redirects_before_profile() -> None:
-    app = create_app(db_path=Path(tempfile.mkdtemp()) / "e.db", clock=FixedClock(NOW),
-                     config_path=ROOT / "rules_config.toml",
-                     reference=(_table(), None), start_scheduler=False)
+    app = create_app(
+        db_path=Path(tempfile.mkdtemp()) / "e.db",
+        clock=FixedClock(NOW),
+        config_path=ROOT / "rules_config.toml",
+        reference=(_table(), None),
+        start_scheduler=False,
+    )
     assert TestClient(app, follow_redirects=False).get("/patterns").status_code == 303
 
 
 def test_sleep_crossing_midnight_appears_on_both_rows() -> None:
     client = _client()
-    start = (to_local(NOW).replace(hour=22, minute=0, second=0, microsecond=0)
-             - timedelta(days=1))
+    start = to_local(NOW).replace(hour=22, minute=0, second=0, microsecond=0) - timedelta(days=1)
     client.post("/api/sleep/toggle")
-    client.post("/api/adjust-time",
-                data={"table": "sleep", "event_id": 1,
-                      "ts": start.strftime("%Y-%m-%dT%H:%M")})
+    client.post(
+        "/api/adjust-time",
+        data={"table": "sleep", "event_id": 1, "ts": start.strftime("%Y-%m-%dT%H:%M")},
+    )
     client.post("/api/sleep/toggle")  # ends the running sleep at NOW
 
     r = client.get("/api/series/ribbon?days=3").json()

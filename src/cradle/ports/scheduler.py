@@ -7,6 +7,10 @@ must not leave the household with silent alerts.
 
 import logging
 from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from apscheduler.schedulers.background import BackgroundScheduler
 
 log = logging.getLogger(__name__)
 
@@ -23,15 +27,20 @@ def guarded(job: Callable[[], object], name: str) -> Callable[[], None]:
     return run
 
 
-def build_scheduler(alert_sweep: Callable[[], object], interval_minutes: int = SWEEP_MINUTES):  # noqa: ANN201
+def build_scheduler(
+    alert_sweep: Callable[[], object], interval_minutes: int = SWEEP_MINUTES
+) -> "BackgroundScheduler":
     """Return a started BackgroundScheduler running the alert sweep."""
     from apscheduler.schedulers.background import BackgroundScheduler  # noqa: PLC0415
 
     scheduler = BackgroundScheduler(timezone="UTC")
     scheduler.add_job(
-        guarded(alert_sweep, "alert_sweep"), "interval",
-        minutes=interval_minutes, id="alert_sweep",
-        max_instances=1, coalesce=True,
+        guarded(alert_sweep, "alert_sweep"),
+        "interval",
+        minutes=interval_minutes,
+        id="alert_sweep",
+        max_instances=1,
+        coalesce=True,
     )
     scheduler.start()
     return scheduler

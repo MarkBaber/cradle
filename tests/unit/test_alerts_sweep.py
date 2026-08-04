@@ -21,9 +21,15 @@ def _build(seed_baby: bool = True):
     repo = make_repo(db)
     baby_repo = BabyRepo(db)
     notifier = ConsoleNotifier()
-    svc = AlertsService(repo, baby_repo, AlertLogRepo(db),
-                        GrowthService(repo, baby_repo, None, "no reference"),
-                        notifier, clock(), CONFIG)
+    svc = AlertsService(
+        repo,
+        baby_repo,
+        AlertLogRepo(db),
+        GrowthService(repo, baby_repo, None, "no reference"),
+        notifier,
+        clock(),
+        CONFIG,
+    )
     return LoggingService(repo, clock()), svc, notifier
 
 

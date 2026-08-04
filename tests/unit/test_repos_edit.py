@@ -40,8 +40,10 @@ def test_edit_sets_value_and_edited_at() -> None:
 
 def test_unknown_table_rejected() -> None:
     repo, fid = _seed()
-    for call in (lambda: repo.soft_delete("baby", fid),
-                 lambda: repo.edit_event("sqlite_master", fid, {"ts": NOW})):
+    for call in (
+        lambda: repo.soft_delete("baby", fid),
+        lambda: repo.edit_event("sqlite_master", fid, {"ts": NOW}),
+    ):
         try:
             call()
         except UnknownTableError:

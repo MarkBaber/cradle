@@ -47,10 +47,10 @@ class GrowthAssessment:
     corrected: bool
     table_version: str | None
     measures: tuple[MeasureAssessment, ...]
-    weight_loss_pct: float | None      # positive = below birth weight
+    weight_loss_pct: float | None  # positive = below birth weight
     regained_birth_weight: bool | None
     latest_weight_z: float | None
-    baseline_weight_z: float | None    # earliest weight z, for CENTILE_CROSS (A5)
+    baseline_weight_z: float | None  # earliest weight z, for CENTILE_CROSS (A5)
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,9 +58,9 @@ class ChartSeries:
     measure: GrowthMeasure
     unit: str
     ages: tuple[int, ...]
-    curves: dict[str, tuple[float, ...]]        # centile label -> values
-    trajectory: tuple[tuple[int, float], ...]   # (age_days, value)
-    frames: tuple[int, ...]                     # trajectory prefix lengths (C3)
+    curves: dict[str, tuple[float, ...]]  # centile label -> values
+    trajectory: tuple[tuple[int, float], ...]  # (age_days, value)
+    frames: tuple[int, ...]  # trajectory prefix lengths (C3)
     unavailable_reason: str | None
 
 
@@ -88,9 +88,7 @@ class GrowthService:
         if self._table is None:
             return None, None, self._table_error or "reference data not installed"
         try:
-            result = self._table.zscore(
-                measure, baby.sex, age_days, float(value), corrected=True
-            )
+            result = self._table.zscore(measure, baby.sex, age_days, float(value), corrected=True)
         except (LookupError, ReferenceDataMissingError, ValueError) as exc:
             return None, None, str(exc)
         return result.z, result.centile, None
@@ -109,15 +107,21 @@ class GrowthService:
             latest = events[0]
             chronological, corrected = self._age(baby, latest.ts.date())
             z, centile, reason = self._z(baby, measure, corrected, latest.value)
-            measures.append(MeasureAssessment(
-                measure=measure, ts=latest.ts, value=latest.value,
-                unit=UNITS[measure], age_days=chronological,
-                corrected_age_days=corrected, z=z, centile=centile,
-                unavailable_reason=reason,
-            ))
+            measures.append(
+                MeasureAssessment(
+                    measure=measure,
+                    ts=latest.ts,
+                    value=latest.value,
+                    unit=UNITS[measure],
+                    age_days=chronological,
+                    corrected_age_days=corrected,
+                    z=z,
+                    centile=centile,
+                    unavailable_reason=reason,
+                )
+            )
 
-        weights = sorted(self._repo.list_growth(GrowthMeasure.WEIGHT),
-                         key=lambda e: e.ts)
+        weights = sorted(self._repo.list_growth(GrowthMeasure.WEIGHT), key=lambda e: e.ts)
         loss_pct: float | None = None
         regained: bool | None = None
         if weights and baby.birth_weight_g > 0:
@@ -128,11 +132,9 @@ class GrowthService:
         latest_z = baseline_z = None
         if weights:
             _, c_last = self._age(baby, weights[-1].ts.date())
-            latest_z, _, _ = self._z(baby, GrowthMeasure.WEIGHT, c_last,
-                                     weights[-1].value)
+            latest_z, _, _ = self._z(baby, GrowthMeasure.WEIGHT, c_last, weights[-1].value)
             _, c_first = self._age(baby, weights[0].ts.date())
-            baseline_z, _, _ = self._z(baby, GrowthMeasure.WEIGHT, c_first,
-                                       weights[0].value)
+            baseline_z, _, _ = self._z(baby, GrowthMeasure.WEIGHT, c_first, weights[0].value)
 
         return GrowthAssessment(
             baby=baby,
@@ -151,16 +153,17 @@ class GrowthService:
         if baby is None:
             return None
 
-        events: list[GrowthEvent] = sorted(self._repo.list_growth(measure),
-                                           key=lambda e: e.ts)
-        trajectory = tuple(
-            (self._age(baby, e.ts.date())[1], float(e.value)) for e in events
-        )
+        events: list[GrowthEvent] = sorted(self._repo.list_growth(measure), key=lambda e: e.ts)
+        trajectory = tuple((self._age(baby, e.ts.date())[1], float(e.value)) for e in events)
 
         if self._table is None:
             return ChartSeries(
-                measure=measure, unit=UNITS[measure], ages=(), curves={},
-                trajectory=trajectory, frames=tuple(range(1, len(trajectory) + 1)),
+                measure=measure,
+                unit=UNITS[measure],
+                ages=(),
+                curves={},
+                trajectory=trajectory,
+                frames=tuple(range(1, len(trajectory) + 1)),
                 unavailable_reason=self._table_error or "reference data not installed",
             )
 
@@ -168,8 +171,12 @@ class GrowthService:
             lo, hi = self._table.age_range(measure, baby.sex)
         except ReferenceDataMissingError as exc:
             return ChartSeries(
-                measure=measure, unit=UNITS[measure], ages=(), curves={},
-                trajectory=trajectory, frames=tuple(range(1, len(trajectory) + 1)),
+                measure=measure,
+                unit=UNITS[measure],
+                ages=(),
+                curves={},
+                trajectory=trajectory,
+                frames=tuple(range(1, len(trajectory) + 1)),
                 unavailable_reason=str(exc),
             )
 
@@ -185,14 +192,17 @@ class GrowthService:
         for centile in CENTILES:
             try:
                 curves[f"{centile:g}"] = tuple(
-                    self._table.value_at_centile(measure, baby.sex, a, centile)
-                    for a in ages
+                    self._table.value_at_centile(measure, baby.sex, a, centile) for a in ages
                 )
             except (LookupError, ValueError):
                 continue
 
         return ChartSeries(
-            measure=measure, unit=UNITS[measure], ages=ages, curves=curves,
-            trajectory=trajectory, frames=tuple(range(1, len(trajectory) + 1)),
+            measure=measure,
+            unit=UNITS[measure],
+            ages=ages,
+            curves=curves,
+            trajectory=trajectory,
+            frames=tuple(range(1, len(trajectory) + 1)),
             unavailable_reason=None,
         )

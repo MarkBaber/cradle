@@ -16,8 +16,7 @@ CONFIG = Path(__file__).resolve().parents[2] / "rules_config.toml"
 def _build(dob: date = date(2026, 7, 1)) -> tuple[LoggingService, TodayService]:
     db = make_db(dob=dob)
     repo = make_repo(db)
-    return (LoggingService(repo, clock()),
-            TodayService(repo, BabyRepo(db), clock(), CONFIG))
+    return (LoggingService(repo, clock()), TodayService(repo, BabyRepo(db), clock(), CONFIG))
 
 
 def test_counts_only_trailing_24h() -> None:

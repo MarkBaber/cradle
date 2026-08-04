@@ -1,6 +1,7 @@
 """A4: nappy rules, day-of-life table, stool colour flags."""
 
 import _facts as F
+
 from cradle.models import NappyKind, StoolColour
 
 
@@ -56,8 +57,7 @@ def test_red_stool_colours_fire() -> None:
 
 
 def test_normal_colours_do_not_fire() -> None:
-    for colour in (StoolColour.YELLOW, StoolColour.GREEN, StoolColour.BROWN,
-                   StoolColour.MECONIUM):
+    for colour in (StoolColour.YELLOW, StoolColour.GREEN, StoolColour.BROWN, StoolColour.MECONIUM):
         facts = F.facts(nappies=(F.nappy(1, NappyKind.DIRTY, colour),))
         assert F.fire("STOOL_COLOUR", facts) is None, colour
 

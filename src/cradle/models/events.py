@@ -23,13 +23,13 @@ class Baby:
     name: str
     sex: Sex
     dob: date
-    due_date: date          # gestational-age / corrected-age basis
+    due_date: date  # gestational-age / corrected-age basis
     birth_weight_g: int
 
 
 @dataclass(frozen=True, slots=True)
 class _EventBase:
-    event_id: int | None    # None until persisted
+    event_id: int | None  # None until persisted
     baby_id: int
     ts: datetime
     logged_by: str
@@ -38,8 +38,8 @@ class _EventBase:
 @dataclass(frozen=True, slots=True)
 class FeedEvent(_EventBase):
     method: FeedMethod = FeedMethod.BREAST_LEFT
-    duration_min: int | None = None   # breast feeds
-    volume_ml: int | None = None      # bottle feeds
+    duration_min: int | None = None  # breast feeds
+    volume_ml: int | None = None  # bottle feeds
     note: str = ""
 
 
@@ -51,15 +51,15 @@ class NappyEvent(_EventBase):
 
 @dataclass(frozen=True, slots=True)
 class SleepEvent(_EventBase):
-    ts_end: datetime | None = None    # None while sleep is running
+    ts_end: datetime | None = None  # None while sleep is running
     location: str = "cot"
 
 
 @dataclass(frozen=True, slots=True)
 class GrowthEvent(_EventBase):
     measure: GrowthMeasure = GrowthMeasure.WEIGHT
-    value: int = 0                    # g or mm per measure
-    source: str = "home"              # home | midwife
+    value: int = 0  # g or mm per measure
+    source: str = "home"  # home | midwife
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +70,7 @@ class TemperatureEvent(_EventBase):
 
 @dataclass(frozen=True, slots=True)
 class Milestone(_EventBase):
-    category: str = "first"           # motor | social | communication | first
+    category: str = "first"  # motor | social | communication | first
     title: str = ""
     note: str = ""
 

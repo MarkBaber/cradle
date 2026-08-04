@@ -24,15 +24,16 @@ from cradle.models import (  # noqa: E402
 )
 
 NOW = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
-DOB = date(2026, 7, 1)          # NOW is day 15 of life
+DOB = date(2026, 7, 1)  # NOW is day 15 of life
 CONFIG = tomllib.loads((ROOT / "rules_config.toml").read_text(encoding="utf-8"))
 
 _next_id = iter(range(1, 100000))
 
 
 def baby(dob: date = DOB, birth_weight_g: int = 3400) -> Baby:
-    return Baby(baby_id=1, name="Test", sex=Sex.FEMALE, dob=dob,
-                due_date=dob, birth_weight_g=birth_weight_g)
+    return Baby(
+        baby_id=1, name="Test", sex=Sex.FEMALE, dob=dob, due_date=dob, birth_weight_g=birth_weight_g
+    )
 
 
 def _base(ts: datetime) -> dict[str, object]:
@@ -40,31 +41,32 @@ def _base(ts: datetime) -> dict[str, object]:
 
 
 def feed(hours_ago: float, now: datetime = NOW) -> FeedEvent:
-    return FeedEvent(method=FeedMethod.BREAST_LEFT,
-                     **_base(now - timedelta(hours=hours_ago)))
+    return FeedEvent(method=FeedMethod.BREAST_LEFT, **_base(now - timedelta(hours=hours_ago)))
 
 
 def feeds_every(hours: float, count: int, now: datetime = NOW) -> tuple[FeedEvent, ...]:
     return tuple(feed(hours * i, now) for i in range(count))
 
 
-def nappy(hours_ago: float, kind: NappyKind = NappyKind.WET,
-          colour: StoolColour = StoolColour.UNSET,
-          now: datetime = NOW) -> NappyEvent:
-    return NappyEvent(kind=kind, stool_colour=colour,
-                      **_base(now - timedelta(hours=hours_ago)))
+def nappy(
+    hours_ago: float,
+    kind: NappyKind = NappyKind.WET,
+    colour: StoolColour = StoolColour.UNSET,
+    now: datetime = NOW,
+) -> NappyEvent:
+    return NappyEvent(kind=kind, stool_colour=colour, **_base(now - timedelta(hours=hours_ago)))
 
 
-def nappies_every(hours: float, count: int, kind: NappyKind = NappyKind.WET,
-                  now: datetime = NOW) -> tuple[NappyEvent, ...]:
+def nappies_every(
+    hours: float, count: int, kind: NappyKind = NappyKind.WET, now: datetime = NOW
+) -> tuple[NappyEvent, ...]:
     return tuple(nappy(hours * i, kind, now=now) for i in range(count))
 
 
-def growth(days_ago: float, value: int,
-           measure: GrowthMeasure = GrowthMeasure.WEIGHT,
-           now: datetime = NOW) -> GrowthEvent:
-    return GrowthEvent(measure=measure, value=value,
-                       **_base(now - timedelta(days=days_ago)))
+def growth(
+    days_ago: float, value: int, measure: GrowthMeasure = GrowthMeasure.WEIGHT, now: datetime = NOW
+) -> GrowthEvent:
+    return GrowthEvent(measure=measure, value=value, **_base(now - timedelta(days=days_ago)))
 
 
 def temperature(hours_ago: float, temp_c: float, now: datetime = NOW) -> TemperatureEvent:
@@ -85,9 +87,15 @@ def facts(
     baseline_weight_z: float | None = None,
 ) -> FactSet:
     return FactSet(
-        baby=baby(dob, birth_weight_g), feeds=feeds, nappies=nappies, sleeps=sleeps,
-        growth=growths, temperatures=temperatures, latest_weight_z=latest_weight_z,
-        baseline_weight_z=baseline_weight_z, as_of=now,
+        baby=baby(dob, birth_weight_g),
+        feeds=feeds,
+        nappies=nappies,
+        sleeps=sleeps,
+        growth=growths,
+        temperatures=temperatures,
+        latest_weight_z=latest_weight_z,
+        baseline_weight_z=baseline_weight_z,
+        as_of=now,
     )
 
 
@@ -106,8 +114,10 @@ def healthy_baseline(now: datetime = NOW) -> dict[str, object]:
     return {
         "now": now,
         "feeds": feeds_every(2, 12, now),
-        "nappies": (*nappies_every(3, 8, NappyKind.WET, now),
-                    *nappies_every(8, 3, NappyKind.DIRTY, now)),
+        "nappies": (
+            *nappies_every(3, 8, NappyKind.WET, now),
+            *nappies_every(8, 3, NappyKind.DIRTY, now),
+        ),
         "growths": (growth(1, 3500, now=now),),
         "temperatures": (temperature(1, 36.8, now),),
     }

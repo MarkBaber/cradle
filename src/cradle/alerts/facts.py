@@ -25,6 +25,6 @@ class FactSet:
     sleeps: tuple[SleepEvent, ...]
     growth: tuple[GrowthEvent, ...]
     temperatures: tuple[TemperatureEvent, ...]
-    latest_weight_z: float | None      # supplied by growth service for CENTILE_CROSS
+    latest_weight_z: float | None  # supplied by growth service for CENTILE_CROSS
     baseline_weight_z: float | None
-    as_of: datetime                    # snapshot time; the engine's only "now"
+    as_of: datetime  # snapshot time; the engine's only "now"

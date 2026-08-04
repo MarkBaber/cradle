@@ -31,8 +31,9 @@ class HistoryService:
         out: list[HistoryRow] = []
         wanted = set(domains) & set(DOMAINS)
 
-        def add(table: str, event_id: int | None, ts: datetime, detail: str,
-                logged_by: str) -> None:
+        def add(
+            table: str, event_id: int | None, ts: datetime, detail: str, logged_by: str
+        ) -> None:
             if event_id is not None:
                 out.append(HistoryRow(table, event_id, ts, detail, logged_by))
 
@@ -61,12 +62,16 @@ class HistoryService:
         if "growth" in wanted:
             for g in self._repo.list_growth(limit=limit):
                 unit = "g" if g.measure.value == "weight" else "mm"
-                add("growth", g.event_id, g.ts,
-                    f"{g.measure.value} {g.value}{unit} ({g.source})", g.logged_by)
+                add(
+                    "growth",
+                    g.event_id,
+                    g.ts,
+                    f"{g.measure.value} {g.value}{unit} ({g.source})",
+                    g.logged_by,
+                )
         if "temperature" in wanted:
             for t in self._repo.list_temperatures(limit, since, until):
-                add("temperature", t.event_id, t.ts, f"{t.temp_c:.1f} C ({t.site})",
-                    t.logged_by)
+                add("temperature", t.event_id, t.ts, f"{t.temp_c:.1f} C ({t.site})", t.logged_by)
         if "milestone" in wanted:
             for m in self._repo.list_milestones(limit):
                 add("milestone", m.event_id, m.ts, f"{m.category}: {m.title}", m.logged_by)
