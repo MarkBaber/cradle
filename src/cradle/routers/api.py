@@ -17,12 +17,30 @@ from cradle.models import (
     GrowthMeasure,
     NappyKind,
     StoolColour,
+    UneditableFieldError,
     UnknownTableError,
     to_utc,
 )
 from cradle.routers.deps import Services, device_name
 
 UNDO_SECONDS = 10
+
+# Value coercion for the generic post-hoc field editor (U10). The allow-list
+# itself lives in EventsRepo.EDITABLE; this only maps a raw form string to the
+# right Python type for the fields that list permits.
+_INT_FIELDS = {"duration_min", "volume_ml", "value"}
+_DATETIME_FIELDS = {"ts", "ts_end"}
+_FLOAT_FIELDS = {"temp_c"}
+
+
+def _coerce_field_value(field: str, raw: str) -> object:
+    if field in _DATETIME_FIELDS:
+        return to_utc(datetime.fromisoformat(raw))
+    if field in _INT_FIELDS:
+        return int(raw)
+    if field in _FLOAT_FIELDS:
+        return float(raw)
+    return raw
 
 
 def _toast(table: str, event_id: int, label: str) -> str:
@@ -152,6 +170,27 @@ def build_api_router(svc: Services) -> APIRouter:
             return HTMLResponse('<div class="toast err">Bad time</div>', status_code=400)
         if request.headers.get("HX-Request"):
             return HTMLResponse('<div class="toast">Time updated</div>')
+        return RedirectResponse("/history", status_code=303)
+
+    @router.post("/api/edit-field")
+    def post_edit_field(
+        request: Request,
+        table: Annotated[str, Form()],
+        event_id: Annotated[int, Form()],
+        field: Annotated[str, Form()],
+        value: Annotated[str, Form()],
+    ) -> Response:
+        """Generic post-hoc field edit (SPEC 5.4): volume_ml, duration_min, ts_end etc.
+
+        EventsRepo.edit_event enforces the per-table column allow-list; a field
+        outside it raises UneditableFieldError here, same as an unknown table.
+        """
+        try:
+            svc.logging.edit(table, event_id, {field: _coerce_field_value(field, value)})
+        except (UnknownTableError, UneditableFieldError, ValueError):
+            return HTMLResponse('<div class="toast err">Bad value</div>', status_code=400)
+        if request.headers.get("HX-Request"):
+            return HTMLResponse('<div class="toast">Updated</div>')
         return RedirectResponse("/history", status_code=303)
 
     @router.post("/api/delete")
