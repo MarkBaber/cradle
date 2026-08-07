@@ -443,13 +443,13 @@ exit_criteria = ["HTMX_SHA256 populated", "CI fails on checksum mismatch (test)"
 id = "U9"
 phase = 1
 title = "Display-timezone setting"
-status = "todo"
+status = "review"
 routing = "impl"
 depends = ["U2"]
 touches = ["src/cradle/models/timefmt.py", "rules_config.toml", "src/cradle/routers/templates/settings.html"]
 description = "timefmt currently uses the server's local zone for both parsing datetime-local input and rendering. Make the zone explicit and configurable so a phone in another timezone cannot silently shift timestamps."
 exit_criteria = ["configured zone used for parse+render (test)", "DST boundary case tested"]
-notes = "touches corrected 2026-08-04: amendment U2 moved timefmt from routers to models, so the path recorded here no longer existed. Note the zone is also read by series_service (local-day bucketing) and by the ribbon view, so a config-driven zone must reach the service layer, not only the templates."
+notes = "touches corrected 2026-08-04: amendment U2 moved timefmt from routers to models, so the path recorded here no longer existed. Note the zone is also read by series_service (local-day bucketing) and by the ribbon view, so a config-driven zone must reach the service layer, not only the templates. Implemented 2026-08-07: timefmt.to_utc/to_local keep their original single-arg signatures (public contract preserved); zone is resolved internally from a new [display].timezone key in rules_config.toml (module-level CONFIG_PATH read via tomllib+zoneinfo, default UTC), so series_service and the ribbon view pick it up transitively with no changes of their own, satisfying the 'reach the service layer' note without touching series_service.py. settings.html documents the setting as a file-edit note (ntfy convention) rather than a form field, since no route/service change was in scope. Tests added in tests/unit/test_timefmt.py cover configured-zone parse+render and both DST transitions (2026-03-29 spring-forward, 2026-10-25 fall-back) for Europe/London. scripts/backlog.py does not exist in this checkout; ran scripts/validate_tasks.py instead (exits 0) as the closest equivalent tasks.toml validator."
 
 [[task]]
 id = "R5"
