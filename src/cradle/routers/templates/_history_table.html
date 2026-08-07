@@ -3,7 +3,8 @@
   {% for r in rows %}
     <tr id="{{ r.table }}-{{ r.event_id }}" class="{{ 'focus' if focus == r.table ~ ':' ~ r.event_id|string }}">
       <td class="t">{{ (r.ts | local).strftime('%d %b %H:%M') }}</td>
-      <td class="d"><span class="tag {{ r.table }}">{{ r.table }}</span> {{ r.detail }}</td>
+      <td class="d"><span class="tag {{ r.table }}">{{ r.table }}</span> {{ r.detail }}
+        {%- if r.logged_by %} <span class="by">by {{ r.logged_by }}</span>{% endif %}</td>
       <td class="a">
         <form method="post" action="/api/adjust-time" hx-post="/api/adjust-time"
               hx-target="#toast" hx-swap="innerHTML" class="inline">

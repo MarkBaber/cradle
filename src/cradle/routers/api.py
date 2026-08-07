@@ -24,6 +24,7 @@ from cradle.models import (
 from cradle.routers.deps import Services, device_name
 
 UNDO_SECONDS = 10
+DEVICE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60  # browsers cap persistent cookies at 400 days
 
 # Value coercion for the generic post-hoc field editor (U10). The allow-list
 # itself lives in EventsRepo.EDITABLE; this only maps a raw form string to the
@@ -235,6 +236,24 @@ def build_api_router(svc: Services) -> APIRouter:
                 '<p class="err">Check the dates and sex value.</p>', status_code=400
             )
         return RedirectResponse("/", status_code=303)
+
+    @router.post("/api/settings/device")
+    def post_device(
+        request: Request,
+        device: Annotated[str, Form()] = "",
+    ) -> Response:
+        """Name this device (D7). A plain cookie: it labels rows, it protects nothing.
+        Rows already written keep whatever attribution they were saved with."""
+        # Set-Cookie is latin-1 on the wire; anything else would 500 on the way out.
+        name = "".join(c for c in device_name(device) if ord(c) < 256).strip()
+        back = "/settings" if svc.settings.has_profile() else "/settings?first_run=1"
+        resp: Response = (
+            HTMLResponse('<span class="ok">Device name saved.</span>')
+            if request.headers.get("HX-Request")
+            else RedirectResponse(back, status_code=303)
+        )
+        resp.set_cookie("device_name", name, max_age=DEVICE_COOKIE_MAX_AGE, samesite="lax")
+        return resp
 
     @router.post("/api/settings/test-notification")
     def post_test_notification(request: Request) -> Response:

@@ -2,8 +2,20 @@
 {% set nav = 'settings' %}
 {% block title %}Settings · CRADLE{% endblock %}
 {% block content %}
-{% if first_run %}<h1>Welcome</h1><p class="note">Add the baby's details to get started.</p>
+{% if first_run %}<h1>Welcome</h1><p class="note">Name this device and add the baby's details to
+get started.</p>
 {% else %}<h1>Settings</h1>{% endif %}
+
+<h2>This device</h2>
+<form method="post" action="/api/settings/device"
+      hx-post="/api/settings/device" hx-target="#device-result" hx-swap="innerHTML" class="stack">
+  <label>Device name <input type="text" name="device" maxlength="40"
+    placeholder="e.g. Mum's phone" value="{{ device }}"></label>
+  <button type="submit">Save device name</button>
+</form>
+<p id="device-result" class="note">{% if device %}Entries logged here are labelled
+"{{ device }}".{% else %}Name this device so history shows who logged each entry. It is a label,
+not a login — anyone on the household network can log entries.{% endif %}</p>
 
 <form method="post" action="/api/settings/profile" class="stack">
   <label>Name <input type="text" name="name" required
