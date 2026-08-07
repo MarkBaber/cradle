@@ -1,6 +1,36 @@
-UNVENDORED
-Task R2 is outstanding. This file must record, before growth centiles are trusted:
-  - exact source files (RCPCH UK-WHO 0-4y chart data, or WHO Child Growth Standards LMS)
-  - retrieval date and URL
-  - licence / terms of use
-The first line is read as the table version and stamped into every ZResult.
+UK-WHO-0-2y-2026.08.07
+Task R2. UK-WHO LMS reference table, both sexes, weight/length/head-circumference,
+birth to 2 years (age_days 0-730).
+
+Source repository: https://github.com/rcpch/growth-references
+Source file:        uk-who/UK_WHO_0_20_preterm.csv
+Commit:              c13ee6983f94cb4c74f257bf70a62958cd5e3bc4 (main, 2025-07-27)
+Retrieved:           2026-08-07
+
+Composition (per SPEC D4 / 5.1): rows tagged "British1990" in the source file
+for age_days 0 and 7 (40-41 weeks gestation columns; the source also carries a
+week-42/day-14 British1990 row and a preterm gestational-tracking extension
+back to 23 weeks gestation - both dropped here, since day 14 onward is WHO2006
+per spec and this table only serves postnatal lookups, never gestational-age
+lookups). Rows tagged "WHO2006" for age_days 14-730. Where the source carries
+a duplicate point at exactly age_days=730 (WHO publishes separate LMS sets for
+recumbent length, 0-2y, vs standing height, 2-5y, with a small measurement-
+convention discontinuity at the boundary), the 0-2y/recumbent-length row was
+kept and the 2-5y/standing-height row dropped, since this table's scope is
+birth->2y only.
+
+Units: source weight is kg (converted x1000 to grams), source length/head-
+circumference are cm (converted x10 to millimetres), matching this table's
+grams/millimetres convention (see reference/lms.py). L and S are dimensionless
+and were not rescaled.
+
+Licence: RCPCH's growth-references repository is MIT-licensed for the
+repository/code; the repository's own README states the UK-derived series
+("British1990") are usable only under an MRC licence, separately from the
+WHO-derived series which are open data. MRC licence terms were not obtained
+or verified. This table is vendored for personal, non-distributed use only
+per explicit instruction; it must not be redistributed or used commercially
+without first securing that licence - see growth.digital@rcpch.ac.uk.
+
+The first line above is read as the table version and stamped into every
+ZResult.

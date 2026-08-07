@@ -134,13 +134,13 @@ notes = "Arithmetic verified against hand-computed vectors with synthetic LMS ta
 id = "R2"
 phase = 2
 title = "Vendor UK-WHO LMS tables"
-status = "blocked"
+status = "review"
 routing = "impl"
 depends = []
-touches = ["src/cradle/reference/data/ukwho_lms.csv", "src/cradle/reference/VERSION"]
+touches = ["src/cradle/reference/data/ukwho_lms.csv", "src/cradle/reference/VERSION", "tests/unit/test_lms.py"]
 description = "Vendor weight/length/head-circ LMS rows, both sexes, birth->2y (UK-WHO composition). VERSION records source files, retrieval date, licence."
 exit_criteria = ["CSV parses; monotone age coverage per (measure,sex) (test)", "VERSION provenance complete"]
-notes = "BLOCKED - architect action required. UK-WHO LMS coefficients could not be vendored: no network egress in the authoring sandbox, and the values are not reproducible from memory. They were deliberately NOT synthesised: fabricated coefficients would render plausible-looking centiles on a chart used to judge newborn weight loss. Obtain the tables from RCPCH (UK-WHO 0-4y chart data) or the WHO Child Growth Standards LMS files, record source filenames + retrieval date + licence in reference/VERSION, then unblock R4/U5. 2026-08-04: architect confirmed the source files are obtainable, so this is scheduled work rather than an open question. Drop the files in reference/data/ukwho_lms.csv with columns measure,sex,age_days,L,M,S and fill in VERSION; the loader in reference/lms.py already validates shape, rejects duplicate ages and refuses to approximate, so a bad table fails loudly at startup rather than rendering a wrong centile. Downstream: R4 then G1/U5/C3, and CENTILE_CROSS stops being silent."
+notes = "2026-08-07: Vendored from rcpch/growth-references (github.com/rcpch/growth-references, uk-who/UK_WHO_0_20_preterm.csv, commit c13ee6983f94cb4c74f257bf70a62958cd5e3bc4). Rows filtered to age_days 0-730: British1990-tagged rows for day 0/7, WHO2006-tagged rows for day 14-730 (day-14 handover per SPEC 5.1 'WHO standard from 2 weeks'); the source's preterm/gestational-tracking extension (23-39 weeks gestation) was dropped since this table only serves postnatal corrected-age lookups (D5 clamps corrected age to >=0, never looks up gestational age directly), and the source's duplicate age=730 'standing height' row (its 2-5y series) was dropped in favour of the 0-2y 'recumbent length' row. Units converted to match reference/lms.py (weight kg->g, length/head-circ cm->mm); L/S left unscaled. Full derivation and unit/row-selection rationale recorded in reference/VERSION. scripts/test.sh, lint.sh, check_layers.sh all green; new test asserts the real vendored table parses with full 6-series birth->2y coverage. NOT independently verified against published chart values - that's R4's job (oracle vectors), still blocked pending its own vectors. Licence: per explicit instruction this is vendored for personal, non-distributed use; the MRC licence covering the British1990-derived series was not obtained or checked - see VERSION for the caveat before any wider distribution. Downstream: R4 (now unblockable) then G1/U5/C3, and CENTILE_CROSS stops being silent."
 
 [[task]]
 id = "R3"
