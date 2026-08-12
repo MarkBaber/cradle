@@ -177,3 +177,20 @@ def test_valid_table_loads_and_reports_version() -> None:
     assert t.version == "test-v1"
     assert t.age_range(W, F) == (0, 10)
     assert t.zscore(W, F, 0, 3400.0).table_version == "test-v1"
+
+
+# ------------------------------------------------------------ vendored table (R2)
+
+
+def test_vendored_table_parses_with_monotone_birth_to_2y_coverage() -> None:
+    """R2 exit criterion: CSV parses; monotone age coverage per (measure,sex)."""
+    t = load_table()
+    expected_keys = {
+        (m.value, s.value) for m in GrowthMeasure for s in Sex
+    }
+    assert set(t.keys()) == expected_keys
+    for measure in GrowthMeasure:
+        for sex in Sex:
+            lo, hi = t.age_range(measure, sex)
+            assert lo == 0, f"{measure.value}/{sex.value} must start at birth"
+            assert hi >= 365 * 2, f"{measure.value}/{sex.value} must reach 2 years"
