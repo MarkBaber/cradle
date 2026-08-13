@@ -95,11 +95,25 @@ def test_naming_a_device_copes_with_awkward_input() -> None:
     assert client.post("/api/settings/device", data={"device": "phone 📱"}).status_code == 303
     assert 'value="phone"' in client.get("/settings").text
 
+    # Control characters are rejected by Set-Cookie too, and a tab must not run the
+    # words together the way a dropped character would.
+    assert client.post("/api/settings/device", data={"device": "hall\tphone"}).status_code == 303
+    assert 'value="hall phone"' in client.get("/settings").text
+
+    # The HTMX fragment is hand-built HTML, so the name has to be escaped into it.
+    markup = client.post(
+        "/api/settings/device", data={"device": "<b>tv</b>"}, headers={"HX-Request": "true"}
+    )
+    assert "<b>" not in markup.text
+    assert "&lt;b&gt;tv&lt;/b&gt;" in markup.text
+
     hx = client.post(
         "/api/settings/device", data={"device": " tablet "}, headers={"HX-Request": "true"}
     )
     assert hx.status_code == 200
+    # The fragment echoes what was stored, which is not always what was typed.
     assert "saved" in hx.text
+    assert "tablet" in hx.text
     client.post("/api/feed", data={"method": "breast_left"})
 
     # Clearing the name stops attribution without disturbing rows already written.

@@ -17,6 +17,7 @@ get started.</p>
 "{{ device }}".{% else %}Name this device so history shows who logged each entry. It is a label,
 not a login — anyone on the household network can log entries.{% endif %}</p>
 
+<h2>Baby</h2>
 <form method="post" action="/api/settings/profile" class="stack">
   <label>Name <input type="text" name="name" required
     value="{{ profile.name if profile else '' }}"></label>
