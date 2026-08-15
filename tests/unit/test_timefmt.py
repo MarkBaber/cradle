@@ -1,7 +1,9 @@
 """U2: timezone normalisation at the browser boundary. U9: configured display zone."""
 
+import os
 import sys
 import tempfile
+import zoneinfo
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -91,3 +93,35 @@ def test_dst_boundary_fall_back() -> None:
         gmt = to_local(datetime(2026, 10, 25, 1, 30, tzinfo=UTC))
         assert (gmt.hour, gmt.minute) == (1, 30)
         assert gmt.utcoffset() == timedelta(0)
+
+
+def test_invalid_zone_name_raises() -> None:
+    """A typo'd zone name must fail loudly, not masquerade as UTC (SPEC R1)."""
+    with _configured_zone("Europe/Lonodn"):
+        try:
+            to_utc(datetime(2026, 7, 15, 9, 30))
+        except zoneinfo.ZoneInfoNotFoundError:
+            pass
+        else:
+            raise AssertionError("expected ZoneInfoNotFoundError for a bad zone name")
+
+
+def test_edited_config_picked_up_without_restart() -> None:
+    """The zone is cached by (path, mtime): editing the file on disk must
+    still be picked up on the next call, not just at process start."""
+    with tempfile.TemporaryDirectory() as tmp:
+        config = Path(tmp) / "rules_config.toml"
+        config.write_text('[display]\ntimezone = "UTC"\n')
+        with _config_path(config):
+            first = to_utc(datetime(2026, 6, 15, 9, 30))
+            assert first == datetime(2026, 6, 15, 9, 30, tzinfo=UTC)
+
+            config.write_text('[display]\ntimezone = "Europe/London"\n')
+            # Force a distinct mtime: some filesystems have 1s resolution,
+            # and the cache is keyed on mtime not on content.
+            future = os.path.getmtime(config) + 5
+            os.utime(config, (future, future))
+
+            # 2026-06-15 is BST (UTC+1): naive 09:30 local -> 08:30 UTC.
+            second = to_utc(datetime(2026, 6, 15, 9, 30))
+            assert second == datetime(2026, 6, 15, 8, 30, tzinfo=UTC)
