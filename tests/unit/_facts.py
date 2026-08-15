@@ -15,8 +15,10 @@ from cradle.models import (  # noqa: E402
     FeedMethod,
     GrowthEvent,
     GrowthMeasure,
+    Milestone,
     NappyEvent,
     NappyKind,
+    Note,
     Sex,
     SleepEvent,
     StoolColour,
@@ -58,9 +60,13 @@ def nappy(
 
 
 def nappies_every(
-    hours: float, count: int, kind: NappyKind = NappyKind.WET, now: datetime = NOW
+    hours: float,
+    count: int,
+    kind: NappyKind = NappyKind.WET,
+    colour: StoolColour = StoolColour.UNSET,
+    now: datetime = NOW,
 ) -> tuple[NappyEvent, ...]:
-    return tuple(nappy(hours * i, kind, now=now) for i in range(count))
+    return tuple(nappy(hours * i, kind, colour, now) for i in range(count))
 
 
 def growth(
@@ -73,6 +79,25 @@ def temperature(hours_ago: float, temp_c: float, now: datetime = NOW) -> Tempera
     return TemperatureEvent(temp_c=temp_c, **_base(now - timedelta(hours=hours_ago)))
 
 
+def sleep(hours_ago: float, duration_hours: float | None, now: datetime = NOW) -> SleepEvent:
+    """A sleep started `hours_ago`; still running (no ts_end) when duration is None."""
+    start = now - timedelta(hours=hours_ago)
+    ts_end = start + timedelta(hours=duration_hours) if duration_hours is not None else None
+    return SleepEvent(ts_end=ts_end, **_base(start))
+
+
+def milestone(
+    hours_ago: float, category: str = "motor", title: str = "held head up", now: datetime = NOW
+) -> Milestone:
+    return Milestone(category=category, title=title, **_base(now - timedelta(hours=hours_ago)))
+
+
+def note(
+    hours_ago: float, text: str = "settled quickly after every feed today", now: datetime = NOW
+) -> Note:
+    return Note(text=text, **_base(now - timedelta(hours=hours_ago)))
+
+
 def facts(
     *,
     now: datetime = NOW,
@@ -83,9 +108,16 @@ def facts(
     sleeps: tuple[SleepEvent, ...] = (),
     growths: tuple[GrowthEvent, ...] = (),
     temperatures: tuple[TemperatureEvent, ...] = (),
+    milestones: tuple[Milestone, ...] = (),
+    notes: tuple[Note, ...] = (),
     latest_weight_z: float | None = None,
     baseline_weight_z: float | None = None,
 ) -> FactSet:
+    # FactSet has no milestone/note fields - the rule engine only ever reads the
+    # five domains below, so these two are accepted but dropped here. That lets
+    # a fixture log a genuinely complete day (A9 regression guard) without every
+    # caller needing to know milestones/notes are inert to alerting.
+    del milestones, notes
     return FactSet(
         baby=baby(dob, birth_weight_g),
         feeds=feeds,
@@ -110,14 +142,109 @@ def fire(rule_id: str, fact_set: FactSet, config: dict[str, object] | None = Non
 
 
 def healthy_baseline(now: datetime = NOW) -> dict[str, object]:
-    """A timeline where nothing should fire: frequent feeds and nappies."""
+    """A genuinely well-logged day across every domain: nothing should fire.
+
+    Covers all seven logged domains at once (A9 regression guard): weight,
+    length and head circumference together, a completed sleep and one still
+    running, a dirty nappy with a normal (non-flag) colour, a milestone and a
+    note - so a test can no longer accidentally exercise only one measure at
+    a time.
+    """
     return {
         "now": now,
         "feeds": feeds_every(2, 12, now),
         "nappies": (
-            *nappies_every(3, 8, NappyKind.WET, now),
-            *nappies_every(8, 3, NappyKind.DIRTY, now),
+            *nappies_every(3, 8, NappyKind.WET, now=now),
+            *nappies_every(8, 3, NappyKind.DIRTY, StoolColour.BROWN, now),
         ),
-        "growths": (growth(1, 3500, now=now),),
+        "sleeps": (
+            sleep(4, 1.5, now),
+            sleep(0.5, None, now),
+        ),
+        "growths": (
+            growth(1, 3500, now=now),
+            growth(2, 520, GrowthMeasure.LENGTH, now),
+            growth(2, 370, GrowthMeasure.HEAD_CIRC, now),
+        ),
         "temperatures": (temperature(1, 36.8, now),),
+        "milestones": (milestone(6, now=now),),
+        "notes": (note(5, now=now),),
     }
+
+
+def _override(now: datetime = NOW, **changes: object) -> dict[str, object]:
+    base = healthy_baseline(now)
+    base.update(changes)
+    return base
+
+
+def one_abnormality(rule_id: str) -> dict[str, object]:
+    """Healthy in every domain but one: only `rule_id` should fire.
+
+    Pairs with healthy_baseline() to guard against rules interfering with
+    each other (A9): each branch changes the single input a rule cares about
+    and leaves every other domain in its healthy state.
+    """
+    if rule_id == "FEED_GAP":
+        return _override(feeds=tuple(feed(5 + 2 * i) for i in range(12)))
+    if rule_id == "FEED_COUNT_LOW":
+        return _override(feeds=tuple(feed(4 * i) for i in range(5)))
+    if rule_id == "WET_NAPPY_LOW":
+        return _override(
+            nappies=(
+                *nappies_every(8, 3, NappyKind.WET),
+                *nappies_every(8, 3, NappyKind.DIRTY, StoolColour.BROWN),
+            )
+        )
+    if rule_id == "STOOL_ABSENT":
+        return _override(
+            nappies=(
+                *nappies_every(3, 8, NappyKind.WET),
+                nappy(25, NappyKind.DIRTY, StoolColour.BROWN),
+                nappy(33, NappyKind.DIRTY, StoolColour.BROWN),
+                nappy(41, NappyKind.DIRTY, StoolColour.BROWN),
+            )
+        )
+    if rule_id == "STOOL_COLOUR":
+        base = healthy_baseline()
+        base["nappies"] = (*base["nappies"], nappy(0.5, NappyKind.DIRTY, StoolColour.RED))
+        return base
+    if rule_id == "WEIGHT_LOSS_10PC":
+        return _override(
+            dob=NOW.date() - timedelta(days=9),  # day 10: below regain_by_day, isolates the loss
+            growths=(
+                growth(1, 3000),
+                growth(2, 520, GrowthMeasure.LENGTH),
+                growth(2, 370, GrowthMeasure.HEAD_CIRC),
+            ),
+        )
+    if rule_id == "WEIGHT_NOT_REGAINED":
+        return _override(
+            growths=(
+                growth(1, 3300),  # below birth weight but not a 10% loss
+                growth(2, 520, GrowthMeasure.LENGTH),
+                growth(2, 370, GrowthMeasure.HEAD_CIRC),
+            )
+        )
+    if rule_id == "CENTILE_CROSS":
+        return _override(latest_weight_z=-0.5, baseline_weight_z=1.0)
+    if rule_id == "FEVER_U3M":
+        return _override(temperatures=(temperature(1, 38.5),))
+    if rule_id == "WEIGH_IN_DUE":
+        return _override(
+            growths=(
+                growth(2, 520, GrowthMeasure.LENGTH),
+                growth(2, 370, GrowthMeasure.HEAD_CIRC),
+            )
+        )
+    if rule_id == "MEASUREMENT_GAP":
+        gap_now = NOW + timedelta(days=20)  # past every rule's max_age_days gate but one
+        return {
+            "now": gap_now,
+            "feeds": (),
+            "nappies": tuple(nappy(13 + 2 * i, NappyKind.WET, now=gap_now) for i in range(6)),
+            "sleeps": (),
+            "growths": (growth(13 / 24, 3500, now=gap_now),),
+            "temperatures": (),
+        }
+    raise AssertionError(f"no one_abnormality fixture for rule: {rule_id}")

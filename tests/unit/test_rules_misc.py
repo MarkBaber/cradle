@@ -73,3 +73,40 @@ def test_weigh_in_due_is_not_satisfied_by_a_length_measurement() -> None:
 
     facts = F.facts(growths=(F.growth(15, 3500), F.growth(1, 550, GrowthMeasure.LENGTH)))
     assert F.fire("WEIGH_IN_DUE", facts) is not None
+
+
+# --------------------------------------------------------- Q4 cross-domain fixtures
+
+ALL_RULE_IDS = (
+    "FEED_GAP",
+    "FEED_COUNT_LOW",
+    "WET_NAPPY_LOW",
+    "STOOL_ABSENT",
+    "STOOL_COLOUR",
+    "WEIGHT_LOSS_10PC",
+    "WEIGHT_NOT_REGAINED",
+    "CENTILE_CROSS",
+    "FEVER_U3M",
+    "WEIGH_IN_DUE",
+    "MEASUREMENT_GAP",
+)
+
+
+def _one_abnormality_case(rule_id: str):
+    def test() -> None:
+        from cradle.alerts import build_rules, evaluate
+
+        facts = F.facts(**F.one_abnormality(rule_id))
+        findings = evaluate(facts, build_rules(F.CONFIG))
+        assert [f.rule_id for f in findings] == [rule_id], [f.rule_id for f in findings]
+
+    test.__name__ = f"test_one_abnormality_fires_only_{rule_id.lower()}"
+    test.__doc__ = f"Q4: everything healthy but one input - only {rule_id} should fire."
+    return test
+
+
+for _rule_id in ALL_RULE_IDS:
+    globals()[f"test_one_abnormality_fires_only_{_rule_id.lower()}"] = _one_abnormality_case(
+        _rule_id
+    )
+del _rule_id
