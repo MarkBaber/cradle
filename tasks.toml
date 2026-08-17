@@ -557,13 +557,13 @@ notes = "Do not weaken the allow-list; it is the only thing standing between a f
 id = "U11"
 phase = 1
 title = "Stool colour capture"
-status = "todo"
+status = "blocked"
 routing = "impl"
 depends = ["U10"]
 touches = ["src/cradle/routers/api.py", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/templates/_history_table.html"]
 description = "The Dirty button posts kind=dirty with the default stool_colour=unset, and no template offers a colour anywhere. STOOL_COLOUR is a RED rule covering the pale/chalky, red and post-day-5 black amber-flag colours, and it is currently unreachable: the condition it screens for cannot be entered into the app at all. Offer the colour as an optional follow-up after the Dirty tap and as an inline edit in history."
 exit_criteria = ["dirty nappy logged with a colour end to end (route test)", "STOOL_COLOUR fires from a colour entered through the UI, not just from a synthetic fixture (test)", "quick-entry stays 2 taps: colour is never required to log a nappy (route test)"]
-notes = "Use the StoolColour enum already in models; do not author new colour names or any accompanying text - which colours are flags is a clinical claim owned by messages.py and A8. Plumbing only."
+notes = "SUPERSEDED 2026-08-17 by U18, which delivers colour capture inside the Dirty entry panel; parked rather than dropped so the reasoning survives. Both exit criteria that matter - colour logged end to end, and STOOL_COLOUR firing from a UI-entered colour rather than a fixture - are carried over verbatim into U18. Do not implement this separately: two passes over quick_entry.html for the same field is exactly the duplicated diff the touches rule exists to prevent. Nothing depends on U11, so blocking it stalls no other work."
 
 [[task]]
 id = "U12"
@@ -723,3 +723,68 @@ touches = [".github/workflows/ci.yml", ".gitlab-ci.yml"]
 description = "The gates are defined in .gitlab-ci.yml but the remote is GitHub, and there is no .github/workflows, so nothing runs on a push or a pull request - gh run list is empty. CLAUDE.md makes CI the sole arbiter of completion, and today nothing arbitrates: the validate stage sat red on main undetected until a task branch happened to run the scripts by hand. Port the four stages to one GitHub Actions workflow running the same scripts, so a red gate blocks a merge instead of waiting to be noticed. validate: scripts/validate_tasks.py then ruff format --check src tests. test: scripts/test.sh with junit.xml published as the test report. quality: scripts/lint.sh then scripts/check_layers.sh. risk: pytest tests/oracle, restricted to main or an explicit opt-in the way the GitLab rules restrict it. Python 3.12, pip cache keyed on pyproject.toml. Decide the fate of .gitlab-ci.yml in the same diff - retire it, or keep it and say in a comment which file is authoritative - because two pipelines that drift apart are worse than one."
 exit_criteria = ["workflow triggers on push to main and on pull_request, and reports a status check on the PR", "all four stages run the existing scripts/ entry points, no gate logic duplicated into YAML", "junit.xml from scripts/test.sh surfaces as a test report on the run", "a deliberately broken commit fails the run - unformatted file fails validate, failing test fails test, layering violation fails quality (proven once, then reverted)", "the oracle stage runs on main and not on an ordinary PR, matching the current rules", "the fate of .gitlab-ci.yml is settled in the same diff, not left ambiguous"]
 notes = "Found while fixing the two validate-stage failures that had been red on main independently of any task branch: a ruff format violation in tests/unit/test_lms.py, and validate_tasks.py rejecting nine tasks marked done over the blocked R4 oracle gate (A1, C2, C3, G1, N2, O1, Q1, U5, U6, all now review). Both had been red for some time precisely because no CI observed them. Until this task lands, every review to done flip is a human assertion rather than a verified one, so the nine downgraded tasks cannot be honestly restored to done by CI - which is the argument for doing this before phase 6 closes. Keep the scripts as the single definition of each gate: the workflow calls them, it does not reimplement them, so a contributor running scripts/test.sh locally sees exactly what CI sees."
+
+# ------- Structured quick-entry: U16 decides, U17 names, U18 builds, U19-U20 extend -------
+# Renumbered from the original U14-U18 (see notes below): U14 was taken by the Phase 6
+# milk-stock UI task and U15 by U12's device-banner follow-up, both landed on main while
+# this branch was open.
+
+[[task]]
+id = "U16"
+phase = 1
+title = "Entry model: quick-entry gains a confirm step"
+status = "todo"
+routing = "architect"
+depends = []
+touches = ["docs/SPEC.md"]
+description = "SPEC 5.4 specifies quick-entry as six oversized buttons -> one confirm-free POST at now, with volume and duration as optional post-hoc edits that are never entry gates. U18 replaces that: a tap opens a panel pre-populated with sensible defaults, and nothing is written until Save, with side, volume, duration, colour and consistency offered at entry time. Product decision 2026-08-17: the confirm step is wanted, because a volume nobody enters is a bottle_ml series that is permanently zero, and the post-hoc edit path (U10) is the one nobody uses at 3am. Amend 5.4 so the SPEC describes the app being built rather than the one originally designed."
+exit_criteria = ["SPEC 5.4 describes the tap-panel-Save flow and no longer reads confirm-free", "the <=2-tap target in SPEC 2 restated against the new flow (tap + Save with defaults accepted) or explicitly re-set to a new number", "the abandoned-panel case specified: what a tap with no Save leaves behind", "rejected alternative recorded (write the row on tap, then refine it in place)"]
+notes = "Cheap to write, and it gates U18: an impl task whose diff contradicts a settled SPEC line is what gets reverted at review. This does not touch the D1-D11 table - D1's HTMX stack is exactly what the panel is built from. The one real cost to state plainly is the abandoned panel: today a tap is a row, and afterwards a tap can be nothing, which changes what a parent who is interrupted mid-feed ends up with. U10 stays valid either way; post-hoc editing is still needed for the taps that were never refined."
+
+[[task]]
+id = "U17"
+phase = 1
+title = "Stool consistency vocabulary"
+status = "todo"
+routing = "architect"
+depends = []
+touches = ["src/cradle/models/enums.py", "src/cradle/models/events.py", "src/cradle/repos/events_repo.py", "src/cradle/repos/migrations/", "tests/unit/test_repos.py"]
+description = "The Dirty panel in U18 offers a description of the mess beyond its colour. models/enums.py has StoolColour and nothing else: there is no vocabulary for consistency, NappyEvent has no field to hold one, and the nappy table has no column. Define the closed set as StoolConsistency, add the field to NappyEvent defaulting to an UNSET member, persist it in a new migration, and extend the repo round-trip. Choosing which descriptions are worth distinguishing is a clinical claim, which is why this is architect-routed rather than folded into U18."
+exit_criteria = ["StoolConsistency enum with an UNSET default member, stored by .value like every other enum", "NappyEvent round-trips consistency through EventsRepo (test)", "migration applies cleanly on an existing database and is recorded in schema_version (test)", "nappy rows written before the migration read back as UNSET rather than raising (test)"]
+notes = "Do not let an impl agent pick these names: which stool descriptions are worth distinguishing is the same class of claim as which colours are flags (U11, A8), and a badly chosen set quietly shapes what a parent reports to a midwife. No rule reads this field and none should be written here - if a consistency ever becomes an alert condition it needs messages.py copy and therefore A8. P3 already claims migration 0002: take the next free number and check the directory before writing the file."
+
+[[task]]
+id = "U18"
+phase = 1
+title = "Feed and Mess entry panels"
+status = "todo"
+routing = "impl"
+depends = ["U16", "U17"]
+touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/static/app.css", "tests/routes/test_quick_entry.py"]
+description = "quick_entry.html posts a bare method or kind and nothing else, so FeedEvent.duration_min, FeedEvent.volume_ml and NappyEvent.stool_colour are unreachable from the page that exists to write them - /api/feed and /api/nappy already accept all three. Keep the six tiles under Feed / Mess / Sleep headings; a tap opens a panel below the grid with that choice pre-selected, and Save posts the whole event. Breast: side (L/R) and duration in minutes. Bottle: volume in ml, method defaulting to bottle_expressed with bottle_formula selectable - the button posts bottle_formula today, which is the wrong default for a household that expresses. Wet: timestamp only. Dirty: timestamp, StoolColour and the U17 consistency. Every panel defaults its timestamp to now and every field is optional."
+exit_criteria = ["each of the five tiles opens a panel with its own choice pre-selected (route test)", "breast feed logged with side and duration_min, bottle with volume_ml, end to end (route test)", "volume_ml entered here appears in /today bottle intake and in the bottle_ml series (test)", "dirty nappy logged with colour and consistency end to end (route test)", "STOOL_COLOUR fires from a colour entered through the UI, not from a synthetic fixture (test)", "accepting every default is 2 taps and writes a row at now (route test)", "no field is required: Save with defaults never 4xx (route test)"]
+notes = "Absorbs U11, which is parked for that reason; its two colour criteria are carried over above. Build the panel as an htmx fragment swap, not client state: D1 chose server-rendered fragments, and D1 also names Alpine, but static/vendor holds only htmx and plotly - Alpine is not actually vendored, and vendoring it is an architect call under the closed dependency set (SPEC 6), so do not reach for it. Native <select> and <input type=time> only in this task; the scroll wheel is U19 and must not block this. Do not touch models, repos or enums: the fields all exist after U17, and a wider diff belongs in another task."
+
+[[task]]
+id = "U19"
+phase = 1
+title = "Scroll-wheel time control"
+status = "todo"
+routing = "impl"
+depends = ["U18"]
+touches = ["src/cradle/routers/static/app.css", "src/cradle/routers/static/entry.js", "src/cradle/routers/templates/quick_entry.html", "tests/routes/test_quick_entry.py"]
+description = "U18 ships the panels with a native <input type=time>, which on a phone means a keyboard or a platform dialog for the single field that gets adjusted most often - the event happened twenty minutes ago and someone is logging it one-handed. Replace it with a thumb-driven wheel: a vertical scroll-snap list of times, seeded at now, snapping to a fixed step. CSS scroll-snap plus a small amount of plain JS to read the snapped value into the form; no new dependency."
+exit_criteria = ["the wheel writes a value the existing form post accepts unchanged (route test)", "the panel still submits a correct timestamp with JS disabled or the script unloaded (route test)", "keyboard and screen-reader access to the same value retained", "no new entry in the vendor directory and no change to pyproject dependencies"]
+notes = "The no-JS fallback criterion is the load-bearing one: this is a wheel over a real form control, not a replacement for it, so a script that fails to load must degrade to something a parent can still submit. Presentation only - it changes no stored value and no route signature, which is why it is separable from U18 and must not delay it. Keep it in its own static file rather than inline, so the CSP and the service-worker cache list stay simple."
+
+[[task]]
+id = "U20"
+phase = 1
+title = "Extend entry panels to sleep and the More drawer"
+status = "todo"
+routing = "impl"
+depends = ["U18", "U19"]
+touches = ["src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/static/app.css", "tests/routes/test_quick_entry.py"]
+description = "U18 covers Feed and Mess only, leaving two entry paths on the same page in a different idiom: the Sleep toggle posts with no way to correct a forgotten Wake tap or to say where the baby slept, though SleepEvent.location and SleepLocation (cot/pram/arms/other) both exist and no template offers them; and the More drawer keeps bare number inputs for weight, length, head circumference and temperature. Give sleep a panel for start, end and location, and put the same wheel and select treatment on the drawer's quantities."
+exit_criteria = ["sleep start and end adjustable at entry, and a forgotten wake correctable without deleting the row (route test)", "sleep location logged from the UI and read back (route test)", "weight, length, head circ and temperature entered through the panel controls (route test)", "one tap on Sleep still starts or ends a sleep at now (route test)"]
+notes = "Deliberately last: these are the low-frequency paths, and the panel idiom should be proven on feeds and nappies - which happen a dozen times a day - before it is copied. Sleep end overlaps U10, which makes ts_end editable from history; if U10 has landed, reuse its endpoint rather than adding a second write path for the same column. Growth and temperature keep their current post targets - this is a control-shape change, nothing about what is stored."
