@@ -142,6 +142,87 @@ def test_naive_adjust_time_does_not_corrupt_history_ordering() -> None:
     assert client.get("/history").status_code == 200
 
 
+def test_edit_field_sets_bottle_volume_after_the_fact() -> None:
+    """U10: volume_ml is a post-hoc edit, so /today and the bottle_ml series stay
+    zero until it's set, then pick it up once it is."""
+    client = _client()
+    client.post("/api/feed", data={"method": "bottle_formula"})
+    assert "Bottle intake" not in client.get("/today").text
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "feed", "event_id": 1, "field": "volume_ml", "value": "90"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "90 ml" in client.get("/history").text
+    assert "Bottle intake in the last 24h: 90 ml" in client.get("/today").text
+    series = client.get("/api/series/daily").json()
+    assert 90 in series["bottle_ml"]
+
+
+def test_edit_field_sets_breast_feed_duration() -> None:
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left"})
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "feed", "event_id": 1, "field": "duration_min", "value": "12"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "12 min" in client.get("/history").text
+
+
+def test_edit_field_sets_sleep_wake_time_and_updates_totals() -> None:
+    client = _client()
+    client.post("/api/sleep/toggle")
+    client.post(
+        "/api/adjust-time", data={"table": "sleep", "event_id": 1, "ts": "2026-07-15T10:00"}
+    )
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "sleep", "event_id": 1, "field": "ts_end", "value": "2026-07-15T11:00"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "slept 60 min" in client.get("/history").text
+    strip = client.get("/today/fragment").text
+    assert "1h0m" in strip and "slept / 24h" in strip
+
+
+def test_edit_field_rejects_column_outside_allow_list() -> None:
+    """logged_by is a real column on `feed` but not in EDITABLE - the allow-list
+    is what stands between a form post and an arbitrary column write (U10 notes)."""
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left"})
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "feed", "event_id": 1, "field": "logged_by", "value": "hacker"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 400
+
+
+def test_edit_field_rejects_unknown_table() -> None:
+    client = _client()
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "baby", "event_id": 1, "field": "ts", "value": "2026-07-15T09:00"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 400
+
+
+def test_edit_field_rejects_bad_value() -> None:
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left"})
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "feed", "event_id": 1, "field": "volume_ml", "value": "not-a-number"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 400
+
+
 def test_profile_rejects_bad_date() -> None:
     client = _client()
     bad = dict(PROFILE, dob="not-a-date")
