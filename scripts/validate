@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# House pre-push gate: manifest schema + layering + ADR log. Run before every push.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+python3 scripts/validate_tasks.py
+python3 tests/unit/test_layers.py
+python3 scripts/check_adr.py --all

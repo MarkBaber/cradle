@@ -185,9 +185,7 @@ def test_valid_table_loads_and_reports_version() -> None:
 def test_vendored_table_parses_with_monotone_birth_to_2y_coverage() -> None:
     """R2 exit criterion: CSV parses; monotone age coverage per (measure,sex)."""
     t = load_table()
-    expected_keys = {
-        (m.value, s.value) for m in GrowthMeasure for s in Sex
-    }
+    expected_keys = {(m.value, s.value) for m in GrowthMeasure for s in Sex}
     assert set(t.keys()) == expected_keys
     for measure in GrowthMeasure:
         for sex in Sex:

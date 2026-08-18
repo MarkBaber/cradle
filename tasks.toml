@@ -169,7 +169,7 @@ notes = "BLOCKED by R2. Harness, strictness tests and the parity gate are ready;
 id = "G1"
 phase = 2
 title = "Growth service"
-status = "done"
+status = "review"
 routing = "impl"
 depends = ["R4", "P1"]
 touches = ["src/cradle/services/growth_service.py", "tests/unit/test_growth_service.py"]
@@ -181,7 +181,7 @@ notes = "Implemented and tested against synthetic LMS tables: weight-loss maths,
 id = "U5"
 phase = 2
 title = "/charts growth centile view"
-status = "done"
+status = "review"
 routing = "impl"
 depends = ["G1"]
 touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/", "src/cradle/routers/static/"]
@@ -195,7 +195,7 @@ notes = "Page, /api/charts/{measure} endpoint, Plotly playback and the no-JS tab
 id = "A1"
 phase = 3
 title = "FactSet assembly service"
-status = "done"
+status = "review"
 routing = "impl"
 depends = ["P1", "G1"]
 touches = ["src/cradle/services/alerts_service.py", "tests/unit/test_factset.py"]
@@ -286,7 +286,7 @@ exit_criteria = ["httpx mock asserts URL/headers/priority", "network failure swa
 id = "N2"
 phase = 3
 title = "Scheduler wiring + sweep"
-status = "done"
+status = "review"
 routing = "impl"
 depends = ["A1", "A2", "N1"]
 touches = ["src/cradle/ports/scheduler.py", "src/cradle/services/alerts_service.py", "src/cradle/app.py"]
@@ -297,7 +297,7 @@ exit_criteria = ["sweep integration test with FixedClock + ConsoleNotifier", "ap
 id = "U6"
 phase = 3
 title = "Pinned red findings + acknowledge"
-status = "done"
+status = "review"
 routing = "impl"
 depends = ["N2", "U3"]
 touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/"]
@@ -323,7 +323,7 @@ notes = "SPEC placed these series in growth_service; split into services/series_
 id = "C2"
 phase = 4
 title = "/charts domain dashboards"
-status = "done"
+status = "review"
 routing = "impl"
 depends = ["C1", "U5"]
 touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/"]
@@ -335,7 +335,7 @@ notes = "Domain timeseries render on /charts and /patterns via series.js. Plotly
 id = "C3"
 phase = 4
 title = "Animated centile playback"
-status = "done"
+status = "review"
 routing = "impl"
 depends = ["U5"]
 touches = ["src/cradle/services/growth_service.py", "src/cradle/routers/templates/", "src/cradle/routers/static/"]
@@ -408,7 +408,7 @@ notes = "Service worker is served from / rather than /static/, because a worker'
 id = "O1"
 phase = 5
 title = "Pi deployment"
-status = "done"
+status = "review"
 routing = "impl"
 depends = ["N2"]
 touches = ["scripts/deploy/cradle.service", "README.md"]
@@ -420,7 +420,7 @@ notes = "systemd units hardened (ProtectSystem=strict, ReadWritePaths); nightly 
 id = "Q1"
 phase = 5
 title = "Weight-budget gate"
-status = "done"
+status = "review"
 routing = "tester"
 depends = ["W1", "C2"]
 touches = ["tests/unit/test_weight_budget.py"]
@@ -443,25 +443,25 @@ exit_criteria = ["HTMX_SHA256 populated", "CI fails on checksum mismatch (test)"
 id = "U9"
 phase = 1
 title = "Display-timezone setting"
-status = "todo"
+status = "review"
 routing = "impl"
 depends = ["U2"]
 touches = ["src/cradle/models/timefmt.py", "rules_config.toml", "src/cradle/routers/templates/settings.html"]
 description = "timefmt currently uses the server's local zone for both parsing datetime-local input and rendering. Make the zone explicit and configurable so a phone in another timezone cannot silently shift timestamps."
 exit_criteria = ["configured zone used for parse+render (test)", "DST boundary case tested"]
-notes = "touches corrected 2026-08-04: amendment U2 moved timefmt from routers to models, so the path recorded here no longer existed. Note the zone is also read by series_service (local-day bucketing) and by the ribbon view, so a config-driven zone must reach the service layer, not only the templates."
+notes = "touches corrected 2026-08-04: amendment U2 moved timefmt from routers to models, so the path recorded here no longer existed. Note the zone is also read by series_service (local-day bucketing) and by the ribbon view, so a config-driven zone must reach the service layer, not only the templates. Implemented 2026-08-07: timefmt.to_utc/to_local keep their original single-arg signatures (public contract preserved); zone is resolved internally from a new [display].timezone key in rules_config.toml (module-level CONFIG_PATH read via tomllib+zoneinfo, default UTC), so series_service and the ribbon view pick it up transitively with no changes of their own, satisfying the 'reach the service layer' note without touching series_service.py. settings.html documents the setting as a file-edit note (ntfy convention) rather than a form field, since no route/service change was in scope. Tests added in tests/unit/test_timefmt.py cover configured-zone parse+render and both DST transitions (2026-03-29 spring-forward, 2026-10-25 fall-back) for Europe/London. scripts/backlog.py does not exist in this checkout; ran scripts/validate_tasks.py instead (exits 0) as the closest equivalent tasks.toml validator. Review pass 2026-08-15: house-reviewer flagged two in-scope issues, both fixed in timefmt.py: (1) _display_zone() re-opened and re-parsed rules_config.toml on every to_utc/to_local call -- a hot path, since series_service buckets every event -- now cached keyed on (path, mtime) so an edited file is still picked up without a restart; (2) an unrecognised IANA zone name raised uncaught, with no test covering it -- now covered by test_invalid_zone_name_raises, and left uncaught deliberately (fail loudly per SPEC R1, not a silent UTC fallback that would hide a config typo). The reviewer also flagged, as a real but out-of-scope architectural tension: _display_zone()'s own tomllib read lives in models, which SPEC A3 established as a pattern to avoid (alerts.load_rules was moved out of the alerts layer into its service for exactly this reason) -- every other rules_config.toml reader (AlertsService, TodayService) takes an injected config_path instead. Fixing that properly means threading a configured zone down from app wiring through series_service, which this task's touches list (timefmt.py, rules_config.toml, settings.html only) does not cover; flagging for a follow-up task rather than expanding this diff. ./scripts/test and python3 scripts/backlog.py both verified green 2026-08-15; ruff/mypy/check_layers.sh also green via `uv run --extra dev`."
 
 [[task]]
 id = "R5"
 phase = 2
 title = "Vendor Plotly asset"
-status = "todo"
+status = "review"
 routing = "impl"
 depends = ["U5"]
 touches = ["scripts/vendor_assets.sh"]
 description = "Fetch plotly.min.js and pin its SHA-256 alongside htmx. The charts page degrades to a table without it, so this is not a blocker."
 exit_criteria = ["plotly vendored and checksum pinned", "charts page renders curves in a browser"]
-notes = "Status was stale at the 2026-08-04 review: static/vendor/plotly.min.js (4.5MB) and htmx.min.js are already present, fetched by an unrecorded run of vendor_assets.sh. The remaining work is therefore the checksum pin only, which is the whole point of the task - 4.5MB of unverified third-party JS is exactly what U8/R5 exist to prevent. vendor_assets.sh has no PLOTLY_SHA256 variable at all; add one alongside HTMX_SHA256."
+notes = "Status was stale at the 2026-08-04 review: static/vendor/plotly.min.js (4.5MB) and htmx.min.js are already present, fetched by an unrecorded run of vendor_assets.sh. The remaining work is therefore the checksum pin only, which is the whole point of the task - 4.5MB of unverified third-party JS is exactly what U8/R5 exist to prevent. vendor_assets.sh has no PLOTLY_SHA256 variable at all; add one alongside HTMX_SHA256. 2026-08-15: added PLOTLY_SHA256=6d21266ce1bd7d9e5ab4e115989c70c20de0382fd973a8f26ab58619eba4d603 for plotly-2.35.2.min.js from cdn.plot.ly, verified by independently curling the file and comparing sha256sum (not copied from an unverified prior run). vendor_assets.sh re-run to fetch + verify both htmx.min.js and plotly.min.js into static/vendor; /charts checked in a browser (headless Chrome screenshot) with both files present and real UK-WHO centile curves rendering, not the no-JS fallback table. scripts/test.sh, lint.sh and check_layers.sh all green. scripts/backlog.py does not exist in this repo; the actual CI manifest gate is scripts/validate_tasks.py (per .gitlab-ci.yml), which currently fails on main itself, unrelated to this diff: G1 is status=done but its dependency R4 is status=blocked. Pre-existing and out of R5's touches - flagging for triage, not fixing here."
 
 [[task]]
 id = "A8"
@@ -533,19 +533,19 @@ notes = "Implemented at the 2026-08-04 review via a _weights(facts) helper in ru
 id = "Q4"
 phase = 3
 title = "Cross-domain no-fire regression fixture"
-status = "todo"
+status = "review"
 routing = "tester"
 depends = ["A9"]
 touches = ["tests/unit/_facts.py", "tests/unit/test_rules_misc.py"]
 description = "A9 was a whole class of bug that the suite could not see: _facts.healthy_baseline() logs feeds, nappies, one weight and one temperature, and _facts.growth() defaults to WEIGHT, so no test ever put two measures in one timeline. Extend healthy_baseline to a genuinely well-logged day across all seven domains - weight plus length plus head circumference, sleeps with and without ts_end, a milestone, a note, a dirty nappy with a normal colour - and assert the full rule set stays silent on it. Then add a second fixture that is healthy except for one deliberate abnormality per rule, and assert exactly that one rule fires."
 exit_criteria = ["healthy cross-domain timeline yields zero findings (test)", "one-abnormality-at-a-time fixture fires exactly the expected rule id and no other (test per rule)"]
-notes = "This is the guard that would have caught A9 before it could page a parent. Worth more than any single rule test: it is the only place that checks rules do not interfere with each other."
+notes = "This is the guard that would have caught A9 before it could page a parent. Worth more than any single rule test: it is the only place that checks rules do not interfere with each other. Implemented 2026-08-15: healthy_baseline() now logs weight+length+head_circ, a completed and a still-running sleep, a milestone, a note, and a dirty nappy with a normal colour; facts() accepts milestones/notes but drops them since FactSet has no fields for those two domains (the engine never reads them). Added one_abnormality(rule_id) plus one generated test per rule id (11 total) asserting exactly that rule fires. scripts/test.sh: 220 passed; scripts/lint.sh and scripts/check_layers.sh clean. Held at review per CLAUDE.md - CI is the sole arbiter. Question for the architect: the run instructions ask for `python3 scripts/backlog.py` to exit 0, but that script does not exist in the repo; the closest analog, scripts/validate_tasks.py, fails with a pre-existing, out-of-scope issue unrelated to this task (`G1 is done but depends on unfinished R4`, tasks.toml:169-178). Not fixed here since tasks.toml task-status edits beyond Q4's own status field are outside this task's touches."
 
 [[task]]
 id = "U10"
 phase = 1
 title = "Post-hoc field edits (bottle volume, feed duration, sleep end)"
-status = "todo"
+status = "review"
 routing = "impl"
 depends = ["U4"]
 touches = ["src/cradle/routers/api.py", "src/cradle/services/logging_service.py", "src/cradle/routers/templates/_history_table.html"]
@@ -557,25 +557,25 @@ notes = "Do not weaken the allow-list; it is the only thing standing between a f
 id = "U11"
 phase = 1
 title = "Stool colour capture"
-status = "todo"
+status = "blocked"
 routing = "impl"
 depends = ["U10"]
 touches = ["src/cradle/routers/api.py", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/templates/_history_table.html"]
 description = "The Dirty button posts kind=dirty with the default stool_colour=unset, and no template offers a colour anywhere. STOOL_COLOUR is a RED rule covering the pale/chalky, red and post-day-5 black amber-flag colours, and it is currently unreachable: the condition it screens for cannot be entered into the app at all. Offer the colour as an optional follow-up after the Dirty tap and as an inline edit in history."
 exit_criteria = ["dirty nappy logged with a colour end to end (route test)", "STOOL_COLOUR fires from a colour entered through the UI, not just from a synthetic fixture (test)", "quick-entry stays 2 taps: colour is never required to log a nappy (route test)"]
-notes = "Use the StoolColour enum already in models; do not author new colour names or any accompanying text - which colours are flags is a clinical claim owned by messages.py and A8. Plumbing only."
+notes = "SUPERSEDED 2026-08-17 by U18, which delivers colour capture inside the Dirty entry panel; parked rather than dropped so the reasoning survives. Both exit criteria that matter - colour logged end to end, and STOOL_COLOUR firing from a UI-entered colour rather than a fixture - are carried over verbatim into U18. Do not implement this separately: two passes over quick_entry.html for the same field is exactly the duplicated diff the touches rule exists to prevent. Nothing depends on U11, so blocking it stalls no other work."
 
 [[task]]
 id = "U12"
 phase = 1
 title = "Device-name attribution"
-status = "todo"
+status = "review"
 routing = "impl"
 depends = ["U1"]
 touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/cradle/routers/templates/settings.html", "src/cradle/routers/templates/_history_table.html"]
 description = "SPEC 1 lists device-name attribution as a v1 IS, and D7 chose it over auth precisely because attribution is the thing that actually matters in a household. It is not implemented: no device_name cookie is ever set anywhere in the templates or JS, routers.deps.device_name therefore always returns an empty string, every row is written with logged_by='', and _history_table.html does not render the field even though HistoryService.rows already carries it. Prompt for a device name on first visit, persist it in the cookie, and show it in history."
 exit_criteria = ["first visit prompts for a device name and persists it (route test)", "logged_by populated on events created after the name is set (test)", "history renders who logged each row (route test)", "name editable in /settings"]
-notes = "Keep it a plain cookie with no auth semantics (D7): this labels rows, it does not protect them. Existing rows keep their empty logged_by - do not backfill."
+notes = "Keep it a plain cookie with no auth semantics (D7): this labels rows, it does not protect them. Existing rows keep their empty logged_by - do not backfill. Implemented: the prompt lives on /settings, which is where the fresh-install redirect already lands, and it shows whenever the cookie is unset. A second device joining an already-configured household is not prompted until it opens /settings - forcing that needs a banner in base.html/quick_entry.html or a redirect gate on / that rewrites existing route tests, both outside these touches; raised as U15. Cookie values are latin-1 on the wire and reject control characters, so both are collapsed to a space in post_device rather than 500ing; full UTF-8 would need deps.device_name to decode (also U15). The attribution span carries class=\"by\" but app.css has no rule for it, so it renders as plain text next to the detail; app.css is outside these touches, so styling it is U15 as well."
 
 [[task]]
 id = "A10"
@@ -636,3 +636,179 @@ touches = ["tests/oracle/test_ukwho_parity.py"]
 description = "tests/oracle/test_ukwho_parity.py returns early when the vector file holds no rows, so it reports PASS. The suite is therefore green while the single quality target with a number attached - centiles matching the UK-WHO reference to +/-0.01 z - is entirely unverified, and the risk-stage oracle-full job passes for the same empty reason. Make the unpopulated state visibly not-passing: skip explicitly with a message naming R2, so the pipeline reports a skip rather than a pass."
 exit_criteria = ["unpopulated vector file produces a skip with a message naming R2, never a pass", "skip is visible in the CI junit report and in scripts/offline_runner.py output", "test still becomes a hard failure gate once vectors land (R4 unchanged)"]
 notes = "Deliberately independent of R2 and R4 so it can land immediately: the point is that the current green is misleading today, whoever eventually vendors the tables. R4 keeps its own exit criterion that the test fails on an empty vector file once the harness is real."
+
+# ================= Phase 6: expressed milk - production and stock =================
+# Raised by Mark Baber, 2026-08-15: track how much milk the mother expresses, and
+# what is actually in the fridge and freezer, with a colour-coded bottle per batch
+# and an alert when a batch outlives its safe storage window.
+#
+# Nothing in the app covers this today. FeedMethod.BOTTLE_EXPRESSED records that a
+# bottle of expressed milk was given, but nothing records that it was expressed,
+# which bottle it came out of, when that bottle went in to cool, or when it must be
+# thrown away - so the fridge is tracked in the parents' heads at 3am, which is
+# exactly the failure mode this app exists to remove.
+#
+# Split along the layer boundaries the constitution enforces rather than shipped as
+# one diff: schema and models (M1), service (V2), UI (U14), alert rules (A11),
+# export (X2). M1 first - everything else reads its tables.
+
+[[task]]
+id = "M1"
+phase = 6
+title = "Expressed-milk domain: expression events, colour-coded milk batches, schema"
+status = "review"
+routing = "architect"
+depends = ["P2"]
+touches = ["src/cradle/models/enums.py", "src/cradle/models/events.py", "src/cradle/models/__init__.py", "src/cradle/repos/migrations/0003_milk.sql", "src/cradle/repos/events_repo.py", "tests/unit/test_repos_milk.py", "docs/SPEC.md"]
+description = "Two new domains and the schema under them. (1) expression: an ExpressionEvent per pumping session - ts, side (left|right|both), volume_ml, duration_min, note - which is what makes maternal supply measurable over a day and a week. (2) milk_batch: one row per physical bottle - expressed_at, stored_at, store (fridge|freezer|room), colour, volume_ml, state (stored|thawed|opened|used|discarded), thawed_at, opened_at, used_at, an optional expression_id FK, plus the shared logged_by/created_at/edited_at/deleted_at columns. Add BreastSide, MilkStore, BottleColour and BatchState as closed StrEnums beside the existing ones, insert/list/transition support in EventsRepo, and register both tables in EDITABLE with a column allow-list. stored_at is deliberately separate from expressed_at: the storage clock the expiry alert runs on starts when the bottle goes in to cool, not when it was expressed at the cot side an hour earlier. Colour identifies the bottle physically, so at most one batch of a given colour may be live (state stored|thawed|opened, not deleted) at a time - enforce it with a partial unique index, or a red alert naming the blue bottle points at two different bottles."
+exit_criteria = ["insert/list round-trip per domain incl. every BatchState (test)", "a second live batch of a colour already in the fridge is rejected (test)", "a colour becomes reusable once its batch is used or discarded (test)", "migration 0003 applies to a database already at 0001 and is recorded in schema_version (test)", "both tables in EDITABLE; a column outside the allow-list is rejected (test)", "mypy strict green on touched files"]
+notes = "Architect-routed for the usual two reasons: it adds public dataclasses and closed enums, which CLAUDE.md makes contracts, and it amends the SPEC 5.3 schema. No clinical value belongs in this task - how long a bottle may stay in each store is a threshold, it lives in rules_config.toml, and it is A11 under A8. Migration numbering: P3 owns 0002, so take 0003. The runner tracks applied migrations by filename and not by ordinal, so a 0002 that lands after this one still applies exactly once; do not renumber either file to keep them in order. State is stored on the batch rather than derived, because a bottle can be discarded for reasons the timestamps cannot show - dropped, left out, baby refused it."
+
+[[task]]
+id = "V2"
+phase = 6
+title = "MilkStockService: production totals, stock on hand, batch lifecycle"
+status = "todo"
+routing = "impl"
+depends = ["M1"]
+touches = ["src/cradle/services/milk_service.py", "src/cradle/services/__init__.py", "tests/unit/test_milk_service.py"]
+description = "The service layer over M1. Production: expressed volume in the trailing 24h and 7d with a per-side split, so a drop in supply is visible before it becomes a feeding problem. Stock: live batches grouped by store with a total ml per store, oldest first, each carrying its age as a plain timedelta from stored_at (or thawed_at/opened_at once it has moved on). Lifecycle: store a fresh expression into fridge or freezer, thaw freezer -> fridge, open, use, discard - each transition validated against the state machine and stamped from the injected Clock. FIFO helper returning the batch that should be used next in a given store. Feeding from a batch: link a BOTTLE_EXPRESSED feed to a batch id, decrement the remaining volume and mark the batch opened, so the fridge total falls as the baby drinks."
+exit_criteria = ["expressed volume for trailing 24h and 7d, with side split, under FixedClock (test)", "stock on hand counts live batches only - used, discarded and soft-deleted excluded (test)", "FIFO pick returns the oldest live batch in the named store (test)", "every invalid transition raises rather than silently succeeding (test per edge, incl. using a discarded batch)", "feeding from a batch decrements it and marks it opened (test)", "partial use leaves the remainder live and the batch openable exactly once (test)", "scripts/check_layers.sh green"]
+notes = "Report ages, never verdicts: whether an age is too long is a threshold question owned by A11, and D6 keeps that judgement in the pure rule layer with the clock injected. The one design point worth settling before writing code is partial use - a 120ml bottle the baby takes 80ml from. Keep the remainder live and let opened_at start a separate, shorter window in A11; do not auto-discard it here, and do not invent that window."
+
+[[task]]
+id = "U14"
+phase = 6
+title = "Express button and the milk-stock page"
+status = "todo"
+routing = "impl"
+depends = ["V2"]
+touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/templates/milk.html", "src/cradle/routers/templates/base.html", "tests/routes/test_milk.py"]
+description = "Quick-entry gains an Express button that logs an expression in one tap, keeping the T1 two-tap contract: volume and duration are post-hoc edits exactly as bottle volume is (U10), never an entry gate at 4am. A new /milk page lists live batches grouped by store - each row a colour chip with its colour named in text beside it, the volume, when it went in to cool and how old it is - plus forms to put an expression into the fridge or freezer under a chosen colour, move a batch from freezer to fridge, and mark it opened, used or discarded. The colour picker offers only colours with no live batch, so the M1 uniqueness constraint can never be hit from the UI."
+exit_criteria = ["expressing is logged in two taps and volume is never required at entry (route test)", "store -> thaw -> open -> use, and store -> discard, both end to end (route test)", "colour picker excludes colours already live (route test)", "/milk shows store, colour name, volume and age for every live batch (route test)", "quick-entry static payload stays inside the Q1 weight budget"]
+notes = "Colour must never be the only carrier of meaning: name the colour in text next to every chip. A parent with colour-vision deficiency has to find the right bottle in a dark kitchen, and the A11 alert will quote the colour by name anyway. /milk is not exempt from the Q1 weight budget the way /charts is, so htmx only - no new JS and no new dependency (SPEC 6)."
+
+[[task]]
+id = "A11"
+phase = 6
+title = "Milk storage expiry rules: MILK_EXPIRING and MILK_EXPIRED"
+status = "todo"
+routing = "architect"
+depends = ["M1", "A8"]
+touches = ["src/cradle/alerts/facts.py", "src/cradle/alerts/rules.py", "src/cradle/alerts/messages.py", "src/cradle/services/alerts_service.py", "rules_config.toml", "tests/unit/test_rules_milk.py"]
+description = "Two rules over live batches. MILK_EXPIRED fires when a batch has been in its current store longer than that store allows; MILK_EXPIRING fires inside a warning window before that point, so a bottle can still be used rather than poured away. FactSet gains milk_batches, assembled by alerts_service from the repo like every other domain, and the rules stay pure over it (D6). Limits come from a new [milk_storage] table in rules_config.toml - one per store plus the shorter windows a batch moves onto once it is thawed or opened, and warn_before_hours - and the code hard-codes none of them. The window a batch is judged against follows its state: a thawed batch ages on the thawed window from thawed_at, an opened one on the opened window from opened_at, not on the window of the freezer it came out of. Fingerprint per batch id and rule id, so one bottle pages once rather than every five-minute sweep."
+exit_criteria = ["a fridge batch one hour past its limit fires MILK_EXPIRED and one hour before it does not - boundary asserted explicitly (test)", "MILK_EXPIRING fires inside the warning window and MILK_EXPIRED takes over past the limit, never both (test)", "every limit read from rules_config.toml (test: changing the config changes the firing time)", "a thawed batch ages on the thawed window from thawed_at, not the freezer window (test)", "an opened batch ages on the opened window from opened_at (test)", "used, discarded and soft-deleted batches never fire (no-fire test)", "message names the bottle colour and its store", "every window and every new string signed off under A8 against a named, dated source"]
+notes = "Architect-routed and gated on A8 for the reason the constitution gives: storage windows are clinical values and the copy is health copy, and A8 is the review that covers both. Mark asked for an alert at 1 day for fridge milk; published NHS guidance for a fridge at 4C or below is longer than that, so the request is a more conservative household choice rather than a contradiction - which is exactly why the number belongs in rules_config.toml and not in the rules. Ship whatever default the A8 reviewer sets, keep it editable, and record the source in SOURCES beside the other rules. Keep the copy inside the SPEC 1.1 line: it describes what the log shows about a bottle and what to do with the bottle, and it makes no claim about milk nobody has looked at. When Q4 and this both land, add a live in-date bottle to the healthy cross-domain fixture so these rules are covered by the no-fire guard too."
+
+[[task]]
+id = "X2"
+phase = 6
+title = "Export coverage for expression and milk_batch"
+status = "todo"
+routing = "tester"
+depends = ["M1"]
+touches = ["src/cradle/services/export_service.py", "tests/unit/test_export.py"]
+description = "ExportService derives DOMAINS from EDITABLE, so registering the two new tables in M1 puts them into the JSON export and adds two CSVs with no code change - which is the right outcome and is currently asserted by nothing. X1s contract is that the export round-trips exactly and that CSV headers are stable, and both need to hold for the new domains before the first household relies on the export as the record. Extend the round-trip fixture to a database holding expressions and batches in every state including soft-deleted ones, and pin the new CSV headers."
+exit_criteria = ["JSON export -> restore round-trip equality with expression and milk_batch rows in every state, deleted rows included (test)", "CSV headers for both new domains pinned (test)", "restore precondition holds for the new tables (test)"]
+notes = "Tester-routed: if M1 registered the tables correctly this is assertions only, and if it did not, this is the task that says so. Do not fix the restore-into-non-empty behaviour here even if the round-trip test trips over it - that defect is P3s, and duplicating the fix across two branches is how a merge conflict in the repo layer starts."
+
+[[task]]
+id = "O3"
+phase = 6
+title = "Port the CI pipeline to GitHub Actions"
+status = "todo"
+routing = "impl"
+depends = []
+touches = [".github/workflows/ci.yml", ".gitlab-ci.yml"]
+description = "The gates are defined in .gitlab-ci.yml but the remote is GitHub, and there is no .github/workflows, so nothing runs on a push or a pull request - gh run list is empty. CLAUDE.md makes CI the sole arbiter of completion, and today nothing arbitrates: the validate stage sat red on main undetected until a task branch happened to run the scripts by hand. Port the four stages to one GitHub Actions workflow running the same scripts, so a red gate blocks a merge instead of waiting to be noticed. validate: scripts/validate_tasks.py then ruff format --check src tests. test: scripts/test.sh with junit.xml published as the test report. quality: scripts/lint.sh then scripts/check_layers.sh. risk: pytest tests/oracle, restricted to main or an explicit opt-in the way the GitLab rules restrict it. Python 3.12, pip cache keyed on pyproject.toml. Decide the fate of .gitlab-ci.yml in the same diff - retire it, or keep it and say in a comment which file is authoritative - because two pipelines that drift apart are worse than one."
+exit_criteria = ["workflow triggers on push to main and on pull_request, and reports a status check on the PR", "all four stages run the existing scripts/ entry points, no gate logic duplicated into YAML", "junit.xml from scripts/test.sh surfaces as a test report on the run", "a deliberately broken commit fails the run - unformatted file fails validate, failing test fails test, layering violation fails quality (proven once, then reverted)", "the oracle stage runs on main and not on an ordinary PR, matching the current rules", "the fate of .gitlab-ci.yml is settled in the same diff, not left ambiguous"]
+notes = "Found while fixing the two validate-stage failures that had been red on main independently of any task branch: a ruff format violation in tests/unit/test_lms.py, and validate_tasks.py rejecting nine tasks marked done over the blocked R4 oracle gate (A1, C2, C3, G1, N2, O1, Q1, U5, U6, all now review). Both had been red for some time precisely because no CI observed them. Until this task lands, every review to done flip is a human assertion rather than a verified one, so the nine downgraded tasks cannot be honestly restored to done by CI - which is the argument for doing this before phase 6 closes. Keep the scripts as the single definition of each gate: the workflow calls them, it does not reimplement them, so a contributor running scripts/test.sh locally sees exactly what CI sees."
+
+# ------- Structured quick-entry: U16 decides, U17 names, U18 builds, U19-U20 extend -------
+# Renumbered from the original U14-U18 (see notes below): U14 was taken by the Phase 6
+# milk-stock UI task and U15 by U12's device-banner follow-up, both landed on main while
+# this branch was open.
+
+[[task]]
+id = "U16"
+phase = 1
+title = "Entry model: quick-entry gains a confirm step"
+status = "todo"
+routing = "architect"
+depends = []
+touches = ["docs/SPEC.md"]
+description = "SPEC 5.4 specifies quick-entry as six oversized buttons -> one confirm-free POST at now, with volume and duration as optional post-hoc edits that are never entry gates. U18 replaces that: a tap opens a panel pre-populated with sensible defaults, and nothing is written until Save, with side, volume, duration, colour and consistency offered at entry time. Product decision 2026-08-17: the confirm step is wanted, because a volume nobody enters is a bottle_ml series that is permanently zero, and the post-hoc edit path (U10) is the one nobody uses at 3am. Amend 5.4 so the SPEC describes the app being built rather than the one originally designed."
+exit_criteria = ["SPEC 5.4 describes the tap-panel-Save flow and no longer reads confirm-free", "the <=2-tap target in SPEC 2 restated against the new flow (tap + Save with defaults accepted) or explicitly re-set to a new number", "the abandoned-panel case specified: what a tap with no Save leaves behind", "rejected alternative recorded (write the row on tap, then refine it in place)"]
+notes = "Cheap to write, and it gates U18: an impl task whose diff contradicts a settled SPEC line is what gets reverted at review. This does not touch the D1-D11 table - D1's HTMX stack is exactly what the panel is built from. The one real cost to state plainly is the abandoned panel: today a tap is a row, and afterwards a tap can be nothing, which changes what a parent who is interrupted mid-feed ends up with. U10 stays valid either way; post-hoc editing is still needed for the taps that were never refined."
+
+[[task]]
+id = "U17"
+phase = 1
+title = "Stool consistency vocabulary"
+status = "todo"
+routing = "architect"
+depends = []
+touches = ["src/cradle/models/enums.py", "src/cradle/models/events.py", "src/cradle/repos/events_repo.py", "src/cradle/repos/migrations/", "tests/unit/test_repos.py"]
+description = "The Dirty panel in U18 offers a description of the mess beyond its colour. models/enums.py has StoolColour and nothing else: there is no vocabulary for consistency, NappyEvent has no field to hold one, and the nappy table has no column. Define the closed set as StoolConsistency, add the field to NappyEvent defaulting to an UNSET member, persist it in a new migration, and extend the repo round-trip. Choosing which descriptions are worth distinguishing is a clinical claim, which is why this is architect-routed rather than folded into U18."
+exit_criteria = ["StoolConsistency enum with an UNSET default member, stored by .value like every other enum", "NappyEvent round-trips consistency through EventsRepo (test)", "migration applies cleanly on an existing database and is recorded in schema_version (test)", "nappy rows written before the migration read back as UNSET rather than raising (test)"]
+notes = "Do not let an impl agent pick these names: which stool descriptions are worth distinguishing is the same class of claim as which colours are flags (U11, A8), and a badly chosen set quietly shapes what a parent reports to a midwife. No rule reads this field and none should be written here - if a consistency ever becomes an alert condition it needs messages.py copy and therefore A8. P3 already claims migration 0002: take the next free number and check the directory before writing the file."
+
+[[task]]
+id = "U18"
+phase = 1
+title = "Feed and Mess entry panels"
+status = "todo"
+routing = "impl"
+depends = ["U16", "U17"]
+touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/static/app.css", "tests/routes/test_quick_entry.py"]
+description = "quick_entry.html posts a bare method or kind and nothing else, so FeedEvent.duration_min, FeedEvent.volume_ml and NappyEvent.stool_colour are unreachable from the page that exists to write them - /api/feed and /api/nappy already accept all three. Keep the six tiles under Feed / Mess / Sleep headings; a tap opens a panel below the grid with that choice pre-selected, and Save posts the whole event. Breast: side (L/R) and duration in minutes. Bottle: volume in ml, method defaulting to bottle_expressed with bottle_formula selectable - the button posts bottle_formula today, which is the wrong default for a household that expresses. Wet: timestamp only. Dirty: timestamp, StoolColour and the U17 consistency. Every panel defaults its timestamp to now and every field is optional."
+exit_criteria = ["each of the five tiles opens a panel with its own choice pre-selected (route test)", "breast feed logged with side and duration_min, bottle with volume_ml, end to end (route test)", "volume_ml entered here appears in /today bottle intake and in the bottle_ml series (test)", "dirty nappy logged with colour and consistency end to end (route test)", "STOOL_COLOUR fires from a colour entered through the UI, not from a synthetic fixture (test)", "accepting every default is 2 taps and writes a row at now (route test)", "no field is required: Save with defaults never 4xx (route test)"]
+notes = "Absorbs U11, which is parked for that reason; its two colour criteria are carried over above. Build the panel as an htmx fragment swap, not client state: D1 chose server-rendered fragments, and D1 also names Alpine, but static/vendor holds only htmx and plotly - Alpine is not actually vendored, and vendoring it is an architect call under the closed dependency set (SPEC 6), so do not reach for it. Native <select> and <input type=time> only in this task; the scroll wheel is U19 and must not block this. Do not touch models, repos or enums: the fields all exist after U17, and a wider diff belongs in another task."
+
+[[task]]
+id = "U19"
+phase = 1
+title = "Scroll-wheel time control"
+status = "todo"
+routing = "impl"
+depends = ["U18"]
+touches = ["src/cradle/routers/static/app.css", "src/cradle/routers/static/entry.js", "src/cradle/routers/templates/quick_entry.html", "tests/routes/test_quick_entry.py"]
+description = "U18 ships the panels with a native <input type=time>, which on a phone means a keyboard or a platform dialog for the single field that gets adjusted most often - the event happened twenty minutes ago and someone is logging it one-handed. Replace it with a thumb-driven wheel: a vertical scroll-snap list of times, seeded at now, snapping to a fixed step. CSS scroll-snap plus a small amount of plain JS to read the snapped value into the form; no new dependency."
+exit_criteria = ["the wheel writes a value the existing form post accepts unchanged (route test)", "the panel still submits a correct timestamp with JS disabled or the script unloaded (route test)", "keyboard and screen-reader access to the same value retained", "no new entry in the vendor directory and no change to pyproject dependencies"]
+notes = "The no-JS fallback criterion is the load-bearing one: this is a wheel over a real form control, not a replacement for it, so a script that fails to load must degrade to something a parent can still submit. Presentation only - it changes no stored value and no route signature, which is why it is separable from U18 and must not delay it. Keep it in its own static file rather than inline, so the CSP and the service-worker cache list stay simple."
+
+[[task]]
+id = "U20"
+phase = 1
+title = "Extend entry panels to sleep and the More drawer"
+status = "todo"
+routing = "impl"
+depends = ["U18", "U19"]
+touches = ["src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/static/app.css", "tests/routes/test_quick_entry.py"]
+description = "U18 covers Feed and Mess only, leaving two entry paths on the same page in a different idiom: the Sleep toggle posts with no way to correct a forgotten Wake tap or to say where the baby slept, though SleepEvent.location and SleepLocation (cot/pram/arms/other) both exist and no template offers them; and the More drawer keeps bare number inputs for weight, length, head circumference and temperature. Give sleep a panel for start, end and location, and put the same wheel and select treatment on the drawer's quantities."
+exit_criteria = ["sleep start and end adjustable at entry, and a forgotten wake correctable without deleting the row (route test)", "sleep location logged from the UI and read back (route test)", "weight, length, head circ and temperature entered through the panel controls (route test)", "one tap on Sleep still starts or ends a sleep at now (route test)"]
+notes = "Deliberately last: these are the low-frequency paths, and the panel idiom should be proven on feeds and nappies - which happen a dozen times a day - before it is copied. Sleep end overlaps U10, which makes ts_end editable from history; if U10 has landed, reuse its endpoint rather than adding a second write path for the same column. Growth and temperature keep their current post targets - this is a control-shape change, nothing about what is stored."
+
+[[task]]
+id = "U15"
+phase = 1
+title = "Prompt any unnamed device, not just the first install"
+status = "todo"
+routing = "impl"
+depends = ["U12"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/base.html", "src/cradle/routers/deps.py", "src/cradle/routers/static/app.css", "tests/routes/test_quick_entry.py", "tests/routes/test_alerts.py", "tests/routes/test_phase5.py"]
+description = "U12 put the device-name prompt on /settings, which the fresh-install redirect already reaches, so the first phone in a household is asked. A second phone joining a household that already has a profile is never asked: it logs rows with an empty logged_by until someone opens /settings, which is exactly the case D7 chose attribution for. Show a dismissable name-this-device banner on every page while the cookie is unset (base.html, so quick_entry/today/history all carry it), or gate / on the cookie - the gate rewrites the existing route tests, which is why U12 could not do it inside its touches. Second, non-latin-1 device names are currently collapsed to a space in post_device because Set-Cookie is latin-1 on the wire: percent-encode on write and decode in deps.device_name so a name in any script survives. Third, the attribution span U12 added to the history row has class=\"by\" and app.css has no rule for it, so it reads as undifferentiated body text: give it the same muted treatment as .note."
+exit_criteria = ["a device with no cookie is prompted on a household that already has a profile (route test)", "the prompt does not reappear once the name is set (route test)", "a non-latin-1 device name round-trips to history intact (route test)", "existing route tests updated for the new behaviour, suite green"]
+notes = "Still a plain label, no auth semantics (D7). Do not backfill rows already written with an empty logged_by. Filed as U15, not U14: U14 was taken by the Phase 6 milk-stock UI task that landed on main while this branch was open."
+
+[[task]]
+id = "O4"
+phase = 5
+title = "Agent dev-tooling: cockpit dashboard, backlog CLI, guardrail hooks"
+status = "review"
+routing = "impl"
+depends = []
+touches = ["scripts/adr", "scripts/backlog.py", "scripts/check_adr.py", "scripts/cockpit.py", "scripts/fmt", "scripts/friction.py", "scripts/lint", "scripts/list_tasks.py", "scripts/retro.py", "scripts/test", "scripts/usage.py", "scripts/validate", "tests/unit/test_cockpit.py", ".claude/settings.json", ".claude/agents/", ".gitignore", "uv.lock"]
+description = "A session-facing toolkit for working this repo through Claude Code: a terminal cockpit/dashboard over tasks.toml and live agent panes (cockpit.py), a tasks.toml-driven backlog/task-graph CLI (backlog.py, list_tasks.py), ADR scaffolding and consistency checks (scripts/adr, check_adr.py), and the enforcement layer: a PreToolUse hook that refuses Edit/Write/file-modifying Bash in the primary checkout (worktree_guard.py, wired via .claude/settings.json), pre-commit/pre-push gates that run ruff/mypy/scripts/validate before letting a commit or push through, and a friction-signal capture + Stop-hook (friction.py) feeding scripts/retro.py's retrospective ladder. None of this touches src/cradle or the app's runtime; it only shapes how task work gets done."
+exit_criteria = ["scripts/test.sh green", "scripts/lint.sh green", "scripts/check_layers.sh green"]
+notes = "Provenance, not authorship: found already-built and untracked at the primary checkout (git status showed every file here as ??), evidently assembled over several prior sessions and never committed. It turns out to be a port of a sibling project's own dev-tooling -- the source is full of comments and identifiers naming a project called NightShift (src/nightshift/, nightshift.toml, a BacklogManager, an api.app module) that is not this repo. Most of it (backlog.py, cockpit.py's core dashboard, retro.py, friction.py, check_adr.py, worktree_guard.py) is generic over tasks.toml/ADRs/git refs and runs clean against cradle's real tasks.toml (scripts/validate, ruff check ., scripts/test.sh, scripts/lint.sh, scripts/check_layers.sh all verified green in this worktree). Four files were dropped entirely rather than adapted, because they are not a lint fix away from correct, they are wrong for this repo: scripts/install (a NightShift systemd deploy script -- creates a `nightshift` system user, installs nightshift.service units; cradle already has its own deploy path per O1, scripts/deploy/cradle.service), scripts/export_api_docs.py (documents NightShift's own nightshift.api.app surface, which does not exist here), scripts/check_backend_parity.py (diffs against src/nightshift/executor/agy_runner.py, which does not exist here), and scripts/git-guardrails/ (a NightShift-branded git wrapper duplicating what worktree_guard.py + .claude/settings.json already enforce for Claude Code sessions; env vars are literally named NIGHTSHIFT_GIT_GUARD_ROOT). Two files kept but hand-fixed: scripts/lint had `mypy --strict src/nightshift` (now src/cradle), scripts/test's --touched auto-target heuristic matched on `parts[1] == 'nightshift'` (now 'cradle') -- both one-line, both would have silently no-op'd or failed on this repo otherwise. cockpit.py itself still has scattered NightShift-specific help text and one nightshift.toml-reading helper (AG-06 model-family override) that will just find no such file here and no-op; left as-is since removing it is more surgery than this task's exit criteria require, flagged here so it isn't mistaken for cradle-native. Explicitly NOT attempted: the source comments cross-reference a task series DX-01 through at least DX-22 (cockpit.py, friction.py, retro.py, worktree_guard.py) that has no corresponding entries anywhere in this file -- most likely NightShift's own DX backlog, not cradle's, but either way not reconstructable from code comments alone without fabricating history. Filed here as one task (O4) instead, by explicit instruction. Also worth knowing: a since-deleted branch task/CP-01-cockpit-the-poll-tick-must-not-block-the (and a one-line stash on it) shared this file's subject -- test_cockpit.py's own docstring header reads 'CP-01: poll tick must not block the input loop' -- but a prior audit confirmed that branch carried no code beyond what's already in the cockpit.py committed here, only a superseded tasks.toml note; nothing was lost by deleting it. status=review rather than done because CI has never run against this content and 'CI is the sole arbiter' per this file's own header, even though every local gate is green."
