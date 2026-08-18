@@ -1,9 +1,14 @@
 """Domain models: frozen dataclasses and enums. Imports stdlib only."""
 
 from cradle.models.enums import (
+    LIVE_BATCH_STATES,
     AlertSeverity,
+    BatchState,
+    BottleColour,
+    BreastSide,
     FeedMethod,
     GrowthMeasure,
+    MilkStore,
     NappyKind,
     Sex,
     SleepLocation,
@@ -16,10 +21,12 @@ from cradle.models.errors import (
 )
 from cradle.models.events import (
     Baby,
+    ExpressionEvent,
     FeedEvent,
     Finding,
     GrowthEvent,
     Milestone,
+    MilkBatch,
     NappyEvent,
     Note,
     SleepEvent,
@@ -29,8 +36,13 @@ from cradle.models.events import (
 from cradle.models.timefmt import to_local, to_utc
 
 __all__ = [
+    "LIVE_BATCH_STATES",
     "AlertSeverity",
     "Baby",
+    "BatchState",
+    "BottleColour",
+    "BreastSide",
+    "ExpressionEvent",
     "ReferenceDataMissingError",
     "FeedEvent",
     "FeedMethod",
@@ -38,6 +50,8 @@ __all__ = [
     "GrowthEvent",
     "GrowthMeasure",
     "Milestone",
+    "MilkBatch",
+    "MilkStore",
     "NappyEvent",
     "NappyKind",
     "Note",

@@ -23,12 +23,13 @@ exportable history (timeseries + animated growth playback + milestones).
 | Alert latency | Missing-data / out-of-range checks evaluated ≤5 min after trigger condition |
 
 **v1 IS:** single baby; feeds, nappies, sleep, growth, temperature, milestones, notes;
+expressed-milk sessions and colour-coded bottle stock (phase 6, §5.3);
 UK-WHO centiles with gestational-age correction; rule-based alerts + reminders via ntfy;
 timeseries dashboards + animated centile playback; CSV/JSON export; no auth (LAN trust),
 device-name attribution.
 
 **v1 IS NOT:** multi-child, accounts/auth, photo storage, internet exposure, native app,
-medical-device functionality (see §1.1), pumping-inventory management, cloud sync.
+medical-device functionality (see §1.1), cloud sync.
 
 ### 1.1 Safety framing (non-negotiable)
 
@@ -162,9 +163,20 @@ acknowledged. All thresholds live in `rules_config.toml` — code never hard-cod
 
 ### 5.3 `repos/` + schema
 Tables: `baby`, `feed`, `nappy`, `sleep`, `growth`, `temperature`, `milestone`, `note`,
-`alert_log`, `schema_version`. All event tables: `id, baby_id, ts (UTC ISO-8601),
-logged_by, created_at, edited_at, deleted_at`. Migrations = ordered SQL files in
-`repos/migrations/`, applied at startup, tracked in `schema_version`.
+`expression`, `milk_batch`, `alert_log`, `schema_version`. All event tables: `id, baby_id,
+ts (UTC ISO-8601), logged_by, created_at, edited_at, deleted_at`. Migrations = ordered SQL
+files in `repos/migrations/`, applied at startup, tracked in `schema_version` **by
+filename, not ordinal** — a lower-numbered file that lands later still applies exactly once.
+
+`milk_batch` is one row per physical bottle rather than an event: it carries `expressed_at`,
+`stored_at`, `store`, `colour`, `volume_ml`, `state`, `thawed_at`, `opened_at`, `used_at`
+and an optional `expression_id` FK alongside the shared columns. `stored_at` is deliberately
+separate from `expressed_at` — the storage clock the expiry rules run on starts when the
+bottle goes in to cool, not when it was expressed at the cot side an hour earlier — and
+`state` is stored rather than derived, because a bottle can be discarded for reasons no
+timestamp shows. Colour identifies the bottle physically, so a **partial unique index**
+allows at most one live batch (`stored|thawed|opened`, not soft-deleted) per colour;
+otherwise an alert naming the blue bottle points at two different bottles.
 
 ### 5.4 `routers/` + UI
 - `/` **Quick-entry**: six oversized buttons (Feed L / Feed R / Bottle / Wet / Dirty /

@@ -9,8 +9,12 @@ from datetime import date, datetime
 
 from cradle.models.enums import (
     AlertSeverity,
+    BatchState,
+    BottleColour,
+    BreastSide,
     FeedMethod,
     GrowthMeasure,
+    MilkStore,
     NappyKind,
     Sex,
     StoolColour,
@@ -73,6 +77,44 @@ class Milestone(_EventBase):
     category: str = "first"  # motor | social | communication | first
     title: str = ""
     note: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ExpressionEvent(_EventBase):
+    """One pumping session. ts is when it started; volume and duration are
+    post-hoc edits (U10/T1) so expressing stays a two-tap log."""
+
+    side: BreastSide = BreastSide.BOTH
+    volume_ml: int | None = None
+    duration_min: int | None = None
+    note: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class MilkBatch:
+    """One physical bottle of expressed milk.
+
+    Not an event: it has a lifecycle rather than a single ts. `stored_at` is
+    deliberately separate from `expressed_at` - the storage clock the expiry
+    rules (A11) run on starts when the bottle goes in to cool, not when it was
+    expressed at the cot side an hour earlier. `state` is stored rather than
+    derived from the timestamps because a bottle can be discarded for reasons
+    no timestamp shows.
+    """
+
+    batch_id: int | None  # None until persisted
+    baby_id: int
+    expressed_at: datetime
+    stored_at: datetime
+    store: MilkStore
+    colour: BottleColour
+    volume_ml: int
+    state: BatchState = BatchState.STORED
+    logged_by: str = ""
+    thawed_at: datetime | None = None
+    opened_at: datetime | None = None
+    used_at: datetime | None = None
+    expression_id: int | None = None  # the session it was poured from, if known
 
 
 @dataclass(frozen=True, slots=True)
