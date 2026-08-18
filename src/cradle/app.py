@@ -1,15 +1,20 @@
 """Composition root: DB, repos, services, routers, static assets."""
 
+import json
 import logging
+import re
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from cradle import __version__
-from cradle.models import ReferenceDataMissingError
+from cradle.models import Finding, ReferenceDataMissingError
 from cradle.ports.clock import Clock, SystemClock
-from cradle.ports.notifier import ConsoleNotifier, Notifier
+from cradle.ports.notifier import ConsoleNotifier, Notifier, NtfyNotifier
 from cradle.reference.lms import LmsTable, load_table
 from cradle.repos.alert_log_repo import AlertLogRepo
 from cradle.repos.baby_repo import BabyRepo
@@ -29,10 +34,76 @@ from cradle.services import (
     SettingsService,
     TodayService,
 )
+from cradle.services.alerts_service import load_config
 
 DB_PATH = Path("data/cradle.db")
 CONFIG_PATH = Path("rules_config.toml")
 STATIC_DIR = Path(__file__).parent / "routers" / "static"
+
+_TOPIC_RE = re.compile(r"^[A-Za-z0-9_-]{0,64}$")
+_NTFY_SECTION_RE = re.compile(r"(?ms)^\[ntfy\]\n(?:(?!^\[).)*")
+_NTFY_TOPIC_LINE_RE = re.compile(r'(?m)^(topic\s*=\s*)"[^"]*"')
+
+
+def _ntfy_table(config_path: Path) -> Mapping[str, object]:
+    ntfy = load_config(config_path).get("ntfy", {})
+    return ntfy if isinstance(ntfy, Mapping) else {}
+
+
+def notifier_from_config(config_path: Path) -> Notifier:
+    """Build the notifier the [ntfy] table in *config_path* selects.
+
+    Both server and topic must be set or delivery falls back to the console
+    -- an unset topic must never raise (N3).
+    """
+    ntfy = _ntfy_table(config_path)
+    server = str(ntfy.get("server", "")).strip()
+    topic = str(ntfy.get("topic", "")).strip()
+    if server and topic:
+        return NtfyNotifier(server, topic)
+    return ConsoleNotifier()
+
+
+def _write_ntfy_topic(config_path: Path, topic: str) -> None:
+    """Rewrite only the topic value inside [ntfy], never any other table.
+
+    rules_config.toml's other tables hold architect-owned clinical
+    thresholds (CLAUDE.md); a runtime settings edit must not be able to
+    reach them, so this patches the existing [ntfy] block textually instead
+    of round-tripping the whole file through a TOML writer. The new value is
+    JSON-string-escaped, so it can never break out of its own quotes into a
+    new key.
+    """
+    text = config_path.read_text()
+    section_match = _NTFY_SECTION_RE.search(text)
+    if section_match is None:
+        raise ValueError("rules_config.toml has no [ntfy] table")
+    section = section_match.group(0)
+    new_section, count = _NTFY_TOPIC_LINE_RE.subn(
+        lambda m: m.group(1) + json.dumps(topic), section, count=1
+    )
+    if count == 0:
+        raise ValueError("rules_config.toml [ntfy] table has no topic key")
+    text = text[: section_match.start()] + new_section + text[section_match.end() :]
+    config_path.write_text(text)
+
+
+class _LiveNotifier:
+    """Delegates to whatever notifier the [ntfy] config currently selects.
+
+    Editing the topic in /settings rewrites rules_config.toml on disk; this
+    lets the already-constructed settings/alerts services pick up the new
+    topic without a process restart.
+    """
+
+    def __init__(self, notifier: Notifier) -> None:
+        self._notifier = notifier
+
+    def send(self, finding: Finding) -> None:
+        self._notifier.send(finding)
+
+    def refresh(self, notifier: Notifier) -> None:
+        self._notifier = notifier
 
 
 def load_reference() -> tuple[LmsTable | None, str | None]:
@@ -83,15 +154,31 @@ def create_app(
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     db = Db(db_path)
     db.migrate()
-    svc = build_services(
-        db, clock or SystemClock(), notifier or ConsoleNotifier(), config_path, reference
-    )
+    live_notifier = _LiveNotifier(notifier or notifier_from_config(config_path))
+    svc = build_services(db, clock or SystemClock(), live_notifier, config_path, reference)
 
     app = FastAPI(title="CRADLE")
     app.state.services = svc  # exposed for operational checks and tests
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(build_pages_router(svc))
     app.include_router(build_api_router(svc))
+
+    @app.get("/api/settings/ntfy")
+    def get_ntfy_settings() -> JSONResponse:
+        return JSONResponse({"topic": str(_ntfy_table(config_path).get("topic", ""))})
+
+    @app.post("/api/settings/ntfy")
+    def post_ntfy_settings(request: Request, topic: Annotated[str, Form()] = "") -> Response:
+        topic = topic.strip()
+        if not _TOPIC_RE.fullmatch(topic):
+            msg = '<p class="err">Topic must be letters, numbers, - or _ (max 64 chars).</p>'
+            return HTMLResponse(msg, status_code=400)
+        _write_ntfy_topic(config_path, topic)
+        live_notifier.refresh(notifier_from_config(config_path))
+        if request.headers.get("HX-Request"):
+            ok = "Topic saved." if topic else "Topic cleared - notifications go to the console log."
+            return HTMLResponse(f'<span class="ok">{ok}</span>')
+        return RedirectResponse("/settings", status_code=303)
 
     if start_scheduler:
         try:

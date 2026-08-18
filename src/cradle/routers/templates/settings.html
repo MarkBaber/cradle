@@ -39,18 +39,23 @@ not a login — anyone on the household network can log entries.{% endif %}</p>
 before 37 weeks.</p>
 
 <h2>Notifications</h2>
+<form method="post" action="/api/settings/ntfy" class="stack"
+      hx-post="/api/settings/ntfy" hx-target="#ntfy-topic-result" hx-swap="innerHTML">
+  <label>ntfy topic <input type="text" name="topic" id="ntfy-topic"
+    pattern="[A-Za-z0-9_-]{0,64}" placeholder="leave blank to disable push"></label>
+  <button type="submit">Save topic</button>
+</form>
+<p id="ntfy-topic-result" class="note"></p>
 <form method="post" action="/api/settings/test-notification"
       hx-post="/api/settings/test-notification" hx-target="#ntfy-result" hx-swap="innerHTML">
   <button type="submit">Send test notification</button>
 </form>
 <p id="ntfy-result" class="note"></p>
-<p class="note">Set the ntfy server and topic in <code>rules_config.toml</code>. The topic
-name is the shared secret — treat it like a password.</p>
-
-<h2>Display</h2>
-<p class="note">Times are shown, and clock-only entries are read, in the
-<code>[display].timezone</code> zone set in <code>rules_config.toml</code>
-(an IANA zone name, e.g. <code>Europe/London</code>) — not the server's own
-clock. Set this so a phone in a different timezone from the Pi doesn't see
-timestamps silently shift.</p>
+<p class="note">The topic name is the shared secret — treat it like a password. Leave it
+blank to send notifications to the console log instead of a phone.</p>
+<script>
+fetch("/api/settings/ntfy").then((r) => r.json()).then((d) => {
+  document.getElementById("ntfy-topic").value = d.topic || "";
+});
+</script>
 {% endblock %}
