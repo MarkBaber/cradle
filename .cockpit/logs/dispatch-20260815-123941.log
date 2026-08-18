@@ -1,0 +1,5 @@
+backgrounded · dc34c21e
+  claude agents             list sessions
+  claude attach dc34c21e    open in this terminal
+  claude logs dc34c21e      show recent output
+  claude stop dc34c21e      stop this session

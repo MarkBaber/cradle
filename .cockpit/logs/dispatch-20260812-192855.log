@@ -1,0 +1,14 @@
+### Task Summary: N4 — Scheduler lifecycle and reminder-cron reconciliation
+
+#### Accomplishments:
+1. **FastAPI Lifespan Scheduler Shutdown**:
+   - Added an `@asynccontextmanager` `lifespan` handler to `src/cradle/app.py` that retrieves the scheduler attached to `app.state.scheduler` on shutdown and shuts it down cleanly via `stop_scheduler`.
+   - Implemented `stop_scheduler` in `src/cradle/ports/scheduler.py` to stop running `BackgroundScheduler` instances and shut down worker threads without leaking resources across application lifecycle cycles.
+
+2. **Reminder-Cron Reconciliation (SPEC 7.1 Amendment N4)**:
+   - Reconciled the specification and codebase regarding reminder scheduling. Recorded amendment **N4** in [docs/SPEC.md](file:///home/tau/src/cradle/docs/SPEC.md#L249) explaining that separate reminder cron jobs are redundant because reminder rules (such as `WEIGH_IN_DUE`) are evaluated directly in the 5-minute evaluation sweep alongside fingerprint de-duplication.
+
+3. **Testing & Verification**:
+   - Added unit tests in [src/cradle/ports/scheduler.py](file:///home/tau/src/cradle/src/cradle/ports/scheduler.py#L36) validating clean scheduler shutdown on app exit and confirming no thread leaks occur during repeated `create_app`/shutdown cycles.
+   - All tests (`./scripts/test`), linting (`ruff check .`, `mypy --strict src/cradle`), and backlog validation (`python3 scripts/backlog.py`) pass cleanly.
+   - Updated status of task **N4** to `"review"` in [tasks.toml](file:///home/tau/src/cradle/tasks.toml#L596).

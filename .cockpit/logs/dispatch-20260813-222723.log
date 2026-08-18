@@ -1,0 +1,43 @@
+Let me start by exploring the codebase to understand the structure before implementing.
+The task mentions `src/cradle/` - this may be a different project. Let me find it:
+Found it! The project is at `/home/tau/src/cradle`. Let me read the relevant files:
+Now let me look at the source files I need to touch:
+Now let me look at the history rows model to understand what fields are available:
+Now let me look at the tests directory to understand how to write tests:
+Now let me look at existing tests to see the pattern for `edit_event`:
+Now let me look at the today page and series_service to understand how volume_ml is used:
+Now let me check existing git state and set up the worktree:
+The worktree already exists. Let me work in it:
+There's already a commit for U10. Let me check what was done:
+There's already an implementation. Let me run the tests to see if they pass:
+All 214 tests pass. Now let me run the backlog script:
+Now let me verify the tasks.toml has the correct status (review) in the worktree:
+Let me check if a PR is already open for this branch:
+No PR exists yet. Let me verify the current state of all three touched files to confirm everything looks good:
+Everything looks good. The implementation is already complete and all tests pass. Now let me push the branch and create the PR:
+All done. Here's a summary of what was implemented:
+
+## Task U10 Complete
+
+The implementation was already present in the worktree at `/home/tau/src/cradle/.claude/worktrees/U10-posthoc-field-edits`. All exit criteria pass and the PR is open at **https://github.com/MarkBaber/cradle/pull/3**.
+
+### What was built
+
+**`POST /api/edit-field`** — a generic post-hoc field editor in [`api.py`](file:///home/tau/src/cradle/.claude/worktrees/U10-posthoc-field-edits/src/cradle/routers/api.py#L175-L194):
+- Accepts `table`, `event_id`, `field`, `value` from a form POST
+- Coerces the raw string value to the correct Python type (`int` for `volume_ml`/`duration_min`, `datetime` for `ts`/`ts_end`, `float` for `temp_c`)
+- Delegates to `LoggingService.edit()` → `EventsRepo.edit_event()` which enforces the per-table allow-list **unchanged**
+- Fields outside the allow-list (`logged_by`, etc.) → 400
+
+**`_history_table.html`** — inline edit controls per domain:
+- Feed rows: "Set ml" (volume_ml) + "Set min" (duration_min)
+- Sleep rows: "Set wake" (ts_end datetime-local input)
+
+**Six new route tests** covering all exit criteria:
+- `test_edit_field_sets_bottle_volume_after_the_fact` — volume_ml surfaces in `/today` and `bottle_ml` series ✅
+- `test_edit_field_sets_breast_feed_duration` ✅
+- `test_edit_field_sets_sleep_wake_time_and_updates_totals` ✅
+- `test_edit_field_rejects_column_outside_allow_list` — 4xx ✅
+- Plus two bonus rejection tests (unknown table, bad value)
+
+**Result:** 214 passed, 0 failures.

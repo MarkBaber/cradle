@@ -1,0 +1,18 @@
+{
+  "pid": 456922,
+  "task_id": "U8",
+  "command": [
+    "agy",
+    "--model",
+    "gemini-3.6-flash-medium",
+    "--output-format",
+    "text",
+    "--print-timeout",
+    "60m",
+    "--dangerously-skip-permissions",
+    "-p",
+    "Implement task U8 from tasks.toml: Pin vendored htmx checksum\n\nRun vendor_assets.sh once, record HTMX_SHA256, and add a CI job that re-verifies the checksum. Left unpinned at scaffold time because the authoring sandbox had no network egress.\n\nExit criteria (every one must pass before you stop):\n  - HTMX_SHA256 populated\n  - CI fails on checksum mismatch (test)\n\nConstraints:\n  - Touch only these paths: scripts/vendor_assets.sh, .gitlab-ci.yml\n  - Work on branch task/U8-pin-vendored-htmx-checksum; create it from the current HEAD if absent.\n  - Verify with: ./scripts/test\n  - Then run: python3 scripts/backlog.py  (must exit 0)\n  - When the exit criteria pass, set the status of this task to review in tasks.toml. Never set it to done -- only CI and a human reviewer do that.\n  - Follow CLAUDE.md. Minimal diffs, no speculative refactors, no changes outside the paths above."
+  ],
+  "started_at": 1786559325.875067,
+  "repo": "/home/tau/src/cradle"
+}

@@ -1,0 +1,18 @@
+{
+  "pid": 457125,
+  "task_id": "N4",
+  "command": [
+    "agy",
+    "--model",
+    "gemini-3.6-flash-medium",
+    "--output-format",
+    "text",
+    "--print-timeout",
+    "60m",
+    "--dangerously-skip-permissions",
+    "-p",
+    "Implement task N4 from tasks.toml: Scheduler lifecycle and reminder-cron reconciliation\n\nTwo loose ends from N2. First, create_app starts a BackgroundScheduler and nothing ever stops it: there is no lifespan or shutdown hook, so scripts/dev.sh reload leaks a thread per reload and a clean stop depends entirely on SIGTERM killing the process. Add a FastAPI lifespan that shuts the scheduler down. Second, SPEC 3 and N2 both call for cron entries for reminder rules alongside the 5-minute sweep, and build_scheduler registers only the interval job; in practice the sweep already evaluates WEIGH_IN_DUE every five minutes, so the crons are redundant. Either add them or record the simplification as a SPEC 7.1 amendment - do not leave the SPEC describing something the code does not do.\n\nNotes recorded on this task in tasks.toml -- read these first: they may be feedback from a prior review that this run must address, not just background context.\n  Recommend the amendment over the crons: a reminder that fires on a cron and a reminder that fires from a sweep are the same notification once fingerprint de-dup is in play, and one scheduling path is easier to reason about at 3am than two.\n\nExit criteria (every one must pass before you stop):\n  - scheduler shuts down cleanly on app shutdown (test)\n  - no scheduler thread survives repeated create_app/shutdown cycles (test)\n  - SPEC 7.1 and the code agree on reminder crons\n\nConstraints:\n  - Touch only these paths: src/cradle/app.py, src/cradle/ports/scheduler.py, docs/SPEC.md\n  - Work on branch task/N4-scheduler-lifecycle-and-remindercron; create it from the current HEAD if absent.\n  - Verify with: ./scripts/test\n  - Then run: python3 scripts/backlog.py  (must exit 0)\n  - When the exit criteria pass, set the status of this task to review in tasks.toml. Never set it to done -- only CI and a human reviewer do that.\n  - Follow CLAUDE.md. Minimal diffs, no speculative refactors, no changes outside the paths above."
+  ],
+  "started_at": 1786559335.1012359,
+  "repo": "/home/tau/src/cradle"
+}

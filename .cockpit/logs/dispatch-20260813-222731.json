@@ -1,0 +1,18 @@
+{
+  "pid": 825822,
+  "task_id": "R5",
+  "command": [
+    "agy",
+    "--model",
+    "gemini-3.6-flash-medium",
+    "--output-format",
+    "text",
+    "--print-timeout",
+    "60m",
+    "--dangerously-skip-permissions",
+    "-p",
+    "Implement task R5 from tasks.toml: Vendor Plotly asset\n\nFetch plotly.min.js and pin its SHA-256 alongside htmx. The charts page degrades to a table without it, so this is not a blocker.\n\nNotes recorded on this task in tasks.toml -- read these first: they may be feedback from a prior review that this run must address, not just background context.\n  Status was stale at the 2026-08-04 review: static/vendor/plotly.min.js (4.5MB) and htmx.min.js are already present, fetched by an unrecorded run of vendor_assets.sh. The remaining work is therefore the checksum pin only, which is the whole point of the task - 4.5MB of unverified third-party JS is exactly what U8/R5 exist to prevent. vendor_assets.sh has no PLOTLY_SHA256 variable at all; add one alongside HTMX_SHA256.\n\nExit criteria (every one must pass before you stop):\n  - plotly vendored and checksum pinned\n  - charts page renders curves in a browser\n\nConstraints:\n  - Touch only these paths: scripts/vendor_assets.sh\n  - Work on branch task/R5-vendor-plotly-asset; create it from the current HEAD if absent.\n  - Verify with: ./scripts/test\n  - Then run: python3 scripts/backlog.py  (must exit 0)\n  - When the exit criteria pass, set the status of this task to review in tasks.toml. Never set it to done -- only CI and a human reviewer do that.\n  - Follow CLAUDE.md. Minimal diffs, no speculative refactors, no changes outside the paths above."
+  ],
+  "started_at": 1786656451.9976628,
+  "repo": "/home/tau/src/cradle"
+}

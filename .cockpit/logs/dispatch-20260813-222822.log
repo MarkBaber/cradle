@@ -1,0 +1,5 @@
+backgrounded · e208e391
+  claude agents             list sessions
+  claude attach e208e391    open in this terminal
+  claude logs e208e391      show recent output
+  claude stop e208e391      stop this session

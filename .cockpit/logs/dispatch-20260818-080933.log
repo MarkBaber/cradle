@@ -1,0 +1,5 @@
+backgrounded · 816961ba
+  claude agents             list sessions
+  claude attach 816961ba    open in this terminal
+  claude logs 816961ba      show recent output
+  claude stop 816961ba      stop this session

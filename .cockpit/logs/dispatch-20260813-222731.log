@@ -1,0 +1,11 @@
+Task **R5** ("Vendor Plotly asset") implementation and verification are complete.
+
+### Summary of Changes
+1. **Branch**: Active on `task/R5-vendor-plotly-asset`.
+2. **Asset Vendoring & SHA-256 Pin**: Added `PLOTLY_SHA256` checksum pin (`6d21266ce1bd7d9e5ab4e115989c70c20de0382fd973a8f26ab58619eba4d603`) to [scripts/vendor_assets.sh](file:///home/tau/src/cradle/scripts/vendor_assets.sh) alongside `HTMX_SHA256`.
+3. **Status Update**: Updated task `R5` status in [tasks.toml](file:///home/tau/src/cradle/tasks.toml) to `review`.
+
+### Verification
+- `./scripts/vendor_assets.sh` ran successfully and verified SHA-256 checksums (`plotly.min.js: OK`).
+- `./scripts/test` executed successfully with 208 tests passing.
+- `python3 scripts/backlog.py` executed successfully with exit code 0 (`OK: 53 tasks, graph acyclic, schema complete.`).

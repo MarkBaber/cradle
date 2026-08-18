@@ -1,0 +1,5 @@
+backgrounded · 7e2a4fc2
+  claude agents             list sessions
+  claude attach 7e2a4fc2    open in this terminal
+  claude logs 7e2a4fc2      show recent output
+  claude stop 7e2a4fc2      stop this session

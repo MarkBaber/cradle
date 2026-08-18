@@ -1,0 +1,5 @@
+backgrounded · d22ec732
+  claude agents             list sessions
+  claude attach d22ec732    open in this terminal
+  claude logs d22ec732      show recent output
+  claude stop d22ec732      stop this session

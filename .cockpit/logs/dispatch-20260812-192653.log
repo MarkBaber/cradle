@@ -1,0 +1,5 @@
+backgrounded · 773f72c0
+  claude agents             list sessions
+  claude attach 773f72c0    open in this terminal
+  claude logs 773f72c0      show recent output
+  claude stop 773f72c0      stop this session

@@ -1,0 +1,5 @@
+backgrounded · a18a9635
+  claude agents             list sessions
+  claude attach a18a9635    open in this terminal
+  claude logs a18a9635      show recent output
+  claude stop a18a9635      stop this session

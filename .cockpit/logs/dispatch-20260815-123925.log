@@ -1,0 +1,5 @@
+backgrounded · c58aa634
+  claude agents             list sessions
+  claude attach c58aa634    open in this terminal
+  claude logs c58aa634      show recent output
+  claude stop c58aa634      stop this session
