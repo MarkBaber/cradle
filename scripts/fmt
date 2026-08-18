@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# House formatting gate. --check for CI, in-place otherwise. Copy to scripts/fmt.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+case "py" in
+  cpp)
+    FILES=$(find {{SRC_DIRS}} -name '*.hpp' -o -name '*.cpp' -o -name '*.cu' -o -name '*.cuh')
+    command -v clang-format > /dev/null || { echo "fmt: clang-format missing — CI image provides it"; exit 0; }
+    if [[ "${1:-}" == "--check" ]]; then clang-format --dry-run --Werror $FILES; else clang-format -i $FILES; fi ;;
+  py)
+    command -v ruff > /dev/null || { echo "fmt: ruff missing — CI image provides it"; exit 0; }
+    if [[ "${1:-}" == "--check" ]]; then ruff format --check .; else ruff format .; fi ;;
+esac
