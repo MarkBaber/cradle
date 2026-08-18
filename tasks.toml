@@ -533,13 +533,13 @@ notes = "Implemented at the 2026-08-04 review via a _weights(facts) helper in ru
 id = "Q4"
 phase = 3
 title = "Cross-domain no-fire regression fixture"
-status = "todo"
+status = "review"
 routing = "tester"
 depends = ["A9"]
 touches = ["tests/unit/_facts.py", "tests/unit/test_rules_misc.py"]
 description = "A9 was a whole class of bug that the suite could not see: _facts.healthy_baseline() logs feeds, nappies, one weight and one temperature, and _facts.growth() defaults to WEIGHT, so no test ever put two measures in one timeline. Extend healthy_baseline to a genuinely well-logged day across all seven domains - weight plus length plus head circumference, sleeps with and without ts_end, a milestone, a note, a dirty nappy with a normal colour - and assert the full rule set stays silent on it. Then add a second fixture that is healthy except for one deliberate abnormality per rule, and assert exactly that one rule fires."
 exit_criteria = ["healthy cross-domain timeline yields zero findings (test)", "one-abnormality-at-a-time fixture fires exactly the expected rule id and no other (test per rule)"]
-notes = "This is the guard that would have caught A9 before it could page a parent. Worth more than any single rule test: it is the only place that checks rules do not interfere with each other."
+notes = "This is the guard that would have caught A9 before it could page a parent. Worth more than any single rule test: it is the only place that checks rules do not interfere with each other. Implemented 2026-08-15: healthy_baseline() now logs weight+length+head_circ, a completed and a still-running sleep, a milestone, a note, and a dirty nappy with a normal colour; facts() accepts milestones/notes but drops them since FactSet has no fields for those two domains (the engine never reads them). Added one_abnormality(rule_id) plus one generated test per rule id (11 total) asserting exactly that rule fires. scripts/test.sh: 220 passed; scripts/lint.sh and scripts/check_layers.sh clean. Held at review per CLAUDE.md - CI is the sole arbiter. Question for the architect: the run instructions ask for `python3 scripts/backlog.py` to exit 0, but that script does not exist in the repo; the closest analog, scripts/validate_tasks.py, fails with a pre-existing, out-of-scope issue unrelated to this task (`G1 is done but depends on unfinished R4`, tasks.toml:169-178). Not fixed here since tasks.toml task-status edits beyond Q4's own status field are outside this task's touches."
 
 [[task]]
 id = "U10"
