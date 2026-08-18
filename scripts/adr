@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# House ADR gate entry point. Copy of the invocation agents must use.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+python3 scripts/check_adr.py "${@:---all}"
