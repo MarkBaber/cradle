@@ -34,6 +34,10 @@ from cradle.models import (
     UneditableFieldError,
     UnknownTableError,
 )
+
+# Not re-exported from cradle.models yet: models/__init__.py is outside U17's
+# touches list. U21 moves this up into the block above.
+from cradle.models.enums import StoolConsistency
 from cradle.repos.db import Db
 
 # Tables an editor/deleter may target, and the columns they may set (P2 allow-list).
@@ -153,8 +157,15 @@ class EventsRepo:
     def insert_nappy(self, ev: NappyEvent) -> int:
         return self._insert(
             "nappy",
-            ("baby_id", "ts", "logged_by", "kind", "stool_colour"),
-            (ev.baby_id, ev.ts.isoformat(), ev.logged_by, ev.kind.value, ev.stool_colour.value),
+            ("baby_id", "ts", "logged_by", "kind", "stool_colour", "consistency"),
+            (
+                ev.baby_id,
+                ev.ts.isoformat(),
+                ev.logged_by,
+                ev.kind.value,
+                ev.stool_colour.value,
+                ev.consistency.value,
+            ),
         )
 
     def list_nappies(
@@ -168,6 +179,7 @@ class EventsRepo:
                 logged_by=r["logged_by"],
                 kind=NappyKind(r["kind"]),
                 stool_colour=StoolColour(r["stool_colour"]),
+                consistency=StoolConsistency(r["consistency"]),
             )
             for r in self._rows("nappy", limit, since, until)
         ]

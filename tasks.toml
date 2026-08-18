@@ -745,13 +745,13 @@ notes = "Cheap to write, and it gates U18: an impl task whose diff contradicts a
 id = "U17"
 phase = 1
 title = "Stool consistency vocabulary"
-status = "todo"
+status = "review"
 routing = "architect"
 depends = []
 touches = ["src/cradle/models/enums.py", "src/cradle/models/events.py", "src/cradle/repos/events_repo.py", "src/cradle/repos/migrations/", "tests/unit/test_repos.py"]
 description = "The Dirty panel in U18 offers a description of the mess beyond its colour. models/enums.py has StoolColour and nothing else: there is no vocabulary for consistency, NappyEvent has no field to hold one, and the nappy table has no column. Define the closed set as StoolConsistency, add the field to NappyEvent defaulting to an UNSET member, persist it in a new migration, and extend the repo round-trip. Choosing which descriptions are worth distinguishing is a clinical claim, which is why this is architect-routed rather than folded into U18."
 exit_criteria = ["StoolConsistency enum with an UNSET default member, stored by .value like every other enum", "NappyEvent round-trips consistency through EventsRepo (test)", "migration applies cleanly on an existing database and is recorded in schema_version (test)", "nappy rows written before the migration read back as UNSET rather than raising (test)"]
-notes = "Do not let an impl agent pick these names: which stool descriptions are worth distinguishing is the same class of claim as which colours are flags (U11, A8), and a badly chosen set quietly shapes what a parent reports to a midwife. No rule reads this field and none should be written here - if a consistency ever becomes an alert condition it needs messages.py copy and therefore A8. P3 already claims migration 0002: take the next free number and check the directory before writing the file."
+notes = "Do not let an impl agent pick these names: which stool descriptions are worth distinguishing is the same class of claim as which colours are flags (U11, A8), and a badly chosen set quietly shapes what a parent reports to a midwife. No rule reads this field and none should be written here - if a consistency ever becomes an alert condition it needs messages.py copy and therefore A8. P3 already claims migration 0002: take the next free number and check the directory before writing the file. Implemented as StoolConsistency (8 members, UNSET first, sized to match StoolColour so the U18 panel stays one tappable list); the member comments describe appearance only and carry no flag annotations, unlike StoolColour. Field is NappyEvent.consistency, column added by migrations/0004_stool_consistency.sql as a single ALTER TABLE ... NOT NULL DEFAULT 'unset', which is what backfills pre-migration rows to UNSET rather than raising. Vocabulary and rejected alternatives recorded in docs/adr/0012-stool-consistency-vocabulary.md; that ADR plus its README index row are the only changes outside touches, and the enum is deliberately not re-exported from models/__init__.py because that file is not in touches - events_repo.py imports it from cradle.models.enums and U21 (appended) moves it. U21 also carries the log_nappy pass-through U18 needs and the EDITABLE/CSV-header pair."
 
 [[task]]
 id = "U18"
@@ -802,6 +802,16 @@ exit_criteria = ["a device with no cookie is prompted on a household that alread
 notes = "Still a plain label, no auth semantics (D7). Do not backfill rows already written with an empty logged_by. Filed as U15, not U14: U14 was taken by the Phase 6 milk-stock UI task that landed on main while this branch was open."
 
 [[task]]
+id = "U21"
+phase = 1
+title = "Wire StoolConsistency into the service, edit and export surfaces"
+status = "todo"
+routing = "impl"
+depends = ["U17"]
+touches = ["src/cradle/models/__init__.py", "src/cradle/services/logging_service.py", "src/cradle/repos/events_repo.py", "src/cradle/services/export_service.py", "tests/unit/test_logging_service.py", "tests/unit/test_repos_edit.py", "tests/unit/test_export.py"]
+description = "U17 defines StoolConsistency and round-trips it through EventsRepo, but its touches list stopped at the repo, so three seams downstream of the column are still unaware of it. First, the enum is not re-exported from cradle.models: models/__init__.py lists every other enum in both its import block and __all__, and events_repo.py has to reach into cradle.models.enums directly, which no other caller does. Second, LoggingService.log_nappy takes kind and stool_colour only, so POST /api/nappy has nothing to pass a consistency to - U18's 'dirty nappy logged with colour and consistency end to end' criterion cannot be met until it does. Third, EDITABLE['nappy'] in events_repo.py is frozenset({'ts','kind','stool_colour'}), so edit_event rejects consistency and the U10 post-hoc edit path cannot correct it."
+exit_criteria = ["StoolConsistency importable from cradle.models and present in __all__, with events_repo.py importing it from there like every other enum", "LoggingService.log_nappy accepts a consistency argument defaulting to StoolConsistency.UNSET and persists it (test)", "consistency is in EDITABLE['nappy'] and edit_event can change it (test)", "nappy CSV header is identical whether or not the table has rows (test)"]
+notes = "The CSV criterion is the one with a trap in it. export_service._csv_header builds the empty-table header as id, baby_id, ts, logged_by, *sorted(EDITABLE[domain] - {'ts'}), created_at, edited_at, deleted_at, while the populated-table path uses list(rows[0]), which is physical column order. Those agree for nappy today only by luck: sorted({'kind','stool_colour'}) happens to match. Adding 'consistency' breaks the agreement, because ALTER TABLE appends the column after deleted_at while sorted() puts it first - so the header change has to land in the same diff as the EDITABLE change, not after it. Nothing here is a clinical decision: U17 settled the vocabulary and the ADR records it (docs/adr/0012). Do not add an alert rule against consistency - that is A8 and needs messages.py copy."
 id = "O4"
 phase = 5
 title = "Agent dev-tooling: cockpit dashboard, backlog CLI, guardrail hooks"
