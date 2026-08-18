@@ -52,3 +52,55 @@ class AlertSeverity(StrEnum):
     REMINDER = "reminder"
     AMBER = "amber"
     RED = "red"
+
+
+class BreastSide(StrEnum):
+    """Which breast a pumping session drew from (task M1)."""
+
+    LEFT = "left"
+    RIGHT = "right"
+    BOTH = "both"
+
+
+class MilkStore(StrEnum):
+    """Where a bottle physically sits. The storage clock (A11) runs per store."""
+
+    FRIDGE = "fridge"
+    FREEZER = "freezer"
+    ROOM = "room"
+
+
+class BottleColour(StrEnum):
+    """The bottle's own colour, which is how a parent identifies it in the kitchen.
+
+    Always named in text alongside any colour chip: colour is never the sole
+    carrier of meaning.
+    """
+
+    BLUE = "blue"
+    GREEN = "green"
+    RED = "red"
+    YELLOW = "yellow"
+    ORANGE = "orange"
+    PURPLE = "purple"
+    PINK = "pink"
+    WHITE = "white"
+
+
+class BatchState(StrEnum):
+    """Lifecycle of one bottle. Stored, not derived: a batch can be discarded
+    for reasons no timestamp shows (dropped, left out, refused)."""
+
+    STORED = "stored"
+    THAWED = "thawed"
+    OPENED = "opened"
+    USED = "used"
+    DISCARDED = "discarded"
+
+
+#: States in which a bottle still physically exists and holds milk. One colour
+#: may have at most one live batch; migration 0003 enforces it with a partial
+#: unique index over exactly these values.
+LIVE_BATCH_STATES: frozenset[BatchState] = frozenset(
+    {BatchState.STORED, BatchState.THAWED, BatchState.OPENED}
+)

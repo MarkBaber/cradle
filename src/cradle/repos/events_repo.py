@@ -1,21 +1,30 @@
-"""Per-domain event repositories (tasks P1, P2).
+"""Per-domain event repositories (tasks P1, P2, M1).
 
 All event tables share the shape defined in migrations/0001_init.sql:
     id, baby_id, ts, logged_by, <domain columns>, created_at, edited_at, deleted_at
 
+milk_batch (0003) is the exception: one row per physical bottle, keyed on a
+lifecycle of timestamps rather than a single ts.
+
 Reads exclude soft-deleted rows. Timestamps are stored as UTC ISO-8601 text.
 """
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import UTC, datetime
 from sqlite3 import Row
 
 from cradle.models import (
+    BatchState,
+    BottleColour,
+    BreastSide,
+    ExpressionEvent,
     FeedEvent,
     FeedMethod,
     GrowthEvent,
     GrowthMeasure,
     Milestone,
+    MilkBatch,
+    MilkStore,
     NappyEvent,
     NappyKind,
     Note,
@@ -36,6 +45,29 @@ EDITABLE: dict[str, frozenset[str]] = {
     "temperature": frozenset({"ts", "temp_c", "site"}),
     "milestone": frozenset({"ts", "category", "title", "note"}),
     "note": frozenset({"ts", "text", "tags"}),
+    "expression": frozenset({"ts", "side", "volume_ml", "duration_min", "note"}),
+    "milk_batch": frozenset(
+        {
+            "expressed_at",
+            "stored_at",
+            "store",
+            "colour",
+            "volume_ml",
+            "state",
+            "thawed_at",
+            "opened_at",
+            "used_at",
+            "expression_id",
+        }
+    ),
+}
+
+# The timestamp a transition stamps on the batch. DISCARDED stamps none: the
+# bottle is gone, and why it went is a note, not a clock reading.
+_BATCH_STAMP: dict[BatchState, str] = {
+    BatchState.THAWED: "thawed_at",
+    BatchState.OPENED: "opened_at",
+    BatchState.USED: "used_at",
 }
 
 
@@ -274,6 +306,130 @@ class EventsRepo:
             )
             for r in self._rows("note", limit)
         ]
+
+    # ------------------------------------------------------------ expression
+    def insert_expression(self, ev: ExpressionEvent) -> int:
+        return self._insert(
+            "expression",
+            ("baby_id", "ts", "logged_by", "side", "volume_ml", "duration_min", "note"),
+            (
+                ev.baby_id,
+                ev.ts.isoformat(),
+                ev.logged_by,
+                ev.side.value,
+                ev.volume_ml,
+                ev.duration_min,
+                ev.note,
+            ),
+        )
+
+    def list_expressions(
+        self, limit: int = 200, since: datetime | None = None, until: datetime | None = None
+    ) -> list[ExpressionEvent]:
+        return [
+            ExpressionEvent(
+                event_id=r["id"],
+                baby_id=r["baby_id"],
+                ts=_require_dt(r["ts"]),
+                logged_by=r["logged_by"],
+                side=BreastSide(r["side"]),
+                volume_ml=r["volume_ml"],
+                duration_min=r["duration_min"],
+                note=r["note"],
+            )
+            for r in self._rows("expression", limit, since, until)
+        ]
+
+    # ------------------------------------------------------------ milk batch
+    def insert_milk_batch(self, batch: MilkBatch) -> int:
+        """Store one bottle.
+
+        A colour already live (LIVE_BATCH_STATES, not soft-deleted) is rejected
+        by the partial unique index in migration 0003, which surfaces here as
+        sqlite3.IntegrityError.
+        """
+        return self._insert(
+            "milk_batch",
+            (
+                "baby_id",
+                "expressed_at",
+                "stored_at",
+                "store",
+                "colour",
+                "volume_ml",
+                "state",
+                "thawed_at",
+                "opened_at",
+                "used_at",
+                "expression_id",
+                "logged_by",
+            ),
+            (
+                batch.baby_id,
+                batch.expressed_at.isoformat(),
+                batch.stored_at.isoformat(),
+                batch.store.value,
+                batch.colour.value,
+                batch.volume_ml,
+                batch.state.value,
+                batch.thawed_at.isoformat() if batch.thawed_at else None,
+                batch.opened_at.isoformat() if batch.opened_at else None,
+                batch.used_at.isoformat() if batch.used_at else None,
+                batch.expression_id,
+                batch.logged_by,
+            ),
+        )
+
+    def list_milk_batches(
+        self,
+        states: Collection[BatchState] | None = None,
+        store: MilkStore | None = None,
+        limit: int = 200,
+    ) -> list[MilkBatch]:
+        """Batches newest-stored first. states=None means every state."""
+        sql = "SELECT * FROM milk_batch WHERE deleted_at IS NULL"
+        params: list[object] = []
+        if states is not None:
+            sql += f" AND state IN ({','.join('?' * len(states))})"
+            params.extend(s.value for s in states)
+        if store is not None:
+            sql += " AND store = ?"
+            params.append(store.value)
+        sql += " ORDER BY stored_at DESC, id DESC LIMIT ?"
+        params.append(limit)
+        return [
+            MilkBatch(
+                batch_id=r["id"],
+                baby_id=r["baby_id"],
+                expressed_at=_require_dt(r["expressed_at"]),
+                stored_at=_require_dt(r["stored_at"]),
+                store=MilkStore(r["store"]),
+                colour=BottleColour(r["colour"]),
+                volume_ml=r["volume_ml"],
+                state=BatchState(r["state"]),
+                logged_by=r["logged_by"],
+                thawed_at=_dt(r["thawed_at"]),
+                opened_at=_dt(r["opened_at"]),
+                used_at=_dt(r["used_at"]),
+                expression_id=r["expression_id"],
+            )
+            for r in self._db.conn.execute(sql, params).fetchall()
+        ]
+
+    def set_batch_state(self, batch_id: int, state: BatchState, at: datetime) -> None:
+        """Persist a transition and stamp its timestamp. Which transitions are
+        legal is the service's call (V2); this only records the outcome."""
+        stamp = _BATCH_STAMP.get(state)
+        extra = f", {stamp} = ?" if stamp else ""
+        params: list[object] = [state.value]
+        if stamp:
+            params.append(at.isoformat())
+        self._db.conn.execute(
+            f"UPDATE milk_batch SET state = ?{extra}, edited_at = ?"
+            " WHERE id = ? AND deleted_at IS NULL",
+            (*params, _now_iso(), batch_id),
+        )
+        self._db.conn.commit()
 
     # ------------------------------------------------------- export support
     def dump(self, table: str, include_deleted: bool = True) -> list[dict[str, object]]:
