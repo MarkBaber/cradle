@@ -1,0 +1,5 @@
+backgrounded · eeeb948d
+  claude agents             list sessions
+  claude attach eeeb948d    open in this terminal
+  claude logs eeeb948d      show recent output
+  claude stop eeeb948d      stop this session

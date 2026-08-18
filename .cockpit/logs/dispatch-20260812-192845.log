@@ -1,0 +1,11 @@
+Task **U8** ("Pin vendored htmx checksum") has been implemented according to all requirements and exit criteria.
+
+### Summary of Changes
+1. **[scripts/vendor_assets.sh](file:///home/tau/src/cradle/scripts/vendor_assets.sh#L12)**: Populated `HTMX_SHA256` with the calculated SHA-256 checksum (`e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447`) for HTMX 2.0.4.
+2. **[.gitlab-ci.yml](file:///home/tau/src/cradle/.gitlab-ci.yml#L20-L24)**: Added the `vendor-assets` job to the `validate` stage to run `bash scripts/vendor_assets.sh` in CI. Any checksum mismatch triggers `sha256sum -c -` failure and fails the CI job.
+3. **[tasks.toml](file:///home/tau/src/cradle/tasks.toml#L435)**: Updated task status from `todo` to `review`.
+
+### Verification
+- **Branch**: `task/U8-pin-vendored-htmx-checksum`
+- **Test Suite**: `./scripts/test` passed (209 passed).
+- **Backlog Validation**: `python3 scripts/backlog.py` exited with status `0`.

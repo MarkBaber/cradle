@@ -1,0 +1,5 @@
+backgrounded · 295e5fed
+  claude agents             list sessions
+  claude attach 295e5fed    open in this terminal
+  claude logs 295e5fed      show recent output
+  claude stop 295e5fed      stop this session

@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# PATH shim for `git`. Passes every invocation straight through to the real
+# git EXCEPT `checkout` / `switch` / `branch` subcommands run from the
+# *primary* checkout of this specific NightShift clone (identified by
+# $NIGHTSHIFT_GIT_GUARD_ROOT, set by install.sh alongside the PATH prepend
+# that puts this directory ahead of the real git) -- those are blocked when
+# they'd create or switch to a branch other than `main`, forcing branch work
+# through `git worktree add` instead. See CLAUDE.md's worktree-per-task rule.
+#
+# Why a shim and not a git alias: git aliases cannot override an existing
+# builtin subcommand of the same name (verified empirically -- defining
+# `alias.status` to something custom and running `git status` still runs
+# the real builtin, alias ignored). A PATH shim is the actual interception
+# point available, and the only one that needs no cooperation from the
+# calling tool: AG-13's research (docs/antigravity-backend-parity.md) found
+# agy, Antigravity's CLI, has no hook mechanism under any spelling, so this
+# has to sit underneath it, not inside it.
+#
+# Fails open: if the env vars below aren't set (guard not installed for this
+# shell), or resolve outside this checkout, every command passes through
+# untouched -- this shim must never break git anywhere else on the machine.
+set -euo pipefail
+
+real_git="${NIGHTSHIFT_GIT_GUARD_REAL_GIT:-}"
+guard_root="${NIGHTSHIFT_GIT_GUARD_ROOT:-}"
+
+if [ -z "$real_git" ] || [ ! -x "$real_git" ]; then
+  echo "git-guard: NIGHTSHIFT_GIT_GUARD_REAL_GIT is unset or not executable; re-run scripts/git-guardrails/install.sh" >&2
+  exit 127
+fi
+
+if [ "$#" -lt 1 ] || [ -z "$guard_root" ]; then
+  exec "$real_git" "$@"
+fi
+
+subcmd="$1"
+case "$subcmd" in
+  checkout | switch | branch) ;;
+  *) exec "$real_git" "$@" ;;
+esac
+
+toplevel="$("$real_git" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ "$toplevel" != "$guard_root" ]; then
+  exec "$real_git" "$@"
+fi
+
+git_dir="$("$real_git" rev-parse --git-dir 2>/dev/null || true)"
+case "$git_dir" in
+  */worktrees/*) exec "$real_git" "$@" ;;
+esac
+
+shift
+
+deny() {
+  echo "error: '$subcmd $*' is blocked in the primary checkout of $guard_root." >&2
+  echo "All branch work happens in a git worktree -- see CLAUDE.md:" >&2
+  echo "  git fetch origin && git worktree add .claude/worktrees/<id>-<slug> -b <type>/<id>-<slug> main" >&2
+  exit 1
+}
+
+case "$subcmd" in
+  checkout)
+    if [ "$#" -eq 0 ]; then deny; fi
+    if [ "$1" = "main" ] && [ "$#" -eq 1 ]; then exec "$real_git" checkout main; fi
+    for arg in "$@"; do
+      if [ "$arg" = "--" ]; then exec "$real_git" checkout "$@"; fi
+    done
+    deny "$@"
+    ;;
+  switch)
+    if [ "$#" -eq 0 ]; then deny; fi
+    if [ "$1" = "main" ] && [ "$#" -eq 1 ]; then exec "$real_git" switch main; fi
+    deny "$@"
+    ;;
+  branch)
+    if [ "$#" -eq 0 ]; then exec "$real_git" branch; fi
+    case "$1" in
+      -*) exec "$real_git" branch "$@" ;;
+      *) deny "$@" ;;
+    esac
+    ;;
+esac

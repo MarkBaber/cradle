@@ -1,0 +1,5 @@
+backgrounded · 7654ef08
+  claude agents             list sessions
+  claude attach 7654ef08    open in this terminal
+  claude logs 7654ef08      show recent output
+  claude stop 7654ef08      stop this session

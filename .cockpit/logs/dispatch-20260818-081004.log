@@ -1,0 +1,5 @@
+backgrounded · 45a8f55e
+  claude agents             list sessions
+  claude attach 45a8f55e    open in this terminal
+  claude logs 45a8f55e      show recent output
+  claude stop 45a8f55e      stop this session

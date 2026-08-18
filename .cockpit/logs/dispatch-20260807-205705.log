@@ -1,0 +1,14 @@
+I have completed task **R5** ("Vendor Plotly asset") according to all requirements and guidelines.
+
+### Summary of Changes
+1. **Branch**: Worked on branch `task/R5-vendor-plotly-asset`.
+2. **[vendor_assets.sh](file:///home/tau/src/cradle/scripts/vendor_assets.sh)**:
+   - Added `PLOTLY_SHA256="6d21266ce1bd7d9e5ab4e115989c70c20de0382fd973a8f26ab58619eba4d603"` and `HTMX_SHA256="e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447"`.
+   - Added `sha256sum -c -` verification for `plotly.min.js` alongside `htmx.min.js`.
+3. **[tasks.toml](file:///home/tau/src/cradle/tasks.toml)**: Updated task `R5` status from `todo` to `review`.
+
+### Verification
+- Executed `./scripts/vendor_assets.sh` (downloads assets and confirms both `htmx.min.js: OK` and `plotly.min.js: OK`).
+- Verified `plotly.min.js` route serves `200 OK` (4.5MB).
+- Executed `./scripts/test` (208 passing tests).
+- Executed `python3 scripts/backlog.py` (exited 0).

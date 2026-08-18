@@ -1,0 +1,18 @@
+{
+  "pid": 457881,
+  "task_id": "Q4",
+  "command": [
+    "agy",
+    "--model",
+    "gemini-3.6-flash-medium",
+    "--output-format",
+    "text",
+    "--print-timeout",
+    "60m",
+    "--dangerously-skip-permissions",
+    "-p",
+    "Implement task Q4 from tasks.toml: Cross-domain no-fire regression fixture\n\nA9 was a whole class of bug that the suite could not see: _facts.healthy_baseline() logs feeds, nappies, one weight and one temperature, and _facts.growth() defaults to WEIGHT, so no test ever put two measures in one timeline. Extend healthy_baseline to a genuinely well-logged day across all seven domains - weight plus length plus head circumference, sleeps with and without ts_end, a milestone, a note, a dirty nappy with a normal colour - and assert the full rule set stays silent on it. Then add a second fixture that is healthy except for one deliberate abnormality per rule, and assert exactly that one rule fires.\n\nNotes recorded on this task in tasks.toml -- read these first: they may be feedback from a prior review that this run must address, not just background context.\n  This is the guard that would have caught A9 before it could page a parent. Worth more than any single rule test: it is the only place that checks rules do not interfere with each other.\n\nExit criteria (every one must pass before you stop):\n  - healthy cross-domain timeline yields zero findings (test)\n  - one-abnormality-at-a-time fixture fires exactly the expected rule id and no other (test per rule)\n\nConstraints:\n  - Touch only these paths: tests/unit/_facts.py, tests/unit/test_rules_misc.py\n  - Work on branch task/Q4-crossdomain-nofire-regression-fixture; create it from the current HEAD if absent.\n  - Verify with: ./scripts/test\n  - Then run: python3 scripts/backlog.py  (must exit 0)\n  - When the exit criteria pass, set the status of this task to review in tasks.toml. Never set it to done -- only CI and a human reviewer do that.\n  - Follow CLAUDE.md. Minimal diffs, no speculative refactors, no changes outside the paths above."
+  ],
+  "started_at": 1786559358.348195,
+  "repo": "/home/tau/src/cradle"
+}

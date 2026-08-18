@@ -1,0 +1,18 @@
+{
+  "pid": 825177,
+  "task_id": "U10",
+  "command": [
+    "agy",
+    "--model",
+    "claude-sonnet-4-6",
+    "--output-format",
+    "text",
+    "--print-timeout",
+    "60m",
+    "--dangerously-skip-permissions",
+    "-p",
+    "Implement task U10 from tasks.toml: Post-hoc field edits (bottle volume, feed duration, sleep end)\n\nEventsRepo.edit_event already enforces a per-table column allow-list, but the only HTTP surface for it is /api/adjust-time, which sets ts and nothing else. So several fully-built feature chains are dead from the first link: /api/feed accepts volume_ml, FeedEvent stores it, /today renders `Bottle intake in the last 24h` and series_service computes a bottle_ml series - and no form in any template supplies the field, so it is always zero. Same for breast duration_min. Sleep ts_end is not editable either, so a forgotten wake tap can only be corrected by deleting the row and losing the sleep. SPEC 5.4 calls these optional post-hoc edits and that is exactly what is missing. Add a generic edit endpoint over the existing allow-list plus inline per-domain fields in the history row.\n\nNotes recorded on this task in tasks.toml -- read these first: they may be feedback from a prior review that this run must address, not just background context.\n  Do not weaken the allow-list; it is the only thing standing between a form post and an arbitrary column write. Keep the quick-entry path untouched: volume is a post-hoc edit precisely so it never becomes an entry gate (SPEC 5.4, the 2-tap contract T1).\n\nExit criteria (every one must pass before you stop):\n  - volume_ml set after the fact appears in /today and in the bottle_ml series (test)\n  - duration_min editable on a breast feed (test)\n  - sleep ts_end editable and reflected in sleep totals (test)\n  - a field outside the allow-list is rejected with 4xx (test)\n\nConstraints:\n  - Touch only these paths: src/cradle/routers/api.py, src/cradle/services/logging_service.py, src/cradle/routers/templates/_history_table.html\n  - Work on branch task/U10-posthoc-field-edits-bottle-volume-feed; create it from the current HEAD if absent.\n  - Verify with: ./scripts/test\n  - Then run: python3 scripts/backlog.py  (must exit 0)\n  - When the exit criteria pass, set the status of this task to review in tasks.toml. Never set it to done -- only CI and a human reviewer do that.\n  - Follow CLAUDE.md. Minimal diffs, no speculative refactors, no changes outside the paths above."
+  ],
+  "started_at": 1786656443.1274066,
+  "repo": "/home/tau/src/cradle"
+}

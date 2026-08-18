@@ -1,0 +1,16 @@
+I have completed task **Q4** from `tasks.toml`.
+
+### Summary of Changes
+1. **Branch**: Worked on branch `task/Q4-crossdomain-nofire-regression-fixture`.
+2. **`tests/unit/_facts.py`**:
+   - Added helper functions `sleep`, `milestone`, `note`, and updated `facts()` to accept `milestones` and `notes`.
+   - Extended `healthy_baseline()` across all 7 domains: weight, length, head circumference, ongoing sleep, completed sleep with `ts_end`, a milestone, a note, and dirty nappies with normal stool colours (`YELLOW`, `BROWN`).
+   - Added `abnormal_baseline(rule_id, now)` fixture generator to produce timelines that are healthy across all domains except for a single deliberate abnormality per rule.
+3. **`tests/unit/test_rules_misc.py`**:
+   - Extended test suite with 11 individual tests (one per rule ID) asserting that `abnormal_baseline(rule_id)` triggers strictly that single rule ID and no other rules.
+4. **`tasks.toml`**: Updated status of task `Q4` from `todo` to `review`.
+
+### Verification
+- `./scripts/test` executed cleanly (220 passed).
+- `python3 scripts/offline_runner.py` executed cleanly (220 passed).
+- `python3 scripts/backlog.py` exited with status `0`.

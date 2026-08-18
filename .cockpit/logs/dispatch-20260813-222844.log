@@ -1,0 +1,24 @@
+I have completed task **U9: Display-timezone setting**.
+
+### Summary of Implementation
+1. **Configurable Timezone (`src/cradle/models/timefmt.py`)**:
+   - `to_utc` and `to_local` resolve the target timezone from the `[display].timezone` key in `rules_config.toml` via `zoneinfo.ZoneInfo`, falling back to `UTC` if unset or missing.
+   - Kept function signatures identical so downstream callers (`series_service`, ribbon view, router datetime handlers) consume the configured timezone seamlessly.
+
+2. **Configuration (`rules_config.toml`)**:
+   - Added the `[display]` section with `timezone = "Europe/London"`.
+
+3. **Documentation (`src/cradle/routers/templates/settings.html`)**:
+   - Added a note to the settings template explaining how `[display].timezone` controls display and input timestamp interpretation.
+
+4. **Testing (`tests/unit/test_timefmt.py`)**:
+   - Added tests covering configured zone parse and render behavior.
+   - Added DST boundary tests covering both spring-forward (01:00 UTC on 2026-03-29) and fall-back (01:00 UTC on 2026-10-25) transitions.
+
+5. **Task Status (`tasks.toml`)**:
+   - Updated status of task U9 to `review`.
+
+### Verification
+- Ran `./scripts/test` (all 213 tests passed).
+- Ran `python3 scripts/backlog.py` (exited 0 with DAG & schema validation clean).
+All tests have completed successfully (213 passed, exit code 0). The task status is set to `review` on branch `task/U9-displaytimezone-setting`.

@@ -1,0 +1,5 @@
+backgrounded · 56014e32
+  claude agents             list sessions
+  claude attach 56014e32    open in this terminal
+  claude logs 56014e32      show recent output
+  claude stop 56014e32      stop this session

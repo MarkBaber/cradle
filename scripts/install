@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Installs the NightShift systemd units on Ubuntu (see docs/runbook.md for
+# WSL2/Docker alternatives). Idempotent; safe to re-run. Requires root.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "install: must run as root (sudo scripts/install)" >&2
+  exit 1
+fi
+
+NS_HOME=/opt/nightshift
+NS_ETC=/etc/nightshift
+NS_UNIT_DIR=/etc/systemd/system
+
+if ! id -u nightshift > /dev/null 2>&1; then
+  useradd --system --home-dir "$NS_HOME" --create-home --shell /usr/sbin/nologin nightshift
+fi
+
+install -d -o nightshift -g nightshift -m 750 "$NS_HOME"
+install -d -o root -g nightshift -m 750 "$NS_ETC"
+
+if [ ! -f "$NS_ETC/env" ]; then
+  printf '%s\n' \
+    '# NightShift daemon secrets (mode 640, root:nightshift).' \
+    'NIGHTSHIFT_API_TOKEN=' \
+    'GITLAB_TOKEN=' \
+    > "$NS_ETC/env"
+  chown root:nightshift "$NS_ETC/env"
+  chmod 640 "$NS_ETC/env"
+  echo "install: wrote $NS_ETC/env — fill in NIGHTSHIFT_API_TOKEN and GITLAB_TOKEN before starting the service"
+fi
+
+install -m 644 systemd/nightshift.service "$NS_UNIT_DIR/nightshift.service"
+install -m 644 systemd/nightshift-wake.service "$NS_UNIT_DIR/nightshift-wake.service"
+install -m 644 systemd/nightshift-window.timer "$NS_UNIT_DIR/nightshift-window.timer"
+
+# ReadWritePaths= for each configured project repo (and its parent directory,
+# since sandbox worktrees are created beside the repo — see sandbox.py) can't
+# be known until nightshift.toml is in place, so this drop-in is generated
+# from it rather than hardcoded into systemd/nightshift.service.
+CONF="$NS_HOME/nightshift.toml"
+DROPIN_DIR="$NS_UNIT_DIR/nightshift.service.d"
+if [ -f "$CONF" ]; then
+  mkdir -p "$DROPIN_DIR"
+  python3 - "$CONF" > "$DROPIN_DIR/override.conf" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+
+with open(sys.argv[1], "rb") as fh:
+    doc = tomllib.load(fh)
+
+paths = set()
+for project in doc.get("projects", []):
+    repo = Path(project["path"]).resolve()
+    paths.add(str(repo))
+    paths.add(str(repo.parent))
+
+print("[Service]")
+for p in sorted(paths):
+    print(f"ReadWritePaths={p}")
+PY
+  echo "install: wrote $DROPIN_DIR/override.conf from $CONF"
+else
+  echo "install: no $CONF yet — after adding it, add ReadWritePaths= for each" \
+       "project repo (and its parent, for sandbox worktrees) via" \
+       "'systemctl edit nightshift.service', see docs/runbook.md" >&2
+fi
+
+systemctl daemon-reload
+systemctl enable nightshift.service nightshift-window.timer
+# No-op on a fresh install (unit isn't running yet); on a re-run, picks up
+# the regenerated ReadWritePaths= drop-in without a manual restart step.
+systemctl try-restart nightshift.service
+
+echo "install: units installed. Review $NS_ETC/env and $CONF, then run:"
+echo "  systemctl start nightshift.service nightshift-window.timer"
