@@ -7,6 +7,7 @@ JavaScript disabled or htmx unvendored.
 """
 
 from datetime import datetime
+from html import escape
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
@@ -24,6 +25,7 @@ from cradle.models import (
 from cradle.routers.deps import Services, device_name
 
 UNDO_SECONDS = 10
+DEVICE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60  # browsers cap persistent cookies at 400 days
 
 # Value coercion for the generic post-hoc field editor (U10). The allow-list
 # itself lives in EventsRepo.EDITABLE; this only maps a raw form string to the
@@ -56,6 +58,21 @@ def _toast(table: str, event_id: int, label: str) -> str:
         f'<a class="adjust" href="/history?focus={table}:{event_id}">Adjust time</a>'
         "</div>"
     )
+
+
+def _cookie_safe(value: str) -> str:
+    """Set-Cookie is latin-1 on the wire and rejects control characters, so anything
+    else would 500 on the way out. Drop those to a space rather than nothing, so a
+    name is trimmed instead of run together, and collapse the result."""
+    kept = (c if 0x20 <= ord(c) < 0x100 and c != "\x7f" else " " for c in value)
+    return " ".join("".join(kept).split())
+
+
+def _device_saved(name: str) -> str:
+    """Echo what was stored: the cookie-safe name can differ from what was typed."""
+    if not name:
+        return '<span class="ok">Device name cleared.</span>'
+    return f'<span class="ok">Device name saved. Entries here are labelled "{escape(name)}".</span>'
 
 
 def _respond(request: Request, table: str, event_id: int, label: str) -> Response:
@@ -235,6 +252,23 @@ def build_api_router(svc: Services) -> APIRouter:
                 '<p class="err">Check the dates and sex value.</p>', status_code=400
             )
         return RedirectResponse("/", status_code=303)
+
+    @router.post("/api/settings/device")
+    def post_device(
+        request: Request,
+        device: Annotated[str, Form()] = "",
+    ) -> Response:
+        """Name this device (D7). A plain cookie: it labels rows, it protects nothing.
+        Rows already written keep whatever attribution they were saved with."""
+        name = device_name(_cookie_safe(device))
+        back = "/settings" if svc.settings.has_profile() else "/settings?first_run=1"
+        resp: Response = (
+            HTMLResponse(_device_saved(name))
+            if request.headers.get("HX-Request")
+            else RedirectResponse(back, status_code=303)
+        )
+        resp.set_cookie("device_name", name, max_age=DEVICE_COOKIE_MAX_AGE, samesite="lax")
+        return resp
 
     @router.post("/api/settings/test-notification")
     def post_test_notification(request: Request) -> Response:

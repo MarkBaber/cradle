@@ -569,13 +569,13 @@ notes = "SUPERSEDED 2026-08-17 by U18, which delivers colour capture inside the 
 id = "U12"
 phase = 1
 title = "Device-name attribution"
-status = "todo"
+status = "review"
 routing = "impl"
 depends = ["U1"]
 touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/cradle/routers/templates/settings.html", "src/cradle/routers/templates/_history_table.html"]
 description = "SPEC 1 lists device-name attribution as a v1 IS, and D7 chose it over auth precisely because attribution is the thing that actually matters in a household. It is not implemented: no device_name cookie is ever set anywhere in the templates or JS, routers.deps.device_name therefore always returns an empty string, every row is written with logged_by='', and _history_table.html does not render the field even though HistoryService.rows already carries it. Prompt for a device name on first visit, persist it in the cookie, and show it in history."
 exit_criteria = ["first visit prompts for a device name and persists it (route test)", "logged_by populated on events created after the name is set (test)", "history renders who logged each row (route test)", "name editable in /settings"]
-notes = "Keep it a plain cookie with no auth semantics (D7): this labels rows, it does not protect them. Existing rows keep their empty logged_by - do not backfill."
+notes = "Keep it a plain cookie with no auth semantics (D7): this labels rows, it does not protect them. Existing rows keep their empty logged_by - do not backfill. Implemented: the prompt lives on /settings, which is where the fresh-install redirect already lands, and it shows whenever the cookie is unset. A second device joining an already-configured household is not prompted until it opens /settings - forcing that needs a banner in base.html/quick_entry.html or a redirect gate on / that rewrites existing route tests, both outside these touches; raised as U15. Cookie values are latin-1 on the wire and reject control characters, so both are collapsed to a space in post_device rather than 500ing; full UTF-8 would need deps.device_name to decode (also U15). The attribution span carries class=\"by\" but app.css has no rule for it, so it renders as plain text next to the detail; app.css is outside these touches, so styling it is U15 as well."
 
 [[task]]
 id = "A10"
@@ -788,3 +788,15 @@ touches = ["src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/
 description = "U18 covers Feed and Mess only, leaving two entry paths on the same page in a different idiom: the Sleep toggle posts with no way to correct a forgotten Wake tap or to say where the baby slept, though SleepEvent.location and SleepLocation (cot/pram/arms/other) both exist and no template offers them; and the More drawer keeps bare number inputs for weight, length, head circumference and temperature. Give sleep a panel for start, end and location, and put the same wheel and select treatment on the drawer's quantities."
 exit_criteria = ["sleep start and end adjustable at entry, and a forgotten wake correctable without deleting the row (route test)", "sleep location logged from the UI and read back (route test)", "weight, length, head circ and temperature entered through the panel controls (route test)", "one tap on Sleep still starts or ends a sleep at now (route test)"]
 notes = "Deliberately last: these are the low-frequency paths, and the panel idiom should be proven on feeds and nappies - which happen a dozen times a day - before it is copied. Sleep end overlaps U10, which makes ts_end editable from history; if U10 has landed, reuse its endpoint rather than adding a second write path for the same column. Growth and temperature keep their current post targets - this is a control-shape change, nothing about what is stored."
+
+[[task]]
+id = "U15"
+phase = 1
+title = "Prompt any unnamed device, not just the first install"
+status = "todo"
+routing = "impl"
+depends = ["U12"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/base.html", "src/cradle/routers/deps.py", "src/cradle/routers/static/app.css", "tests/routes/test_quick_entry.py", "tests/routes/test_alerts.py", "tests/routes/test_phase5.py"]
+description = "U12 put the device-name prompt on /settings, which the fresh-install redirect already reaches, so the first phone in a household is asked. A second phone joining a household that already has a profile is never asked: it logs rows with an empty logged_by until someone opens /settings, which is exactly the case D7 chose attribution for. Show a dismissable name-this-device banner on every page while the cookie is unset (base.html, so quick_entry/today/history all carry it), or gate / on the cookie - the gate rewrites the existing route tests, which is why U12 could not do it inside its touches. Second, non-latin-1 device names are currently collapsed to a space in post_device because Set-Cookie is latin-1 on the wire: percent-encode on write and decode in deps.device_name so a name in any script survives. Third, the attribution span U12 added to the history row has class=\"by\" and app.css has no rule for it, so it reads as undifferentiated body text: give it the same muted treatment as .note."
+exit_criteria = ["a device with no cookie is prompted on a household that already has a profile (route test)", "the prompt does not reappear once the name is set (route test)", "a non-latin-1 device name round-trips to history intact (route test)", "existing route tests updated for the new behaviour, suite green"]
+notes = "Still a plain label, no auth semantics (D7). Do not backfill rows already written with an empty logged_by. Filed as U15, not U14: U14 was taken by the Phase 6 milk-stock UI task that landed on main while this branch was open."

@@ -13,7 +13,7 @@ from fastapi.responses import (
 from fastapi.templating import Jinja2Templates
 
 from cradle.models import GrowthMeasure, to_local, to_utc
-from cradle.routers.deps import Services
+from cradle.routers.deps import Services, device_name
 from cradle.services.export_service import DOMAINS as EXPORT_DOMAINS
 from cradle.services.history_service import DOMAINS
 from cradle.services.milestone_service import CATEGORIES as MILESTONE_CATEGORIES
@@ -226,6 +226,7 @@ def build_pages_router(svc: Services) -> APIRouter:
             {
                 "profile": svc.settings.profile(),
                 "first_run": request.query_params.get("first_run") == "1",
+                "device": device_name(request.cookies.get("device_name")),
             },
         )
 
