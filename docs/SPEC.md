@@ -195,9 +195,9 @@ otherwise an alert naming the blue bottle points at two different bottles.
   from scratch. This is the deliberate cost of the panel-then-Save flow above: today a
   tap is a row; after this change a tap can be nothing, so a parent interrupted
   mid-feed can lose the entry entirely rather than leave an under-specified one.
-  **Rejected alternative:** write the row on tap (the original design above) and refine
-  it in place afterward via `/history` (U10). Rejected because a volume/duration left
-  unset this way isn't recorded as *unset* — it is stored as *zero*, so a `bottle_ml`
+  **Rejected alternative:** write the row on tap (the flow this section replaces) and
+  refine it in place afterward via `/history` (U10). Rejected because a volume/duration
+  left unset this way isn't recorded as *unset* — it is stored as *zero*, so a `bottle_ml`
   series with no data entered reads as a baby drinking nothing rather than as data not
   yet captured; and because the post-hoc edit path is the one nobody uses at 3am, so
   "refine it later" doesn't hold up in practice. U10 (soft-delete + inline edit) stays
