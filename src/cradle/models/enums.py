@@ -34,6 +34,25 @@ class StoolColour(StrEnum):
     BLACK = "black"  # red flag after day 5
 
 
+class StoolConsistency(StrEnum):
+    """How the stool looked, in the plain words a parent would use to a midwife.
+
+    Descriptive only. No alert rule reads this field and none should be added
+    against it here: a consistency that becomes an alert condition needs
+    messages.py copy and therefore goes through A8. UNSET for wet-only nappies
+    and for anything logged without a description.
+    """
+
+    UNSET = "unset"
+    STICKY = "sticky"  # tarry and hard to wipe off, as meconium is
+    SEEDY = "seedy"  # loose with seed-like specks through it
+    SOFT = "soft"  # pasty, holds its shape only loosely
+    FORMED = "formed"  # firm and shaped
+    RUNNY = "runny"  # watery, soaks into the nappy
+    HARD = "hard"  # dry pellets or small hard lumps
+    MUCOUSY = "mucousy"  # visible slime or stringy threads
+
+
 class SleepLocation(StrEnum):
     COT = "cot"
     PRAM = "pram"

@@ -16,4 +16,5 @@ Immutable. Superseded, never edited (see CLAUDE.md).
 | [0009](0009-plotly-js-vendored-for-charts.md) | Plotly.js (vendored) for charts | Accepted |
 | [0010](0010-apscheduler-in-process.md) | APScheduler in-process | Accepted |
 | [0011](0011-single-baby-but-baby-id-fk-on-all-event-tables.md) | Single baby, but all event tables carry `baby_id` FK to the one profile row | Accepted |
+| [0012](0012-stool-consistency-vocabulary.md) | Stool consistency vocabulary | Accepted |
 <!-- ADR-INDEX:END -->

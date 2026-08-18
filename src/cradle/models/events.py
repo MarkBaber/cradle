@@ -18,6 +18,7 @@ from cradle.models.enums import (
     NappyKind,
     Sex,
     StoolColour,
+    StoolConsistency,
 )
 
 
@@ -51,6 +52,7 @@ class FeedEvent(_EventBase):
 class NappyEvent(_EventBase):
     kind: NappyKind = NappyKind.WET
     stool_colour: StoolColour = StoolColour.UNSET
+    consistency: StoolConsistency = StoolConsistency.UNSET
 
 
 @dataclass(frozen=True, slots=True)
