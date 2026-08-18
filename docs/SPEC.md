@@ -15,7 +15,7 @@ exportable history (timeseries + animated growth playback + milestones).
 
 | Target | Value |
 |---|---|
-| Quick-entry interaction cost | ≤2 taps to log a feed/nappy/sleep event at "now" |
+| Quick-entry interaction cost | ≤2 taps to log a feed/nappy event at "now" with defaults accepted — tap tile, tap Save (§5.4); sleep start/end stays a single confirm-free tap |
 | Page weight (quick-entry screen) | ≤150 KB transferred, no build step |
 | Server | Runs on Pi 4/5, ≤150 MB RSS, SQLite only, zero runtime network deps except ntfy POST |
 | Centile accuracy | z-score/centile matches published UK-WHO LMS reference to ±0.01 z (oracle-tested) |
@@ -179,9 +179,29 @@ allows at most one live batch (`stored|thawed|opened`, not soft-deleted) per col
 otherwise an alert naming the blue bottle points at two different bottles.
 
 ### 5.4 `routers/` + UI
-- `/` **Quick-entry**: six oversized buttons (Feed L / Feed R / Bottle / Wet / Dirty /
-  Sleep toggle) → one confirm-free POST at `now`, HTMX swap shows undo-toast (10 s) and
-  "adjust time" link. Volume/duration are *optional post-hoc edits*, never entry gates.
+- `/` **Quick-entry**: six oversized tiles (Feed L / Feed R / Bottle / Wet / Dirty /
+  Sleep toggle). Feed and Mess tiles (Feed L / Feed R / Bottle / Wet / Dirty) open an
+  htmx-swapped panel below the grid, pre-populated with sensible defaults (timestamp
+  `now`, side/method matching the tile tapped, plus volume, duration, stool colour and
+  consistency where relevant) — nothing is written until **Save**, which posts the
+  whole event in one request. Every panel field is optional; Save with all defaults
+  accepted never 4xx's. The Sleep toggle is unchanged: a single confirm-free POST at
+  `now` starts or ends the active sleep — a running timer has no optional fields to
+  gate on. HTMX swap on Save shows the undo-toast (10 s) and "adjust time" link, as
+  before.
+  **Abandoned panel:** a tile tap alone writes nothing. If the panel is opened and the
+  user navigates away, backgrounds the app, or taps another tile without tapping Save,
+  no row exists for that tap and none is recoverable — the event must be logged again
+  from scratch. This is the deliberate cost of the panel-then-Save flow above: today a
+  tap is a row; after this change a tap can be nothing, so a parent interrupted
+  mid-feed can lose the entry entirely rather than leave an under-specified one.
+  **Rejected alternative:** write the row on tap (the flow this section replaces) and
+  refine it in place afterward via `/history` (U10). Rejected because a volume/duration
+  left unset this way isn't recorded as *unset* — it is stored as *zero*, so a `bottle_ml`
+  series with no data entered reads as a baby drinking nothing rather than as data not
+  yet captured; and because the post-hoc edit path is the one nobody uses at 3am, so
+  "refine it later" doesn't hold up in practice. U10 (soft-delete + inline edit) stays
+  valid regardless — it is still how the taps that were never refined get corrected.
 - `/today`: last-24 h strip (counts vs expected, active sleep timer, time-since-last-feed).
 - `/charts`: Plotly timeseries per domain; growth chart draws 0.4/2/9/25/50/75/91/98/99.6
   UK-WHO centile curves with baby's trajectory overlaid; **Play** button animates the
