@@ -17,6 +17,16 @@ junit.xml
 .idea/
 .vscode/
 
+# Claude Code: settings.json and .claude/agents are shared project config and
+# are tracked; .claude/worktrees holds per-session linked worktrees (nested
+# git checkouts) and settings.local.json is a personal permission allowlist
+# that can reference paths outside this repo -- neither belongs in history.
+.claude/worktrees/
+.claude/settings.local.json
+
+# scripts/cockpit.py runtime state: friction-signal log and per-session logs.
+.cockpit/
+
 # Runtime data. data/cradle.db is the household's live record: a newborn's
 # feeding, weight and health log. It must never enter version history, where
 # it cannot be un-published. Export via /export/cradle.json instead.
