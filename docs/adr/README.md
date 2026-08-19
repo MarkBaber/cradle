@@ -17,4 +17,5 @@ Immutable. Superseded, never edited (see CLAUDE.md).
 | [0010](0010-apscheduler-in-process.md) | APScheduler in-process | Accepted |
 | [0011](0011-single-baby-but-baby-id-fk-on-all-event-tables.md) | Single baby, but all event tables carry `baby_id` FK to the one profile row | Accepted |
 | [0012](0012-stool-consistency-vocabulary.md) | Stool consistency vocabulary | Accepted |
+| [0013](0013-reminder-rules-fire-from-the-sweep-not-crons.md) | Reminder rules fire from the 5-minute sweep, not separate cron jobs | Accepted |
 <!-- ADR-INDEX:END -->

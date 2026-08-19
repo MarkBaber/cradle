@@ -101,8 +101,8 @@ AST fallback test.
   (z, centile, LMS row used) — LMS method: `z = ((x/M)^L − 1)/(L·S)`, `L≠0`.
 - `Notifier.send(finding: Finding) -> None` — ntfy adapter POSTs to a topic;
   `ConsoleNotifier` fallback keeps dev/test offline.
-- Scheduler (APScheduler, in-process): every 5 min → `alert_evaluation` service;
-  cron entries for reminder rules (e.g. weigh-in due).
+- Scheduler (APScheduler, in-process): every 5 min → `alert_evaluation` service
+  (evaluates condition alerts and reminder rules in sweep).
 - Alert de-duplication: `Finding.fingerprint` (rule id + subject + period bucket);
   a finding is notified once per fingerprint, recorded in `alert_log`.
 
@@ -256,7 +256,7 @@ as static files. Adding a dep = architect decision.
 | **0** | Runnable skeleton | API importable; smoke test green: POST /api/feed → row in SQLite → appears in /history fragment; CI green at commit zero |
 | **1** | Core logging + quick-entry UI | All 7 domains loggable/editable/soft-deletable; ≤2-tap entry verified by route tests; undo works; /today counts correct on synthetic day |
 | **2** | Growth engine (riskiest bet) | Oracle parity ±0.01 z on ≥40 vectors incl. preterm; corrected-age logic tested; /charts growth view renders centile curves |
-| **3** | Alerts + ntfy + scheduler | Every §5.2 rule has passing synthetic-timeline tests; fingerprint de-dup proven; ntfy adapter integration-tested against mock; reminder crons fire |
+| **3** | Alerts + ntfy + scheduler | Every §5.2 rule has passing synthetic-timeline tests; fingerprint de-dup proven; ntfy adapter integration-tested against mock; reminders fire via 5-min sweep |
 | **4** | Dashboards + animation | Timeseries per domain; animated centile playback; sleep/feed pattern views |
 
 | **5** | Milestones, export, backup, PWA polish | Full JSON/CSV export round-trips; backup script + systemd unit verified; PWA installable; Lighthouse-style weight budget met |
@@ -279,6 +279,7 @@ Recorded here so the SPEC stays ground truth rather than drifting from the code.
 | W1 | Service worker served from `/sw.js`, not `/static/sw.js` | A worker's scope is capped by its own path, so it could only have controlled `/static/*`. |
 | R1 | Added `LmsTable`, `value_at_z`, `z_for_centile`, `ReferenceDataMissingError` | Drawing centile curves needs the inverse of the z-score, and missing reference data must fail loudly rather than approximate. |
 | R3 | Gestation derived from a 40-week due date, not the 37-week threshold | The original formula conflated the two and would have mis-corrected every baby by three weeks. |
+| N4 | Reminder crons dropped in favour of 5-minute sweep | Reminder rules (e.g. `WEIGH_IN_DUE`) are evaluated in the 5-minute sweep with fingerprint de-duplication; separate cron jobs are redundant. |
 
 ## 8. Deliberate-not-oversight callouts
 

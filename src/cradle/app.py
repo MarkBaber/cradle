@@ -3,7 +3,8 @@
 import json
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import AsyncGenerator, Mapping
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -157,7 +158,16 @@ def create_app(
     live_notifier = _LiveNotifier(notifier or notifier_from_config(config_path))
     svc = build_services(db, clock or SystemClock(), live_notifier, config_path, reference)
 
-    app = FastAPI(title="CRADLE")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        yield
+        scheduler = getattr(app.state, "scheduler", None)
+        if scheduler is not None:
+            from cradle.ports.scheduler import stop_scheduler  # noqa: PLC0415
+
+            stop_scheduler(scheduler)
+
+    app = FastAPI(title="CRADLE", lifespan=lifespan)
     app.state.services = svc  # exposed for operational checks and tests
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(build_pages_router(svc))
