@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; cd \"$root\" || exit 0; python3 scripts/worktree_guard.py",
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; cd \"$root\" || exit 0; if [ ! -f scripts/worktree_guard.py ]; then gitdir=$(git rev-parse --git-dir 2>/dev/null) || exit 0; case \"$gitdir\" in */worktrees/*) exit 0 ;; esac; echo \"scripts/worktree_guard.py is missing from the primary checkout -- refusing until it is restored; nothing else enforces CLAUDE.md's worktree rule.\" >&2; exit 2; fi; python3 scripts/worktree_guard.py",
             "timeout": 10,
             "statusMessage": "checking you're off main before editing"
           }
