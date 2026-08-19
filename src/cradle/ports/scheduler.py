@@ -44,3 +44,9 @@ def build_scheduler(
     )
     scheduler.start()
     return scheduler
+
+
+def stop_scheduler(scheduler: "BackgroundScheduler") -> None:
+    """Shut down a running BackgroundScheduler."""
+    if getattr(scheduler, "running", False):
+        scheduler.shutdown(wait=False)
