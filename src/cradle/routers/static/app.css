@@ -82,7 +82,7 @@ table#history{width:100%;border-collapse:collapse;font-size:.88rem}
 .tag.growth{color:var(--bottle)} .tag.temperature{color:var(--warn)}
 
 /* misc */
-.note{color:var(--dim);font-size:.82rem}
+.note,.by{color:var(--dim);font-size:.82rem}
 .ok{color:var(--ok)} .err{color:var(--err)}
 .disclaimer{color:var(--dim);font-size:.75rem;border-top:1px solid var(--line);
   padding-top:10px;margin-top:20px}

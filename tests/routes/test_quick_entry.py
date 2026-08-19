@@ -52,6 +52,22 @@ def test_fresh_install_redirects_to_settings() -> None:
     assert "/settings" in r.headers["location"]
 
 
+def test_second_device_is_prompted_on_an_already_configured_household() -> None:
+    """U15: U12 only prompted on first install (the /settings redirect). A
+    second phone joining a household that already has a profile must also be
+    asked, not silently log rows with an empty logged_by."""
+    client = _client()
+    page = client.get("/").text
+    assert "Name this device" in page
+    assert 'href="/settings"' in page
+
+
+def test_device_prompt_does_not_reappear_once_named() -> None:
+    client = _client()
+    client.post("/api/settings/device", data={"device": "kitchen tablet"})
+    assert "Name this device" not in client.get("/").text
+
+
 def test_every_quick_action_is_one_request_with_minimal_payload() -> None:
     client = _client()
     for url, payload in QUICK_ACTIONS:

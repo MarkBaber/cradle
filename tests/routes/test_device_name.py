@@ -91,9 +91,10 @@ def test_device_name_is_editable_in_settings() -> None:
 
 def test_naming_a_device_copes_with_awkward_input() -> None:
     client = _client()
-    # A cookie is latin-1 on the wire: an emoji must be dropped, not 500 the request.
+    # Set-Cookie is latin-1 on the wire, but the name is percent-encoded before
+    # it's written (U15), so an emoji survives rather than 500ing or being dropped.
     assert client.post("/api/settings/device", data={"device": "phone 📱"}).status_code == 303
-    assert 'value="phone"' in client.get("/settings").text
+    assert 'value="phone 📱"' in client.get("/settings").text
 
     # Control characters are rejected by Set-Cookie too, and a tab must not run the
     # words together the way a dropped character would.
@@ -120,3 +121,15 @@ def test_naming_a_device_copes_with_awkward_input() -> None:
     assert client.post("/api/settings/device", data={"device": "   "}).status_code == 303
     client.post("/api/nappy", data={"kind": "wet"})
     assert client.get("/history/fragment").text.count('class="by"') == 1
+
+
+def test_non_latin1_device_name_round_trips_to_history() -> None:
+    """U15: percent-encoding the cookie on write and decoding it in
+    deps.device_name means a name in any script survives intact, not just
+    latin-1 - it shows up on both the settings form and history rows."""
+    client = _client()
+    client.post("/api/settings/device", data={"device": "祖母のスマホ"})
+    assert 'value="祖母のスマホ"' in client.get("/settings").text
+
+    client.post("/api/nappy", data={"kind": "wet"})
+    assert "by 祖母のスマホ" in client.get("/history").text

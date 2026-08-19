@@ -9,6 +9,7 @@ JavaScript disabled or htmx unvendored.
 from datetime import datetime
 from html import escape
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -60,12 +61,14 @@ def _toast(table: str, event_id: int, label: str) -> str:
     )
 
 
-def _cookie_safe(value: str) -> str:
-    """Set-Cookie is latin-1 on the wire and rejects control characters, so anything
-    else would 500 on the way out. Drop those to a space rather than nothing, so a
-    name is trimmed instead of run together, and collapse the result."""
-    kept = (c if 0x20 <= ord(c) < 0x100 and c != "\x7f" else " " for c in value)
-    return " ".join("".join(kept).split())
+def _normalize_device_name(value: str) -> str:
+    """Collapse whitespace/control-character runs to a single space and cap the
+    length at 40. Everything else - any script, emoji included - is kept:
+    Set-Cookie is latin-1 on the wire and rejects control characters, but
+    post_device percent-encodes the result before writing it, so a non-latin-1
+    name no longer has to be dropped to avoid a 500."""
+    kept = (c if c.isprintable() else " " for c in value)
+    return " ".join("".join(kept).split())[:40]
 
 
 def _device_saved(name: str) -> str:
@@ -260,14 +263,16 @@ def build_api_router(svc: Services) -> APIRouter:
     ) -> Response:
         """Name this device (D7). A plain cookie: it labels rows, it protects nothing.
         Rows already written keep whatever attribution they were saved with."""
-        name = device_name(_cookie_safe(device))
+        name = _normalize_device_name(device)
         back = "/settings" if svc.settings.has_profile() else "/settings?first_run=1"
         resp: Response = (
             HTMLResponse(_device_saved(name))
             if request.headers.get("HX-Request")
             else RedirectResponse(back, status_code=303)
         )
-        resp.set_cookie("device_name", name, max_age=DEVICE_COOKIE_MAX_AGE, samesite="lax")
+        resp.set_cookie(
+            "device_name", quote(name, safe=""), max_age=DEVICE_COOKIE_MAX_AGE, samesite="lax"
+        )
         return resp
 
     @router.post("/api/settings/test-notification")
