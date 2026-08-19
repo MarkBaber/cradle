@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from _helpers import NOW, clock, make_db, make_repo
 
-from cradle.models import FeedMethod, GrowthMeasure, NappyKind, StoolColour
+from cradle.models import FeedMethod, GrowthMeasure, NappyKind, StoolColour, StoolConsistency
 from cradle.services.logging_service import LoggingService
 
 
@@ -33,6 +33,20 @@ def test_log_every_domain() -> None:
     assert svc.log_temperature(36.9) > 0
     assert svc.log_milestone("motor", "Lifts head") > 0
     assert svc.log_note("slept through", ("win",)) > 0
+
+
+def test_log_nappy_defaults_consistency_to_unset() -> None:
+    repo = make_repo(make_db())
+    svc = LoggingService(repo, clock())
+    svc.log_nappy(NappyKind.WET)
+    assert repo.list_nappies()[0].consistency == StoolConsistency.UNSET
+
+
+def test_log_nappy_persists_consistency() -> None:
+    repo = make_repo(make_db())
+    svc = LoggingService(repo, clock())
+    svc.log_nappy(NappyKind.DIRTY, StoolColour.GREEN, StoolConsistency.SEEDY)
+    assert repo.list_nappies()[0].consistency == StoolConsistency.SEEDY
 
 
 def test_toggle_sleep_starts_then_ends() -> None:

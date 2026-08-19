@@ -30,20 +30,17 @@ from cradle.models import (
     Note,
     SleepEvent,
     StoolColour,
+    StoolConsistency,
     TemperatureEvent,
     UneditableFieldError,
     UnknownTableError,
 )
-
-# Not re-exported from cradle.models yet: models/__init__.py is outside U17's
-# touches list. U21 moves this up into the block above.
-from cradle.models.enums import StoolConsistency
 from cradle.repos.db import Db
 
 # Tables an editor/deleter may target, and the columns they may set (P2 allow-list).
 EDITABLE: dict[str, frozenset[str]] = {
     "feed": frozenset({"ts", "method", "duration_min", "volume_ml", "note"}),
-    "nappy": frozenset({"ts", "kind", "stool_colour"}),
+    "nappy": frozenset({"ts", "kind", "stool_colour", "consistency"}),
     "sleep": frozenset({"ts", "ts_end", "location"}),
     "growth": frozenset({"ts", "measure", "value", "source"}),
     "temperature": frozenset({"ts", "temp_c", "site"}),

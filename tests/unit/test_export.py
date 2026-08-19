@@ -83,6 +83,19 @@ def test_csv_header_stable_when_domain_empty() -> None:
     assert "title" in header
 
 
+def test_nappy_csv_header_identical_empty_and_populated() -> None:
+    empty_db = make_db()
+    empty_svc = ExportService(
+        make_repo(empty_db), BabyRepo(empty_db), AlertLogRepo(empty_db), "0.1.0"
+    )
+    empty_header = empty_svc.export_csv("nappy").splitlines()[0]
+
+    _, _, populated_svc = _seeded()
+    populated_header = populated_svc.export_csv("nappy").splitlines()[0]
+
+    assert empty_header == populated_header
+
+
 def test_every_domain_exports() -> None:
     _, _, svc = _seeded()
     for domain in DOMAINS:
