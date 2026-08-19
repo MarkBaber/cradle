@@ -1,6 +1,7 @@
 """Service bundle handed to routers by the composition root (app.py)."""
 
 from dataclasses import dataclass
+from urllib.parse import unquote
 
 from cradle.services import (
     AlertsService,
@@ -29,5 +30,10 @@ class Services:
 
 
 def device_name(cookie: str | None) -> str:
-    """Attribution only (D7): no auth, just who tapped the button."""
-    return (cookie or "").strip()[:40]
+    """Attribution only (D7): no auth, just who tapped the button.
+
+    Set-Cookie is latin-1 on the wire, so the value is percent-encoded on write
+    (post_device in routers/api.py) - decode it back here so a name in any
+    script survives the round trip.
+    """
+    return unquote(cookie or "").strip()[:40]

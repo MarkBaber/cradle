@@ -13,6 +13,12 @@
 {% block head %}{% endblock %}
 </head>
 <body>
+{% if nav != 'settings' and not request.cookies.get('device_name') %}
+<p class="banner" id="device-banner">Name this device so history shows who logged each entry.
+  <a href="/settings">Name it</a>
+  <button type="button" onclick="document.getElementById('device-banner').remove()">Dismiss</button>
+</p>
+{% endif %}
 <main>{% block content %}{% endblock %}</main>
 <nav class="tabbar">
   <a href="/" class="{{ 'on' if nav == 'home' }}">Log</a>
