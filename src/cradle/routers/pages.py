@@ -12,7 +12,7 @@ from fastapi.responses import (
 )
 from fastapi.templating import Jinja2Templates
 
-from cradle.models import GrowthMeasure, to_local, to_utc
+from cradle.models import FeedMethod, GrowthMeasure, NappyKind, to_local, to_utc
 from cradle.routers.deps import Services, device_name
 from cradle.services.export_service import DOMAINS as EXPORT_DOMAINS
 from cradle.services.history_service import DOMAINS
@@ -29,6 +29,7 @@ def build_pages_router(svc: Services) -> APIRouter:
     def quick_entry(request: Request) -> Response:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
+        panel, method, kind = _open_panel(request)
         return TEMPLATES.TemplateResponse(
             request,
             "quick_entry.html",
@@ -37,6 +38,9 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "pinned": svc.alerts.pinned(),
                 "outstanding": svc.alerts.outstanding(),
                 "logged": request.query_params.get("logged", ""),
+                "open_panel": panel,
+                "open_method": method,
+                "open_kind": kind,
             },
         )
 
@@ -231,6 +235,26 @@ def build_pages_router(svc: Services) -> APIRouter:
         )
 
     return router
+
+
+_FEED_METHODS = {m.value for m in FeedMethod}
+_NAPPY_KINDS = {k.value for k in NappyKind}
+
+
+def _open_panel(request: Request) -> tuple[str, str, str]:
+    """Which quick-entry panel (if any) a tile tap asked to open (U18).
+
+    A bad/unknown method or kind collapses back to no panel rather than 4xx-ing -
+    the panel is a GET, so there is nothing to reject, only nothing to show.
+    """
+    panel = request.query_params.get("panel", "")
+    method = request.query_params.get("method", "")
+    kind = request.query_params.get("kind", "")
+    if panel == "feed" and method in _FEED_METHODS:
+        return "feed", method, ""
+    if panel == "nappy" and kind in _NAPPY_KINDS:
+        return "nappy", "", kind
+    return "", "", ""
 
 
 def _int_param(request: Request, name: str, default: int) -> int:

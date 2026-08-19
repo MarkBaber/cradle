@@ -6,7 +6,7 @@ an HTML fragment back; plain form posts get a redirect, so the app works with
 JavaScript disabled or htmx unvendored.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from html import escape
 from typing import Annotated
 
@@ -20,6 +20,7 @@ from cradle.models import (
     StoolColour,
     UneditableFieldError,
     UnknownTableError,
+    to_local,
     to_utc,
 )
 from cradle.routers.deps import Services, device_name
@@ -43,6 +44,24 @@ def _coerce_field_value(field: str, raw: str) -> object:
     if field in _FLOAT_FIELDS:
         return float(raw)
     return raw
+
+
+def _panel_ts(raw: str | None) -> datetime | None:
+    """Parse the quick-entry panel's <input type=time> value (U18).
+
+    It carries no date, so a provided "HH:MM" is combined with today's date in
+    the *configured* display zone (models/timefmt, task U9) - not the server's
+    OS zone, which would risk the wrong calendar day near local midnight. Blank
+    or unparseable input means "use the clock's now", same as ts=None.
+    """
+    if not raw:
+        return None
+    try:
+        hour, minute = (int(p) for p in raw.split(":"))
+    except ValueError:
+        return None
+    today = to_local(datetime.now(UTC)).date()
+    return to_utc(datetime(today.year, today.month, today.day, hour, minute))
 
 
 def _toast(table: str, event_id: int, label: str) -> str:
@@ -94,10 +113,15 @@ def build_api_router(svc: Services) -> APIRouter:
         method: Annotated[str, Form()] = FeedMethod.BREAST_LEFT.value,
         duration_min: Annotated[int | None, Form()] = None,
         volume_ml: Annotated[int | None, Form()] = None,
+        ts: Annotated[str | None, Form()] = None,
     ) -> Response:
         m = FeedMethod(method)
         event_id = svc.logging.log_feed(
-            m, logged_by=who(request), duration_min=duration_min, volume_ml=volume_ml
+            m,
+            logged_by=who(request),
+            ts=_panel_ts(ts),
+            duration_min=duration_min,
+            volume_ml=volume_ml,
         )
         return _respond(request, "feed", event_id, m.value.replace("_", " "))
 
@@ -106,9 +130,12 @@ def build_api_router(svc: Services) -> APIRouter:
         request: Request,
         kind: Annotated[str, Form()] = NappyKind.WET.value,
         stool_colour: Annotated[str, Form()] = StoolColour.UNSET.value,
+        ts: Annotated[str | None, Form()] = None,
     ) -> Response:
         k = NappyKind(kind)
-        event_id = svc.logging.log_nappy(k, StoolColour(stool_colour), logged_by=who(request))
+        event_id = svc.logging.log_nappy(
+            k, StoolColour(stool_colour), logged_by=who(request), ts=_panel_ts(ts)
+        )
         return _respond(request, "nappy", event_id, f"{k.value} nappy")
 
     @router.post("/api/sleep/toggle")
