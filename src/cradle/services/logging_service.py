@@ -17,6 +17,7 @@ from cradle.models import (
     Note,
     SleepEvent,
     StoolColour,
+    StoolConsistency,
     TemperatureEvent,
 )
 from cradle.ports.clock import Clock
@@ -64,6 +65,7 @@ class LoggingService:
         self,
         kind: NappyKind,
         stool_colour: StoolColour = StoolColour.UNSET,
+        consistency: StoolConsistency = StoolConsistency.UNSET,
         logged_by: str = "",
         ts: datetime | None = None,
     ) -> int:
@@ -75,6 +77,7 @@ class LoggingService:
                 logged_by=logged_by,
                 kind=kind,
                 stool_colour=stool_colour,
+                consistency=consistency,
             )
         )
 

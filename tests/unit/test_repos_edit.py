@@ -7,6 +7,9 @@ from _helpers import NOW, make_db, make_repo
 from cradle.models import (
     FeedEvent,
     FeedMethod,
+    NappyEvent,
+    NappyKind,
+    StoolConsistency,
     UneditableFieldError,
     UnknownTableError,
 )
@@ -36,6 +39,14 @@ def test_edit_sets_value_and_edited_at() -> None:
     assert f.volume_ml == 70
     row = repo._db.conn.execute("SELECT edited_at FROM feed WHERE id=?", (fid,)).fetchone()
     assert row["edited_at"] is not None
+
+
+def test_edit_can_change_nappy_consistency() -> None:
+    repo = make_repo(make_db())
+    nid = repo.insert_nappy(NappyEvent(ts=NOW, kind=NappyKind.DIRTY, **BASE))
+    repo.edit_event("nappy", nid, {"consistency": StoolConsistency.SOFT})
+    (n,) = repo.list_nappies()
+    assert n.consistency == StoolConsistency.SOFT
 
 
 def test_unknown_table_rejected() -> None:

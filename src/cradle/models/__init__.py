@@ -13,6 +13,7 @@ from cradle.models.enums import (
     Sex,
     SleepLocation,
     StoolColour,
+    StoolConsistency,
 )
 from cradle.models.errors import (
     ReferenceDataMissingError,
@@ -59,6 +60,7 @@ __all__ = [
     "SleepEvent",
     "SleepLocation",
     "StoolColour",
+    "StoolConsistency",
     "TemperatureEvent",
     "UneditableFieldError",
     "UnknownTableError",

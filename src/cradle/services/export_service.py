@@ -20,6 +20,11 @@ from cradle.repos.events_repo import EDITABLE, EventsRepo
 EXPORT_FORMAT = 1
 DOMAINS = tuple(sorted(EDITABLE))
 
+# Columns added by a later ALTER TABLE land after deleted_at in physical row
+# order, not alphabetically with the rest of EDITABLE[domain] - today that is
+# only nappy.consistency (migrations/0004, task U17).
+_APPENDED_COLUMNS: dict[str, tuple[str, ...]] = {"nappy": ("consistency",)}
+
 
 class ExportService:
     def __init__(
@@ -100,13 +105,15 @@ class ExportService:
 
 def _csv_header(domain: str) -> list[str]:
     """Stable header even when a domain has no rows yet."""
+    appended = _APPENDED_COLUMNS.get(domain, ())
     return [
         "id",
         "baby_id",
         "ts",
         "logged_by",
-        *sorted(EDITABLE[domain] - {"ts"}),
+        *sorted(EDITABLE[domain] - {"ts"} - set(appended)),
         "created_at",
         "edited_at",
         "deleted_at",
+        *appended,
     ]
