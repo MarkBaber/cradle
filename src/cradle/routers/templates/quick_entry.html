@@ -8,27 +8,36 @@
   {% if logged %}<div class="toast">Logged</div>{% endif %}
 </div>
 
+<h2>Feed</h2>
 <section class="grid">
-  <form method="post" action="/api/feed" hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
-    <input type="hidden" name="method" value="breast_left">
-    <button class="big feed"><i>L</i><span>Breast left</span></button>
-  </form>
-  <form method="post" action="/api/feed" hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
-    <input type="hidden" name="method" value="breast_right">
-    <button class="big feed"><i>R</i><span>Breast right</span></button>
-  </form>
-  <form method="post" action="/api/feed" hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
-    <input type="hidden" name="method" value="bottle_formula">
-    <button class="big bottle"><i>🍼</i><span>Bottle</span></button>
-  </form>
-  <form method="post" action="/api/nappy" hx-post="/api/nappy" hx-target="#toast" hx-swap="innerHTML">
-    <input type="hidden" name="kind" value="wet">
-    <button class="big wet"><i>💧</i><span>Wet</span></button>
-  </form>
-  <form method="post" action="/api/nappy" hx-post="/api/nappy" hx-target="#toast" hx-swap="innerHTML">
-    <input type="hidden" name="kind" value="dirty">
-    <button class="big dirty"><i>💩</i><span>Dirty</span></button>
-  </form>
+  <a class="big feed" href="/?panel=feed&amp;method=breast_left"
+     hx-get="/?panel=feed&amp;method=breast_left" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>L</i><span>Breast left</span>
+  </a>
+  <a class="big feed" href="/?panel=feed&amp;method=breast_right"
+     hx-get="/?panel=feed&amp;method=breast_right" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>R</i><span>Breast right</span>
+  </a>
+  <a class="big bottle" href="/?panel=feed&amp;method=bottle_expressed"
+     hx-get="/?panel=feed&amp;method=bottle_expressed" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>🍼</i><span>Bottle</span>
+  </a>
+</section>
+
+<h2>Mess</h2>
+<section class="grid">
+  <a class="big wet" href="/?panel=nappy&amp;kind=wet"
+     hx-get="/?panel=nappy&amp;kind=wet" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>💧</i><span>Wet</span>
+  </a>
+  <a class="big dirty" href="/?panel=nappy&amp;kind=dirty"
+     hx-get="/?panel=nappy&amp;kind=dirty" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>💩</i><span>Dirty</span>
+  </a>
+</section>
+
+<h2>Sleep</h2>
+<section class="grid">
   <form method="post" action="/api/sleep/toggle" hx-post="/api/sleep/toggle" hx-target="#toast" hx-swap="innerHTML">
     <button class="big sleep {{ 'running' if summary and summary.running_sleep }}">
       <i>{{ '☀' if summary and summary.running_sleep else '☾' }}</i>
@@ -36,6 +45,62 @@
     </button>
   </form>
 </section>
+
+<div id="panel">
+{% if open_panel == "feed" and open_method in ("breast_left", "breast_right") %}
+  <form class="stack panel" method="post" action="/api/feed"
+        hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
+    <label>Side
+      <select name="method">
+        <option value="breast_left" {{ "selected" if open_method == "breast_left" else "" }}>Left</option>
+        <option value="breast_right" {{ "selected" if open_method == "breast_right" else "" }}>Right</option>
+      </select>
+    </label>
+    <label>Duration (min)<input type="number" name="duration_min" min="0" inputmode="numeric"></label>
+    <label>Time<input type="time" name="ts"></label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "feed" and open_method in ("bottle_expressed", "bottle_formula") %}
+  <form class="stack panel" method="post" action="/api/feed"
+        hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
+    <label>Method
+      <select name="method">
+        <option value="bottle_expressed" {{ "selected" if open_method == "bottle_expressed" else "" }}>Expressed</option>
+        <option value="bottle_formula" {{ "selected" if open_method == "bottle_formula" else "" }}>Formula</option>
+      </select>
+    </label>
+    <label>Volume (ml)<input type="number" name="volume_ml" min="0" inputmode="numeric"></label>
+    <label>Time<input type="time" name="ts"></label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "nappy" and open_kind == "wet" %}
+  <form class="stack panel" method="post" action="/api/nappy"
+        hx-post="/api/nappy" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="kind" value="wet">
+    <label>Time<input type="time" name="ts"></label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "nappy" and open_kind == "dirty" %}
+  <form class="stack panel" method="post" action="/api/nappy"
+        hx-post="/api/nappy" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="kind" value="dirty">
+    <label>Colour
+      <select name="stool_colour">
+        <option value="unset">-</option>
+        <option value="yellow">Yellow</option>
+        <option value="green">Green</option>
+        <option value="brown">Brown</option>
+        <option value="meconium">Meconium</option>
+        <option value="pale_chalky">Pale / chalky</option>
+        <option value="red">Red</option>
+        <option value="black">Black</option>
+      </select>
+    </label>
+    <label>Time<input type="time" name="ts"></label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+{% endif %}
+</div>
 
 <details class="more">
   <summary>More: weight, temperature, milestone, note</summary>

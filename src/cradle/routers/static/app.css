@@ -27,7 +27,7 @@ h2{font-size:1rem;margin:1.4rem 0 .5rem;color:var(--dim)}
 .grid form{margin:0}
 .big{width:100%;min-height:104px;border:1px solid var(--line);border-radius:14px;
   background:var(--panel);color:var(--fg);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:4px;cursor:pointer;
+  align-items:center;justify-content:center;gap:4px;cursor:pointer;text-decoration:none;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .big i{font-style:normal;font-size:1.9rem;line-height:1}
 .big span{font-size:.85rem;color:var(--dim)}
@@ -57,6 +57,8 @@ details.more summary{cursor:pointer;color:var(--dim);font-size:.9rem}
 .row>*{flex:1 1 90px}
 .stack{display:flex;flex-direction:column;gap:10px}
 .stack label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--dim)}
+.panel{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel)}
 input,select,button{font:inherit;min-height:44px;border-radius:8px;
   border:1px solid var(--line);background:#0b0f14;color:var(--fg);padding:8px}
 button{background:var(--panel);cursor:pointer}

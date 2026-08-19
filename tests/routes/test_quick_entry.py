@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from fastapi.testclient import TestClient  # noqa: E402
 
 from cradle.app import create_app  # noqa: E402
+from cradle.models import to_local  # noqa: E402
 from cradle.ports.clock import FixedClock  # noqa: E402
 
 NOW = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
@@ -243,3 +244,140 @@ def test_profile_rejects_bad_date() -> None:
     client = _client()
     bad = dict(PROFILE, dob="not-a-date")
     assert client.post("/api/settings/profile", data=bad).status_code == 400
+
+
+# --------------------------------------------------------------------- U18
+
+
+PANEL_TILES = [
+    ("feed", "method", "breast_left"),
+    ("feed", "method", "breast_right"),
+    ("feed", "method", "bottle_expressed"),
+    ("nappy", "kind", "wet"),
+    ("nappy", "kind", "dirty"),
+]
+
+
+def test_each_tile_opens_a_panel_with_its_choice_preselected() -> None:
+    client = _client()
+    for panel, param, value in PANEL_TILES:
+        r = client.get(f"/?panel={panel}&{param}={value}")
+        assert r.status_code == 200, f"{panel}/{value} -> {r.status_code}"
+        if panel == "feed":
+            assert f'value="{value}" selected' in r.text, f"{value} not preselected"
+        else:  # nappy kind is a hidden field, not a select - the panel shape itself is the choice
+            assert f'name="kind" value="{value}"' in r.text
+    dirty = client.get("/?panel=nappy&kind=dirty").text
+    assert 'name="stool_colour"' in dirty
+    wet = client.get("/?panel=nappy&kind=wet").text
+    assert "stool_colour" not in wet
+
+
+def test_bottle_tile_now_defaults_to_expressed_not_formula() -> None:
+    """The tile used to post bottle_formula - wrong for a household that expresses."""
+    client = _client()
+    page = client.get("/").text
+    assert "method=bottle_expressed" in page
+    assert "bottle_formula" not in page
+
+
+def test_breast_panel_save_logs_side_and_duration_end_to_end() -> None:
+    client = _client()
+    client.get("/?panel=feed&method=breast_right")  # tap 1: open
+    r = client.post(
+        "/api/feed",
+        data={"method": "breast_right", "duration_min": "14"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    hist = client.get("/history").text
+    assert "breast right" in hist
+    assert "14 min" in hist
+
+
+def test_bottle_panel_save_logs_volume_ml_end_to_end() -> None:
+    client = _client()
+    client.get("/?panel=feed&method=bottle_expressed")  # tap 1: open
+    r = client.post(
+        "/api/feed",
+        data={"method": "bottle_expressed", "volume_ml": "80"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    hist = client.get("/history").text
+    assert "bottle expressed" in hist
+    assert "80 ml" in hist
+
+
+def test_bottle_volume_from_panel_appears_in_today_and_series() -> None:
+    client = _client()
+    client.post("/api/feed", data={"method": "bottle_expressed", "volume_ml": "90"})
+    assert "Bottle intake in the last 24h: 90 ml" in client.get("/today").text
+    series = client.get("/api/series/daily").json()
+    assert 90 in series["bottle_ml"]
+
+
+def test_dirty_panel_save_logs_stool_colour_end_to_end() -> None:
+    client = _client()
+    client.get("/?panel=nappy&kind=dirty")  # tap 1: open
+    r = client.post(
+        "/api/nappy",
+        data={"kind": "dirty", "stool_colour": "green"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "dirty (green)" in client.get("/history").text
+
+
+def test_stool_colour_alert_fires_from_a_colour_entered_through_the_ui() -> None:
+    """Posted via /api/nappy exactly as the Dirty panel's Save does - not a
+    synthetic FactSet fixture."""
+    client = _client()
+    client.post("/api/nappy", data={"kind": "dirty", "stool_colour": "red"})
+    raised = client.app.state.services.alerts.sweep()
+    assert raised >= 1
+    pinned = client.app.state.services.alerts.pinned()
+    assert any(f.rule_id == "STOOL_COLOUR" for f in pinned)
+
+
+def test_accepting_every_default_is_two_taps_and_writes_a_row_at_now() -> None:
+    client = _client()
+    r1 = client.get("/?panel=feed&method=breast_left")  # tap 1
+    assert r1.status_code == 200
+    r2 = client.post("/api/feed", data={"method": "breast_left"}, headers={"HX-Request": "true"})
+    assert r2.status_code == 200  # tap 2
+    feeds = client.app.state.services.logging.recent_feeds(1)
+    assert feeds[0].ts == NOW
+
+
+PANEL_SAVE_WITH_BLANK_OPTIONAL_FIELDS = [
+    ("/api/feed", {"method": "breast_left", "duration_min": "", "ts": ""}),
+    ("/api/feed", {"method": "breast_right", "duration_min": "", "ts": ""}),
+    ("/api/feed", {"method": "bottle_expressed", "volume_ml": "", "ts": ""}),
+    ("/api/nappy", {"kind": "wet", "ts": ""}),
+    ("/api/nappy", {"kind": "dirty", "stool_colour": "unset", "ts": ""}),
+]
+
+
+def test_panel_time_field_combines_with_todays_display_zone_date() -> None:
+    """ts carries no date (native <input type=time> only, per this task's notes);
+    the server must attach today's date in the *configured* display zone
+    (models/timefmt, task U9), not the process's OS zone."""
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left", "ts": "09:30"})
+    feeds = client.app.state.services.logging.recent_feeds(1)
+    local = to_local(feeds[0].ts)
+    assert (local.hour, local.minute) == (9, 30)
+    assert local.date() == to_local(datetime.now(UTC)).date()
+
+
+def test_panel_save_with_every_optional_field_blank_never_4xxs() -> None:
+    """A browser submits blank <input> fields as empty strings, not as missing
+    fields - Save with every default accepted must still never 4xx (with or
+    without htmx)."""
+    client = _client()
+    for url, payload in PANEL_SAVE_WITH_BLANK_OPTIONAL_FIELDS:
+        r = client.post(url, data=payload, headers={"HX-Request": "true"})
+        assert r.status_code < 400, f"{url} {payload} -> {r.status_code}"
+        r2 = client.post(url, data=payload)
+        assert r2.status_code < 400, f"{url} {payload} (no JS) -> {r2.status_code}"
