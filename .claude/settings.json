@@ -7,14 +7,14 @@
           {
             "type": "command",
             "if": "Bash(git commit *)",
-            "command": "payload=$(cat); session_id=$(printf '%s' \"$payload\" | jq -r '.session_id // empty'); root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; cd \"$root\" || exit 0; if command -v uv >/dev/null 2>&1; then out=$(uv run ruff check . 2>&1); else out=$(ruff check . 2>&1); fi; rc=$?; if [ \"$rc\" -ne 0 ]; then printf '%s\\n' \"$out\" >&2; python3 scripts/friction.py record hook_blocked --session-id \"$session_id\" --payload '{\"hook\":\"commit\"}' >/dev/null 2>&1 || true; exit 2; fi; exit 0",
+            "command": "payload=$(cat); session_id=$(printf '%s' \"$payload\" | jq -r '.session_id // empty'); root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; cd \"$root\" || exit 0; if command -v uv >/dev/null 2>&1; then out=$(uv run --extra dev ruff check . 2>&1); else out=$(ruff check . 2>&1); fi; rc=$?; if [ \"$rc\" -ne 0 ]; then printf '%s\\n' \"$out\" >&2; python3 scripts/friction.py record hook_blocked --session-id \"$session_id\" --payload '{\"hook\":\"commit\"}' >/dev/null 2>&1 || true; exit 2; fi; exit 0",
             "timeout": 30,
             "statusMessage": "ruff check before commit"
           },
           {
             "type": "command",
             "if": "Bash(git push *)",
-            "command": "payload=$(cat); session_id=$(printf '%s' \"$payload\" | jq -r '.session_id // empty'); root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; cd \"$root\" || exit 0; if command -v uv >/dev/null 2>&1; then out=$(uv run bash -c \"bash scripts/validate && ruff check . && python3 -m mypy --strict src/cradle --exclude 'cradle/api/(app|events)\\.py\\$'\" 2>&1); else out=$(bash scripts/validate 2>&1 && ruff check . 2>&1 && python3 -m mypy --strict src/cradle --exclude 'cradle/api/(app|events)\\.py$' 2>&1); fi; rc=$?; if [ \"$rc\" -ne 0 ]; then printf '%s\\n' \"$out\" >&2; python3 scripts/friction.py record hook_blocked --session-id \"$session_id\" --payload '{\"hook\":\"push\"}' >/dev/null 2>&1 || true; exit 2; fi; exit 0",
+            "command": "payload=$(cat); session_id=$(printf '%s' \"$payload\" | jq -r '.session_id // empty'); root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; cd \"$root\" || exit 0; if command -v uv >/dev/null 2>&1; then out=$(uv run --extra dev bash -c \"bash scripts/validate && ruff check . && python3 -m mypy --strict src/cradle --exclude 'cradle/api/(app|events)\\.py\\$'\" 2>&1); else out=$(bash scripts/validate 2>&1 && ruff check . 2>&1 && python3 -m mypy --strict src/cradle --exclude 'cradle/api/(app|events)\\.py$' 2>&1); fi; rc=$?; if [ \"$rc\" -ne 0 ]; then printf '%s\\n' \"$out\" >&2; python3 scripts/friction.py record hook_blocked --session-id \"$session_id\" --payload '{\"hook\":\"push\"}' >/dev/null 2>&1 || true; exit 2; fi; exit 0",
             "timeout": 90,
             "statusMessage": "validate + lint gate before push"
           }
