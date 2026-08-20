@@ -47,3 +47,12 @@ topic = ""                      # set in /settings; shared-secret topic (SPEC 8)
 # different timezone from this server must not silently shift timestamps,
 # so this is explicit rather than inferred from the server's OS setting.
 timezone = "Europe/London"
+
+[entry_defaults]
+# UX convenience numbers for the quick-entry panels (task U22), editable from
+# /settings - NOT clinical thresholds, so they are outside CLAUDE.md's
+# architect-only carve-out for this file. Pre-fills the bottle panel's
+# volume_ml and the breast panel's duration_min; the value can still be
+# changed before Save, so this is never an entry gate (T1).
+bottle_volume_ml = 60
+breast_duration_min = 20

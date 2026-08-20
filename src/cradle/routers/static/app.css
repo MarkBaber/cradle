@@ -57,8 +57,29 @@ details.more summary{cursor:pointer;color:var(--dim);font-size:.9rem}
 .row>*{flex:1 1 90px}
 .stack{display:flex;flex-direction:column;gap:10px}
 .stack label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--dim)}
-.panel{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px;
+.panel{padding:12px;border:1px solid var(--line);border-radius:10px;
   background:var(--panel)}
+
+/* quick-entry panel modal (task U22) */
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60}
+.overlay.open{display:flex}
+.overlay-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6);display:block}
+.modal{position:relative;z-index:1;width:min(92vw,420px);max-height:86vh;overflow:auto;margin:16px}
+.modal .panel{margin-top:0}
+.modal-close{position:absolute;top:2px;right:6px;z-index:2;color:var(--dim);text-decoration:none;
+  font-size:1.4rem;line-height:1;padding:8px;-webkit-tap-highlight-color:transparent}
+
+/* breast side toggle buttons (task U22) */
+.toggle-group{display:flex;gap:8px}
+.toggle-input{position:absolute;opacity:0;pointer-events:none}
+.toggle-btn{flex:1;text-align:center;padding:10px;min-height:44px;border-radius:8px;
+  border:1px solid var(--line);background:#0b0f14;color:var(--dim);font-weight:600;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;opacity:.55;filter:grayscale(.4)}
+/* Live state is driven by :checked, not the .active/.inactive class the
+   server bakes in at render time - those classes exist for route tests to
+   assert against, but only :checked stays correct after a no-JS click. */
+.toggle-input:checked+.toggle-btn{border-color:var(--feed);background:var(--feed);
+  color:#03121f;box-shadow:0 0 10px rgba(90,169,230,.5);opacity:1;filter:none}
 input,select,button{font:inherit;min-height:44px;border-radius:8px;
   border:1px solid var(--line);background:#0b0f14;color:var(--fg);padding:8px}
 button{background:var(--panel);cursor:pointer}
@@ -151,3 +172,18 @@ sup{font-size:.6em}
 .legend i{display:inline-block;width:14px;height:10px;border-radius:2px;position:static}
 #dailychart,#sleepchart{height:260px;margin:10px 0;border:1px solid var(--line);
   border-radius:10px}
+
+/* vendored wheel-picker (task U22): dark-theme overrides only, the library
+   supplies its own layout/animation. */
+.wheelpicker{z-index:70}
+.wheelpicker-panel{background:var(--panel);color:var(--fg)}
+.wheelpicker-main{background:var(--bg)}
+.wheelpicker-actions{border-color:var(--line)}
+.wheelpicker-actions .btn-set{color:var(--feed)}
+.wheelpicker-actions .btn-cancel{color:var(--dim)}
+.wheelpicker-title{color:var(--fg)}
+.wheelpicker-item{color:var(--dim)}
+.wheelpicker-item-selected{color:var(--fg);font-weight:600}
+.wheelpicker-mask-top{background:linear-gradient(180deg,var(--bg),rgba(13,17,23,.4) 75%)}
+.wheelpicker-mask-btm{background:linear-gradient(0deg,var(--bg),rgba(13,17,23,.4) 75%)}
+.wheelpicker-mask-current{border-color:var(--line)}
