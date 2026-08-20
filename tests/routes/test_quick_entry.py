@@ -3,6 +3,7 @@
 Skipped by the offline runner when fastapi is unavailable.
 """
 
+import re
 import sys
 import tempfile
 from datetime import UTC, datetime
@@ -89,7 +90,7 @@ def test_quick_entry_page_renders_after_profile() -> None:
     client = _client()
     r = client.get("/")
     assert r.status_code == 200
-    for label in ("Breast left", "Bottle", "Wet", "Dirty"):
+    for label in ("Breast", "Bottle", "Wet", "Dirty"):
         assert label in r.text
 
 
@@ -263,7 +264,15 @@ def test_each_tile_opens_a_panel_with_its_choice_preselected() -> None:
     for panel, param, value in PANEL_TILES:
         r = client.get(f"/?panel={panel}&{param}={value}")
         assert r.status_code == 200, f"{panel}/{value} -> {r.status_code}"
-        if panel == "feed":
+        if value in ("breast_left", "breast_right"):
+            # U22: side is a pair of mutually-exclusive toggle buttons (radio
+            # inputs styled as buttons), not a <select> - the checked radio
+            # is the preselected side.
+            radio_id = "side_left" if value == "breast_left" else "side_right"
+            match = re.search(rf'id="{radio_id}"[^>]*>', r.text)
+            assert match is not None, f"radio {radio_id} not found"
+            assert "checked" in match.group(0), f"{value} not preselected"
+        elif panel == "feed":
             assert f'value="{value}" selected' in r.text, f"{value} not preselected"
         else:  # nappy kind is a hidden field, not a select - the panel shape itself is the choice
             assert f'name="kind" value="{value}"' in r.text
@@ -381,3 +390,112 @@ def test_panel_save_with_every_optional_field_blank_never_4xxs() -> None:
         assert r.status_code < 400, f"{url} {payload} -> {r.status_code}"
         r2 = client.post(url, data=payload)
         assert r2.status_code < 400, f"{url} {payload} (no JS) -> {r2.status_code}"
+
+
+# --------------------------------------------------------------------- U22
+
+
+def test_bottle_panel_prefills_the_configured_volume_default() -> None:
+    """Out of the box, rules_config.toml's [entry_defaults] ships 60ml - never
+    an entry gate (T1), just a starting value the parent can still change."""
+    client = _client()
+    page = client.get("/?panel=feed&method=bottle_expressed").text
+    match = re.search(r'name="volume_ml"[^>]*>', page)
+    assert match is not None
+    assert 'value="60"' in match.group(0)
+
+
+def test_breast_panel_prefills_the_configured_duration_default() -> None:
+    client = _client()
+    page = client.get("/?panel=feed&method=breast_left").text
+    match = re.search(r'name="duration_min"[^>]*>', page)
+    assert match is not None
+    assert 'value="20"' in match.group(0)
+
+
+def test_every_panel_time_field_prefills_with_now_in_the_display_zone() -> None:
+    """Accepting every default really does write 'now' (U18's 2-tap criterion)
+    only if the time field itself already shows now - under FixedClock, in
+    the configured display zone (U9), not UTC or the server's OS zone."""
+    client = _client()
+    expected = to_local(NOW).strftime("%H:%M")
+    for panel, param, value in PANEL_TILES:
+        page = client.get(f"/?panel={panel}&{param}={value}").text
+        match = re.search(r'name="ts"[^>]*>', page)
+        assert match is not None, f"{panel}/{value} has no time field"
+        assert f'value="{expected}"' in match.group(0), f"{panel}/{value} time not prefilled"
+
+
+def test_panels_render_as_a_modal_overlay_with_a_dimmed_backdrop() -> None:
+    """U22 (4): panels used to swap into #panel in the normal page flow below
+    the grid; they must now be a centred overlay with a dimmed backdrop,
+    closable without saving (U16 abandoned-panel contract), and this must all
+    be true of the server-rendered HTML alone - no JS runs in this client."""
+    client = _client()
+    closed = client.get("/").text
+    assert '<div id="panel" class="overlay">' in closed
+    assert "overlay-backdrop" not in closed
+    open_page = client.get("/?panel=nappy&kind=wet").text
+    assert '<div id="panel" class="overlay open">' in open_page
+    assert 'class="overlay-backdrop"' in open_page
+    assert 'class="modal"' in open_page
+    # closable without saving: the close affordances are plain links back to
+    # "/", not a JS handler, and a plain GET there writes no row.
+    assert 'class="modal-close" href="/"' in open_page
+    assert 'class="overlay-backdrop" href="/"' in open_page
+
+
+def test_time_field_is_upgraded_by_the_vendored_scroll_wheel_picker() -> None:
+    """The picker is a vendored library over the real <input type=time
+    name=ts> (U19's constraints, carried verbatim into U22): with the script
+    unloaded - true of this client, which never executes JS - the native
+    control alone must still post a value /api/feed already accepts."""
+    client = _client()
+    page = client.get("/?panel=feed&method=breast_left").text
+    assert '<script src="/static/vendor/wheelpicker.min.js" defer></script>' in page
+    assert '<script src="/static/entry.js" defer></script>' in page
+    assert '<link rel="stylesheet" href="/static/vendor/wheelpicker.min.css">' in page
+    assert '<input type="time" name="ts"' in page
+    r = client.post("/api/feed", data={"method": "breast_left", "ts": "08:15"})
+    assert r.status_code == 303
+    feeds = client.app.state.services.logging.recent_feeds(1)
+    local = to_local(feeds[0].ts)
+    assert (local.hour, local.minute) == (8, 15)
+
+
+def test_breast_panel_side_toggle_buttons_are_mutually_exclusive() -> None:
+    """L and R are toggle buttons (radio inputs styled as buttons), not a
+    <select>: exactly one carries the active class matching open_method, the
+    other carries the dimmed/inactive class."""
+    client = _client()
+
+    left_open = client.get("/?panel=feed&method=breast_left").text
+    left_label = re.search(r'<label for="side_left"[^>]*>', left_open)
+    right_label = re.search(r'<label for="side_right"[^>]*>', left_open)
+    assert left_label is not None and right_label is not None
+    assert "active" in left_label.group(0) and "inactive" not in left_label.group(0)
+    assert "inactive" in right_label.group(0)
+
+    right_open = client.get("/?panel=feed&method=breast_right").text
+    left_label2 = re.search(r'<label for="side_left"[^>]*>', right_open)
+    right_label2 = re.search(r'<label for="side_right"[^>]*>', right_open)
+    assert left_label2 is not None and right_label2 is not None
+    assert "inactive" in left_label2.group(0)
+    assert "active" in right_label2.group(0) and "inactive" not in right_label2.group(0)
+
+    r = client.post(
+        "/api/feed",
+        data={"method": "breast_right", "duration_min": "10"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "breast right" in client.get("/history").text
+
+
+def test_breast_is_a_single_tile() -> None:
+    """U22 (6): the Feed grid had two tiles (Breast left, Breast right); they
+    are now one tile offering L/R inside the panel instead."""
+    page = _client().get("/").text
+    assert page.count("<span>Breast</span>") == 1
+    assert "Breast left" not in page
+    assert "Breast right" not in page

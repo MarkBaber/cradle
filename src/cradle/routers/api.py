@@ -6,13 +6,16 @@ an HTML fragment back; plain form posts get a redirect, so the app works with
 JavaScript disabled or htmx unvendored.
 """
 
+import re
+import tomllib
 from datetime import UTC, datetime
 from html import escape
+from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from cradle.models import (
     BottleColour,
@@ -31,6 +34,67 @@ from cradle.services import InvalidBatchTransitionError, UnknownBatchError
 
 UNDO_SECONDS = 10
 DEVICE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60  # browsers cap persistent cookies at 400 days
+
+# Config path for the quick-entry smart defaults (task U22). Not threaded via
+# create_app/Services (both outside this task's touches) - a module-level
+# path, read fresh on every call, mirroring models/timefmt.py's CONFIG_PATH
+# convention. Tests monkeypatch this attribute directly, same as
+# tests/unit/test_timefmt.py does for timefmt.CONFIG_PATH.
+CONFIG_PATH = Path("rules_config.toml")
+
+DEFAULT_BOTTLE_VOLUME_ML = 60
+DEFAULT_BREAST_DURATION_MIN = 20
+
+_ENTRY_DEFAULTS_SECTION_RE = re.compile(r"(?ms)^\[entry_defaults\]\n(?:(?!^\[).)*")
+_BOTTLE_VOLUME_LINE_RE = re.compile(r"(?m)^(bottle_volume_ml\s*=\s*)\d+")
+_BREAST_DURATION_LINE_RE = re.compile(r"(?m)^(breast_duration_min\s*=\s*)\d+")
+
+
+def entry_defaults(config_path: Path) -> dict[str, int]:
+    """Read [entry_defaults] from *config_path* (task U22).
+
+    Falls back to the out-of-the-box values (60ml bottle, 20min breast) if
+    the table or a key is missing, same "falls back if unset" convention as
+    models/timefmt.py's display zone.
+    """
+    table: object = {}
+    if config_path.exists():
+        with config_path.open("rb") as fh:
+            table = tomllib.load(fh).get("entry_defaults", {})
+    if not isinstance(table, dict):
+        table = {}
+    return {
+        "bottle_volume_ml": int(table.get("bottle_volume_ml", DEFAULT_BOTTLE_VOLUME_ML)),
+        "breast_duration_min": int(table.get("breast_duration_min", DEFAULT_BREAST_DURATION_MIN)),
+    }
+
+
+def _write_entry_defaults(
+    config_path: Path, bottle_volume_ml: int, breast_duration_min: int
+) -> None:
+    """Patch only the two keys inside [entry_defaults] (task U22).
+
+    Mirrors app.py's N3 _write_ntfy_topic: a targeted regex substitution
+    scoped to this one section, never a full TOML round-trip, so a
+    settings-page POST can never reach an architect-owned clinical threshold
+    elsewhere in rules_config.toml.
+    """
+    text = config_path.read_text()
+    section_match = _ENTRY_DEFAULTS_SECTION_RE.search(text)
+    if section_match is None:
+        raise ValueError("rules_config.toml has no [entry_defaults] table")
+    section = section_match.group(0)
+    section, n1 = _BOTTLE_VOLUME_LINE_RE.subn(
+        lambda m: m.group(1) + str(bottle_volume_ml), section, count=1
+    )
+    section, n2 = _BREAST_DURATION_LINE_RE.subn(
+        lambda m: m.group(1) + str(breast_duration_min), section, count=1
+    )
+    if n1 == 0 or n2 == 0:
+        raise ValueError("rules_config.toml [entry_defaults] table is missing a key")
+    text = text[: section_match.start()] + section + text[section_match.end() :]
+    config_path.write_text(text)
+
 
 # Value coercion for the generic post-hoc field editor (U10). The allow-list
 # itself lives in EventsRepo.EDITABLE; this only maps a raw form string to the
@@ -378,6 +442,24 @@ def build_api_router(svc: Services) -> APIRouter:
         svc.settings.test_notification()
         if request.headers.get("HX-Request"):
             return HTMLResponse('<span class="ok">Sent - check your phone.</span>')
+        return RedirectResponse("/settings", status_code=303)
+
+    @router.get("/api/settings/entry-defaults")
+    def get_entry_defaults() -> JSONResponse:
+        return JSONResponse(entry_defaults(CONFIG_PATH))
+
+    @router.post("/api/settings/entry-defaults")
+    def post_entry_defaults(
+        request: Request,
+        bottle_volume_ml: Annotated[int, Form()] = DEFAULT_BOTTLE_VOLUME_ML,
+        breast_duration_min: Annotated[int, Form()] = DEFAULT_BREAST_DURATION_MIN,
+    ) -> Response:
+        if bottle_volume_ml <= 0 or breast_duration_min <= 0:
+            msg = '<p class="err">Defaults must be positive numbers.</p>'
+            return HTMLResponse(msg, status_code=400)
+        _write_entry_defaults(CONFIG_PATH, bottle_volume_ml, breast_duration_min)
+        if request.headers.get("HX-Request"):
+            return HTMLResponse('<span class="ok">Defaults saved.</span>')
         return RedirectResponse("/settings", status_code=303)
 
     return router

@@ -11,13 +11,24 @@ BUDGET_BYTES = 150 * 1024
 
 # Assets the quick-entry page actually pulls. Plotly is deliberately excluded:
 # it loads only on /charts (see charts.html), which is why it is not a budget
-# item here.
-QUICK_ENTRY_ASSETS = ("app.css", "pwa.js", "manifest.json", "icon.svg")
+# item here. entry.js (task U22) upgrades the panels' time inputs to the
+# scroll-wheel picker and is on this path, so it is charged directly - it is
+# a real committed file, not a vendored one.
+QUICK_ENTRY_ASSETS = ("app.css", "pwa.js", "manifest.json", "icon.svg", "entry.js")
 
 # htmx is fetched by scripts/vendor_assets.sh and is not committed (no network
 # in the build sandbox, task U8). Charge its pinned size against the budget so
 # this gate is meaningful before vendoring and stays meaningful after.
 HTMX_ALLOWANCE_BYTES = 52 * 1024
+
+# wheel-picker (task U22, MIT, npm "wheel-picker" 1.1.0): the one vendored JS
+# library Mark Baber's request explicitly authorised, for the iPhone-style
+# scroll-wheel time picker only. Same "not committed, charge the pinned size"
+# treatment as htmx above. Allowances are rounded up from the real pinned
+# sizes (scripts/vendor_assets.sh): wheelpicker.min.js is 13342 bytes,
+# wheelpicker.min.css is 2429 bytes.
+WHEELPICKER_JS_ALLOWANCE_BYTES = 14 * 1024
+WHEELPICKER_CSS_ALLOWANCE_BYTES = 3 * 1024
 
 
 def _size(name: str) -> int:
@@ -26,10 +37,16 @@ def _size(name: str) -> int:
     return path.stat().st_size
 
 
+def _vendored_or_allowance(name: str, allowance: int) -> int:
+    path = STATIC / "vendor" / name
+    return path.stat().st_size if path.exists() else allowance
+
+
 def test_quick_entry_within_budget() -> None:
     total = sum(_size(n) for n in QUICK_ENTRY_ASSETS)
-    vendored_htmx = STATIC / "vendor" / "htmx.min.js"
-    total += vendored_htmx.stat().st_size if vendored_htmx.exists() else HTMX_ALLOWANCE_BYTES
+    total += _vendored_or_allowance("htmx.min.js", HTMX_ALLOWANCE_BYTES)
+    total += _vendored_or_allowance("wheelpicker.min.js", WHEELPICKER_JS_ALLOWANCE_BYTES)
+    total += _vendored_or_allowance("wheelpicker.min.css", WHEELPICKER_CSS_ALLOWANCE_BYTES)
     assert total <= BUDGET_BYTES, f"quick-entry payload {total} bytes exceeds {BUDGET_BYTES}"
 
 

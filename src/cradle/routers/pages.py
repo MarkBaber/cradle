@@ -21,6 +21,7 @@ from cradle.models import (
     to_local,
     to_utc,
 )
+from cradle.routers import api as api_module
 from cradle.routers.deps import Services, device_name
 from cradle.services.export_service import DOMAINS as EXPORT_DOMAINS
 from cradle.services.history_service import DOMAINS
@@ -51,17 +52,20 @@ def build_pages_router(svc: Services) -> APIRouter:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
         panel, method, kind = _open_panel(request)
+        summary = svc.today.summary()
         return TEMPLATES.TemplateResponse(
             request,
             "quick_entry.html",
             {
-                "summary": svc.today.summary(),
+                "summary": summary,
                 "pinned": svc.alerts.pinned(),
                 "outstanding": svc.alerts.outstanding(),
                 "logged": request.query_params.get("logged", ""),
                 "open_panel": panel,
                 "open_method": method,
                 "open_kind": kind,
+                "now_time": to_local(summary.as_of).strftime("%H:%M") if summary else "",
+                "entry_defaults": api_module.entry_defaults(api_module.CONFIG_PATH),
             },
         )
 
@@ -269,6 +273,7 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "profile": svc.settings.profile(),
                 "first_run": request.query_params.get("first_run") == "1",
                 "device": device_name(request.cookies.get("device_name")),
+                "entry_defaults": api_module.entry_defaults(api_module.CONFIG_PATH),
             },
         )
 
