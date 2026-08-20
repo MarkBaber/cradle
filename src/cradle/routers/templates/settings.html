@@ -58,4 +58,17 @@ fetch("/api/settings/ntfy").then((r) => r.json()).then((d) => {
   document.getElementById("ntfy-topic").value = d.topic || "";
 });
 </script>
+
+<h2>Quick-entry defaults</h2>
+<form method="post" action="/api/settings/entry-defaults" class="stack"
+      hx-post="/api/settings/entry-defaults" hx-target="#entry-defaults-result" hx-swap="innerHTML">
+  <label>Bottle volume (ml) <input type="number" name="bottle_volume_ml" min="1" inputmode="numeric"
+    value="{{ entry_defaults.bottle_volume_ml }}"></label>
+  <label>Breast duration (min) <input type="number" name="breast_duration_min" min="1" inputmode="numeric"
+    value="{{ entry_defaults.breast_duration_min }}"></label>
+  <button type="submit">Save defaults</button>
+</form>
+<p id="entry-defaults-result" class="note"></p>
+<p class="note">Pre-fills the bottle and breast panels on the log page. The value can always be
+changed before saving.</p>
 {% endblock %}
