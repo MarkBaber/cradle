@@ -31,6 +31,7 @@ from cradle.services import (
     HistoryService,
     LoggingService,
     MilestoneService,
+    MilkStockService,
     SeriesService,
     SettingsService,
     TodayService,
@@ -141,6 +142,7 @@ def build_services(
         milestones=MilestoneService(events, baby),
         export=ExportService(events, baby, alert_log, __version__),
         series=SeriesService(events, baby, clock),
+        milk=MilkStockService(events, clock),
     )
 
 

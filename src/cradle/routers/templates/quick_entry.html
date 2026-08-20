@@ -47,6 +47,13 @@
   </form>
 </section>
 
+<h2>Milk</h2>
+<section class="grid">
+  <form method="post" action="/api/express" hx-post="/api/express" hx-target="#toast" hx-swap="innerHTML">
+    <button class="big express"><i>🥛</i><span>Express</span></button>
+  </form>
+</section>
+
 <div id="panel" class="overlay{{ ' open' if open_panel else '' }}">
 {% if open_panel %}
   <a class="overlay-backdrop" href="/" aria-label="Close"

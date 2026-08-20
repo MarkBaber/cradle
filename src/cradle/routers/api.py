@@ -18,8 +18,10 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from cradle.models import (
+    BottleColour,
     FeedMethod,
     GrowthMeasure,
+    MilkStore,
     NappyKind,
     StoolColour,
     UneditableFieldError,
@@ -28,6 +30,7 @@ from cradle.models import (
     to_utc,
 )
 from cradle.routers.deps import Services, device_name
+from cradle.services import InvalidBatchTransitionError, UnknownBatchError
 
 UNDO_SECONDS = 10
 DEVICE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60  # browsers cap persistent cookies at 400 days
@@ -167,6 +170,16 @@ def _respond(request: Request, table: str, event_id: int, label: str) -> Respons
     return RedirectResponse(f"/?logged={table}:{event_id}", status_code=303)
 
 
+def _milk_err() -> Response:
+    return HTMLResponse('<p class="err">That bottle cannot do that.</p>', status_code=400)
+
+
+def _milk_response(request: Request, label: str) -> Response:
+    if request.headers.get("HX-Request"):
+        return HTMLResponse(f'<div class="toast">{label}</div>')
+    return RedirectResponse("/milk", status_code=303)
+
+
 def build_api_router(svc: Services) -> APIRouter:
     router = APIRouter()
 
@@ -210,6 +223,64 @@ def build_api_router(svc: Services) -> APIRouter:
         was_running = svc.logging.running_sleep() is not None
         event_id = svc.logging.toggle_sleep(logged_by=who(request))
         return _respond(request, "sleep", event_id, "wake" if was_running else "sleep start")
+
+    @router.post("/api/express")
+    def post_express(request: Request) -> Response:
+        event_id = svc.logging.log_expression(logged_by=who(request))
+        return _respond(request, "expression", event_id, "expression")
+
+    # ---------------------------------------------------------- milk stock
+    @router.post("/api/milk/store")
+    def post_milk_store(
+        request: Request,
+        store: Annotated[str, Form()],
+        colour: Annotated[str, Form()],
+        volume_ml: Annotated[int, Form()],
+    ) -> Response:
+        try:
+            svc.milk.store_now(
+                MilkStore(store),
+                BottleColour(colour),
+                volume_ml,
+                logged_by=who(request),
+            )
+        except (ValueError, InvalidBatchTransitionError):
+            return HTMLResponse('<p class="err">Check the store and colour.</p>', status_code=400)
+        if request.headers.get("HX-Request"):
+            return HTMLResponse('<div class="toast">Stored</div>')
+        return RedirectResponse("/milk", status_code=303)
+
+    @router.post("/api/milk/thaw")
+    def post_milk_thaw(request: Request, batch_id: Annotated[int, Form()]) -> Response:
+        try:
+            svc.milk.thaw(batch_id)
+        except (UnknownBatchError, InvalidBatchTransitionError):
+            return _milk_err()
+        return _milk_response(request, "Thawed")
+
+    @router.post("/api/milk/open")
+    def post_milk_open(request: Request, batch_id: Annotated[int, Form()]) -> Response:
+        try:
+            svc.milk.open_batch(batch_id)
+        except (UnknownBatchError, InvalidBatchTransitionError):
+            return _milk_err()
+        return _milk_response(request, "Opened")
+
+    @router.post("/api/milk/use")
+    def post_milk_use(request: Request, batch_id: Annotated[int, Form()]) -> Response:
+        try:
+            svc.milk.use(batch_id)
+        except (UnknownBatchError, InvalidBatchTransitionError):
+            return _milk_err()
+        return _milk_response(request, "Used")
+
+    @router.post("/api/milk/discard")
+    def post_milk_discard(request: Request, batch_id: Annotated[int, Form()]) -> Response:
+        try:
+            svc.milk.discard(batch_id)
+        except (UnknownBatchError, InvalidBatchTransitionError):
+            return _milk_err()
+        return _milk_response(request, "Discarded")
 
     # ------------------------------------------------------- detailed entry
     @router.post("/api/growth")

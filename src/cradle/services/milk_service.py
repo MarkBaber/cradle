@@ -165,6 +165,22 @@ class MilkStockService:
             )
         )
 
+    def store_now(
+        self,
+        store: MilkStore,
+        colour: BottleColour,
+        volume_ml: int,
+        logged_by: str = "",
+    ) -> int:
+        """store_expression for a bottle poured and put away in the same
+        moment (U14's /milk "store a bottle" form): expressed_at and
+        stored_at are both the clock's now, so the caller never has to reach
+        past the service to supply a timestamp."""
+        now = self._clock.now()
+        return self.store_expression(
+            store, colour, volume_ml, expressed_at=now, stored_at=now, logged_by=logged_by
+        )
+
     def thaw(self, batch_id: int, at: datetime | None = None) -> None:
         batch = self._get_batch(batch_id)
         if batch.store != MilkStore.FREEZER:
