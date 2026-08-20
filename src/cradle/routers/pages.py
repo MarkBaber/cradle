@@ -1,6 +1,6 @@
 """Page routes (tasks U1, U3, U4, U7). Templates in routers/templates/."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -12,14 +12,35 @@ from fastapi.responses import (
 )
 from fastapi.templating import Jinja2Templates
 
-from cradle.models import FeedMethod, GrowthMeasure, NappyKind, to_local, to_utc
+from cradle.models import (
+    BottleColour,
+    FeedMethod,
+    GrowthMeasure,
+    MilkStore,
+    NappyKind,
+    to_local,
+    to_utc,
+)
 from cradle.routers.deps import Services, device_name
 from cradle.services.export_service import DOMAINS as EXPORT_DOMAINS
 from cradle.services.history_service import DOMAINS
 from cradle.services.milestone_service import CATEGORIES as MILESTONE_CATEGORIES
 
+
+def _format_age(age: timedelta) -> str:
+    minutes = int(age.total_seconds() // 60)
+    days, minutes = divmod(minutes, 24 * 60)
+    hours, minutes = divmod(minutes, 60)
+    if days:
+        return f"{days}d {hours}h"
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
+
+
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 TEMPLATES.env.filters["local"] = to_local
+TEMPLATES.env.filters["age"] = _format_age
 
 
 def build_pages_router(svc: Services) -> APIRouter:
@@ -197,6 +218,23 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "cards": svc.milestones.timeline() or (),
                 "corrected": svc.milestones.uses_corrected_age(),
                 "categories": MILESTONE_CATEGORIES,
+            },
+        )
+
+    @router.get("/milk", response_class=HTMLResponse)
+    def milk(request: Request) -> Response:
+        if not svc.settings.has_profile():
+            return RedirectResponse("/settings?first_run=1", status_code=303)
+        stock = svc.milk.stock_on_hand()
+        live_colours = {ba.batch.colour for s in stock.values() for ba in s.batches}
+        available_colours = [c for c in BottleColour if c not in live_colours]
+        return TEMPLATES.TemplateResponse(
+            request,
+            "milk.html",
+            {
+                "stock": stock,
+                "stores": list(MilkStore),
+                "available_colours": available_colours,
             },
         )
 

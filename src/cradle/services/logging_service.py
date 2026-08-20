@@ -7,6 +7,8 @@ when omitted the injected Clock supplies "now" so tests are deterministic.
 from datetime import datetime
 
 from cradle.models import (
+    BreastSide,
+    ExpressionEvent,
     FeedEvent,
     FeedMethod,
     GrowthEvent,
@@ -33,6 +35,24 @@ class LoggingService:
 
     def _at(self, ts: datetime | None) -> datetime:
         return ts if ts is not None else self._clock.now()
+
+    # ------------------------------------------------------------ expression
+    def log_expression(
+        self,
+        side: BreastSide = BreastSide.BOTH,
+        logged_by: str = "",
+        ts: datetime | None = None,
+    ) -> int:
+        """One tap (T1/U14): volume and duration are post-hoc edits (U10)."""
+        return self._repo.insert_expression(
+            ExpressionEvent(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=self._at(ts),
+                logged_by=logged_by,
+                side=side,
+            )
+        )
 
     # ------------------------------------------------------------------ feed
     def log_feed(

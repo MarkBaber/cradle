@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% set nav = 'milk' %}
+{% block title %}Milk · CRADLE{% endblock %}
+{% block content %}
+<h1>Milk stock</h1>
+<div id="toast" class="toastwrap" aria-live="polite"></div>
+
+{% for store in stores %}
+{% set s = stock.get(store) %}
+<h2>{{ store.value | capitalize }}</h2>
+<table class="milk-stock">
+  <tbody>
+  {% for ba in (s.batches if s else []) %}
+    {% set batch = ba.batch %}
+    <tr>
+      <td><span style="display:inline-block;width:0.9em;height:0.9em;border-radius:50%;background-color:{{ batch.colour.value }};border:1px solid #0003;vertical-align:middle"></span> {{ batch.colour.value | capitalize }}</td>
+      <td>{{ batch.volume_ml }} ml</td>
+      <td>in at {{ (batch.stored_at | local).strftime('%d %b %H:%M') }}</td>
+      <td>{{ ba.age | age }} old</td>
+      <td>
+        {% if store.value == "freezer" and batch.state.value == "stored" %}
+        <form method="post" action="/api/milk/thaw" hx-post="/api/milk/thaw"
+              hx-target="#toast" hx-swap="innerHTML" class="inline">
+          <input type="hidden" name="batch_id" value="{{ batch.batch_id }}">
+          <button type="submit">Thaw to fridge</button>
+        </form>
+        {% endif %}
+        {% if store.value == "fridge" and batch.state.value in ("stored", "thawed") %}
+        <form method="post" action="/api/milk/open" hx-post="/api/milk/open"
+              hx-target="#toast" hx-swap="innerHTML" class="inline">
+          <input type="hidden" name="batch_id" value="{{ batch.batch_id }}">
+          <button type="submit">Open</button>
+        </form>
+        {% endif %}
+        {% if batch.state.value == "opened" %}
+        <form method="post" action="/api/milk/use" hx-post="/api/milk/use"
+              hx-target="#toast" hx-swap="innerHTML" class="inline">
+          <input type="hidden" name="batch_id" value="{{ batch.batch_id }}">
+          <button type="submit">Use</button>
+        </form>
+        {% endif %}
+        <form method="post" action="/api/milk/discard" hx-post="/api/milk/discard"
+              hx-target="#toast" hx-swap="innerHTML" class="inline">
+          <input type="hidden" name="batch_id" value="{{ batch.batch_id }}">
+          <button type="submit" class="del">Discard</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="empty">Nothing in the {{ store.value }}.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endfor %}
+
+<h2>Store a bottle</h2>
+<form method="post" action="/api/milk/store" hx-post="/api/milk/store"
+      hx-target="#toast" hx-swap="innerHTML" class="stack panel">
+  <label>Store
+    <select name="store">
+      <option value="fridge">Fridge</option>
+      <option value="freezer">Freezer</option>
+    </select>
+  </label>
+  <label>Colour
+    <select name="colour">
+      {% for c in available_colours %}
+      <option value="{{ c.value }}">{{ c.value | capitalize }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Volume (ml)<input type="number" name="volume_ml" min="0" inputmode="numeric" required></label>
+  <button class="primary" type="submit">Store</button>
+</form>
+{% endblock %}
