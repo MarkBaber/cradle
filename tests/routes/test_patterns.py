@@ -2,6 +2,7 @@
 
 import sys
 import tempfile
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -134,3 +135,40 @@ def test_charts_page_includes_daily_totals() -> None:
     page = client.get("/charts").text
     assert "Daily totals" in page
     assert "series.js" in page
+
+
+def test_patterns_page_clamps_absurd_days() -> None:
+    """U13: /patterns?days=100000 is clamped to MAX_DAYS, not honoured."""
+    client = _client()
+    page = client.get("/patterns?days=100000").text
+    assert 'data-days="120"' in page
+    assert 'data-days="100000"' not in page
+    assert "100000" not in page
+
+
+def test_patterns_page_zero_and_negative_days_no_500() -> None:
+    """U13: non-positive days are clamped to the minimum, not a 500 or empty view."""
+    client = _client()
+    for days in ("0", "-5"):
+        r = client.get(f"/patterns?days={days}")
+        assert r.status_code == 200
+        assert 'data-days="1"' in r.text
+        assert "Rhythm" in r.text
+
+
+def test_charts_page_zero_and_negative_days_no_500() -> None:
+    """U13: same clamp applies to /charts."""
+    client = _client()
+    for days in ("0", "-5"):
+        r = client.get(f"/charts?days={days}")
+        assert r.status_code == 200
+
+
+def test_patterns_page_absurd_days_stays_within_pi_budget() -> None:
+    """U13: rendering the clamped range must not scale with the raw requested value."""
+    client = _client()
+    start = time.perf_counter()
+    r = client.get("/patterns?days=100000")
+    elapsed = time.perf_counter() - start
+    assert r.status_code == 200
+    assert elapsed < 2.0, f"expected clamped render under 2s, took {elapsed:.2f}s"
