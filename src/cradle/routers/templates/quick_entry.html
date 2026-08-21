@@ -56,6 +56,26 @@
   </form>
 </section>
 
+<h2>More</h2>
+<section class="grid">
+  <a class="big" href="/?panel=growth"
+     hx-get="/?panel=growth" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>⚖️</i><span>Growth</span>
+  </a>
+  <a class="big" href="/?panel=temperature"
+     hx-get="/?panel=temperature" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>🌡️</i><span>Temp</span>
+  </a>
+  <a class="big" href="/?panel=milestone"
+     hx-get="/?panel=milestone" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>🏅</i><span>Milestone</span>
+  </a>
+  <a class="big" href="/?panel=note"
+     hx-get="/?panel=note" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+    <i>📝</i><span>Note</span>
+  </a>
+</section>
+
 <div id="panel" class="overlay{{ ' open' if open_panel else '' }}">
 {% if open_panel %}
   <a class="overlay-backdrop" href="/" aria-label="Close"
@@ -120,38 +140,48 @@
     <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
+{% elif open_panel == "growth" %}
+  <form class="stack panel" method="post" action="/api/growth"
+        hx-post="/api/growth" hx-target="#toast" hx-swap="innerHTML">
+    <label>Measure
+      <select name="measure">
+        <option value="weight">Weight (g)</option>
+        <option value="length">Length (mm)</option>
+        <option value="head_circ">Head circ (mm)</option>
+      </select>
+    </label>
+    <label>Value<input type="number" name="value" inputmode="numeric" placeholder="value" required></label>
+    <label>Source
+      <select name="source"><option value="home">home</option><option value="midwife">midwife</option></select>
+    </label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "temperature" %}
+  <form class="stack panel" method="post" action="/api/temperature"
+        hx-post="/api/temperature" hx-target="#toast" hx-swap="innerHTML">
+    <label>Temperature (°C)<input type="number" step="0.1" name="temp_c" inputmode="decimal" placeholder="°C" required></label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "milestone" %}
+  <form class="stack panel" method="post" action="/api/milestone"
+        hx-post="/api/milestone" hx-target="#toast" hx-swap="innerHTML">
+    <label>Category
+      <select name="category">
+        <option value="first">first</option><option value="motor">motor</option>
+        <option value="social">social</option><option value="communication">communication</option>
+      </select>
+    </label>
+    <label>Title<input type="text" name="title" placeholder="First smile…" required></label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "note" %}
+  <form class="stack panel" method="post" action="/api/note"
+        hx-post="/api/note" hx-target="#toast" hx-swap="innerHTML">
+    <label>Note<input type="text" name="text" placeholder="Note…" required></label>
+    <button class="primary" type="submit">Save</button>
+  </form>
 {% endif %}
   </div>
 {% endif %}
 </div>
-
-<details class="more">
-  <summary>More: weight, temperature, milestone, note</summary>
-  <form method="post" action="/api/growth" class="row">
-    <select name="measure">
-      <option value="weight">Weight (g)</option>
-      <option value="length">Length (mm)</option>
-      <option value="head_circ">Head circ (mm)</option>
-    </select>
-    <input type="number" name="value" inputmode="numeric" placeholder="value" required>
-    <select name="source"><option value="home">home</option><option value="midwife">midwife</option></select>
-    <button type="submit">Save</button>
-  </form>
-  <form method="post" action="/api/temperature" class="row">
-    <input type="number" step="0.1" name="temp_c" inputmode="decimal" placeholder="°C" required>
-    <button type="submit">Save</button>
-  </form>
-  <form method="post" action="/api/milestone" class="row">
-    <select name="category">
-      <option value="first">first</option><option value="motor">motor</option>
-      <option value="social">social</option><option value="communication">communication</option>
-    </select>
-    <input type="text" name="title" placeholder="First smile…" required>
-    <button type="submit">Save</button>
-  </form>
-  <form method="post" action="/api/note" class="row">
-    <input type="text" name="text" placeholder="Note…" required>
-    <button type="submit">Save</button>
-  </form>
-</details>
 {% endblock %}

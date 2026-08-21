@@ -398,6 +398,7 @@ def build_pages_router(svc: Services) -> APIRouter:
 
 _FEED_METHODS = {m.value for m in FeedMethod}
 _NAPPY_KINDS = {k.value for k in NappyKind}
+_MORE_PANELS = {"growth", "temperature", "milestone", "note"}
 
 
 def _open_panel(request: Request) -> tuple[str, str, str]:
@@ -413,6 +414,8 @@ def _open_panel(request: Request) -> tuple[str, str, str]:
         return "feed", method, ""
     if panel == "nappy" and kind in _NAPPY_KINDS:
         return "nappy", "", kind
+    if panel in _MORE_PANELS:
+        return panel, "", ""
     return "", "", ""
 
 
