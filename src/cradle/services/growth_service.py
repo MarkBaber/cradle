@@ -14,6 +14,7 @@ from cradle.models import (
     GrowthEvent,
     GrowthMeasure,
     ReferenceDataMissingError,
+    to_local,
 )
 from cradle.reference.lms import LmsTable, corrected_age_days, is_preterm
 from cradle.repos.baby_repo import BabyRepo
@@ -59,7 +60,7 @@ class ChartSeries:
     unit: str
     ages: tuple[int, ...]
     curves: dict[str, tuple[float, ...]]  # centile label -> values
-    trajectory: tuple[tuple[int, float], ...]  # (age_days, value)
+    trajectory: tuple[tuple[int, float, str], ...]  # (age_days, value, date)
     frames: tuple[int, ...]  # trajectory prefix lengths (C3)
     unavailable_reason: str | None
 
@@ -154,7 +155,13 @@ class GrowthService:
             return None
 
         events: list[GrowthEvent] = sorted(self._repo.list_growth(measure), key=lambda e: e.ts)
-        trajectory = tuple((self._age(baby, e.ts.date())[1], float(e.value)) for e in events)
+        # Pre-formatted (not a date/datetime): the tuple is also JSON-serialised
+        # verbatim by the /api/charts/{measure} route, whose plain json.dumps
+        # can't encode date objects.
+        trajectory = tuple(
+            (self._age(baby, e.ts.date())[1], float(e.value), to_local(e.ts).strftime("%d %b %Y"))
+            for e in events
+        )
 
         if self._table is None:
             return ChartSeries(
@@ -182,7 +189,7 @@ class GrowthService:
 
         # Cover the plotted range, extended to include every logged point.
         if trajectory:
-            hi = min(hi, max(int(max(a for a, _ in trajectory)) + 30, 60))
+            hi = min(hi, max(int(max(a for a, _, _ in trajectory)) + 30, 60))
         else:
             hi = min(hi, 365)
         step = max(1, (hi - lo) // 120)

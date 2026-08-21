@@ -50,8 +50,8 @@ Your measurements below are unaffected.</p>
 
 <table id="history" class="plain">
   <tbody>
-  {% for age, value in (series.trajectory if series else []) | reverse %}
-    <tr><td class="t">day {{ age }}</td><td>{{ value | int }}{{ series.unit }}</td></tr>
+  {% for age, value, date in (series.trajectory if series else []) | reverse %}
+    <tr><td class="t">day {{ age }} - {{ date }}</td><td>{{ value | int }}{{ series.unit }}</td></tr>
   {% else %}
     <tr><td class="empty">No {{ measure.value.replace('_',' ') }} logged yet.</td></tr>
   {% endfor %}
