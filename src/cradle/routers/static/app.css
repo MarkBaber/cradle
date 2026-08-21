@@ -207,17 +207,24 @@ sup{font-size:.6em}
 .gauge-label{font-size:.7rem;color:var(--dim)}
 .dirty-hint{color:var(--dim);font-size:.75rem;margin:6px 0 0}
 
-/* vendored wheel-picker (task U22): dark-theme overrides only, the library
-   supplies its own layout/animation. */
-.wheelpicker{z-index:70}
-.wheelpicker-panel{background:var(--panel);color:var(--fg)}
-.wheelpicker-main{background:var(--bg)}
-.wheelpicker-actions{border-color:var(--line)}
-.wheelpicker-actions .btn-set{color:var(--feed)}
-.wheelpicker-actions .btn-cancel{color:var(--dim)}
-.wheelpicker-title{color:var(--fg)}
-.wheelpicker-item{color:var(--dim)}
-.wheelpicker-item-selected{color:var(--fg);font-weight:600}
-.wheelpicker-mask-top{background:linear-gradient(180deg,var(--bg),rgba(13,17,23,.4) 75%)}
-.wheelpicker-mask-btm{background:linear-gradient(0deg,var(--bg),rgba(13,17,23,.4) 75%)}
-.wheelpicker-mask-current{border-color:var(--line)}
+/* the picker-bound visible input (task U29): a readonly clone AnyPicker
+   opens its wheel over; the real field it mirrors is switched to type=hidden
+   by entry.js once bound, same trick U22's wheel-picker used. */
+.ap-ts-picker{width:100%;min-height:44px;font:inherit;text-align:center;
+  border-radius:8px;border:1px solid var(--line);background:#0b0f14;color:var(--fg);
+  padding:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.inline .ap-ts-picker{min-height:36px;font-size:.75rem;padding:4px}
+
+/* vendored AnyPicker (task U29, replaces U22's wheel-picker): dark-theme
+   overrides only, the library supplies its own layout/animation. */
+.ap-theme-ios.ap-overlay{background:rgba(0,0,0,.6);z-index:70}
+.ap-theme-ios .ap-cont{background:var(--panel);border-color:var(--line)}
+.ap-theme-ios .ap-bg{background:var(--panel);color:var(--fg)}
+.ap-theme-ios .ap-header{background:var(--panel);border-color:var(--line)}
+.ap-theme-ios .ap-header__title{color:var(--fg)}
+.ap-theme-ios .ap-footer{background:var(--panel);border-color:var(--line)}
+.ap-theme-ios .ap-button{background:var(--panel);color:var(--feed)}
+.ap-theme-ios .ap-row{color:var(--dim)}
+.ap-theme-ios .ap-row-disabled{color:var(--line)}
+.ap-theme-ios .ap-component-selector{border-color:var(--line)}
+.ap-theme-ios .ap-component-gradient{background:linear-gradient(180deg,var(--bg),rgba(13,17,23,.4) 75%)}

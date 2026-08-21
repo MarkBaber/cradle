@@ -53,3 +53,11 @@
   {% endfor %}
   </tbody>
 </table>
+{# /history has no head-block override (history.html, base.html: outside this
+   task's touches), so the combined date+time picker (task U29, shared with
+   quick_entry.html's panel) is loaded here instead - defer works the same
+   regardless of a script tag's position in the document. #}
+<link rel="stylesheet" href="/static/vendor/anypicker-all.min.css">
+<script src="/static/vendor/jquery.min.js" defer></script>
+<script src="/static/vendor/anypicker.min.js" defer></script>
+<script src="/static/entry.js" defer></script>

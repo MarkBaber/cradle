@@ -21,14 +21,18 @@ QUICK_ENTRY_ASSETS = ("app.css", "pwa.js", "manifest.json", "icon.svg", "entry.j
 # this gate is meaningful before vendoring and stays meaningful after.
 HTMX_ALLOWANCE_BYTES = 52 * 1024
 
-# wheel-picker (task U22, MIT, npm "wheel-picker" 1.1.0): the one vendored JS
-# library Mark Baber's request explicitly authorised, for the iPhone-style
-# scroll-wheel time picker only. Same "not committed, charge the pinned size"
-# treatment as htmx above. Allowances are rounded up from the real pinned
-# sizes (scripts/vendor_assets.sh): wheelpicker.min.js is 13342 bytes,
-# wheelpicker.min.css is 2429 bytes.
-WHEELPICKER_JS_ALLOWANCE_BYTES = 14 * 1024
-WHEELPICKER_CSS_ALLOWANCE_BYTES = 3 * 1024
+# jQuery + AnyPicker (task U29, replaces U22's wheel-picker): the combined
+# iOS-style date+time picker for the entry panel and /history edit controls.
+# Mark Baber directed picking the best interaction for the job over trimming
+# the choice to fit the historical 150 KB ceiling, explicitly including a
+# jQuery-dependent option (2026-08-21) - so unlike htmx above, these assets
+# are exempted from the budget total entirely, the same shape of carve-out
+# this file already gives Plotly on /charts (see test_plotly_is_not_on_the_
+# quick_entry_path below), rather than charged an allowance-when-absent.
+# docs/SPEC.md §1/§7.1 (U29) records the amendment. The gate itself still
+# covers every other quick-entry asset unchanged: app.css, entry.js, htmx,
+# and the core tiles (pwa.js, manifest.json, icon.svg).
+PICKER_ASSETS_EXEMPT_FROM_BUDGET = ("jquery.min.js", "anypicker.min.js", "anypicker-all.min.css")
 
 
 def _size(name: str) -> int:
@@ -45,9 +49,20 @@ def _vendored_or_allowance(name: str, allowance: int) -> int:
 def test_quick_entry_within_budget() -> None:
     total = sum(_size(n) for n in QUICK_ENTRY_ASSETS)
     total += _vendored_or_allowance("htmx.min.js", HTMX_ALLOWANCE_BYTES)
-    total += _vendored_or_allowance("wheelpicker.min.js", WHEELPICKER_JS_ALLOWANCE_BYTES)
-    total += _vendored_or_allowance("wheelpicker.min.css", WHEELPICKER_CSS_ALLOWANCE_BYTES)
     assert total <= BUDGET_BYTES, f"quick-entry payload {total} bytes exceeds {BUDGET_BYTES}"
+
+
+def test_picker_assets_are_exempt_from_the_budget() -> None:
+    """The picker's real vendored size must never be folded into the total above."""
+    exempt_total = sum(
+        (STATIC / "vendor" / n).stat().st_size
+        for n in PICKER_ASSETS_EXEMPT_FROM_BUDGET
+        if (STATIC / "vendor" / n).exists()
+    )
+    if exempt_total:
+        assert exempt_total > BUDGET_BYTES, (
+            "picker assets are smaller than the budget - the carve-out no longer proves anything"
+        )
 
 
 def test_plotly_is_not_on_the_quick_entry_path() -> None:
