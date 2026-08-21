@@ -50,9 +50,6 @@ h2{font-size:1rem;margin:1.4rem 0 .5rem;color:var(--dim)}
 @keyframes in{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
 
 /* forms */
-details.more{margin-top:14px;border:1px solid var(--line);border-radius:10px;
-  background:var(--panel);padding:10px}
-details.more summary{cursor:pointer;color:var(--dim);font-size:.9rem}
 .row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .row>*{flex:1 1 90px}
 .stack{display:flex;flex-direction:column;gap:10px}

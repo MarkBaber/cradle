@@ -587,3 +587,78 @@ def test_breast_is_a_single_tile() -> None:
     assert page.count("<span>Breast</span>") == 1
     assert "Breast left" not in page
     assert "Breast right" not in page
+
+
+# --------------------------------------------------------------------- U28
+
+
+MORE_PANEL_TILES = ["growth", "temperature", "milestone", "note"]
+
+# Each of the four "More" panels' endpoint plus the minimal valid payload
+# that its Save button submits today (verbatim field set, unchanged by U28).
+MORE_PANEL_SAVE = {
+    "growth": ("/api/growth", {"measure": "weight", "value": "3600", "source": "home"}),
+    "temperature": ("/api/temperature", {"temp_c": "36.9"}),
+    "milestone": ("/api/milestone", {"category": "first", "title": "First smile"}),
+    "note": ("/api/note", {"text": "Slept well tonight"}),
+}
+
+
+def test_more_details_element_is_gone_and_each_more_panel_opens_as_a_modal_overlay() -> None:
+    """U28 (1): the old <details class="more"> inline-forms block is deleted
+    entirely, and growth/temperature/milestone/note now open as the same
+    centred modal overlay the feed/nappy panels already use (U22 shape)."""
+    client = _client()
+    closed = client.get("/").text
+    assert "<details class=\"more\">" not in closed
+    assert "More: weight, temperature, milestone, note" not in closed
+    for panel in MORE_PANEL_TILES:
+        page = client.get(f"/?panel={panel}").text
+        assert "<details class=\"more\">" not in page
+        assert "More: weight, temperature, milestone, note" not in page
+        assert '<div id="panel" class="overlay open">' in page, f"{panel} did not open a panel"
+        assert 'class="overlay-backdrop"' in page, f"{panel} missing backdrop"
+        assert 'class="modal"' in page, f"{panel} missing modal"
+        assert 'class="modal-close" href="/"' in page, f"{panel} missing close link"
+        assert 'class="overlay-backdrop" href="/"' in page, f"{panel} backdrop not closable"
+
+
+def test_each_more_panel_save_persists_via_its_existing_endpoint_end_to_end() -> None:
+    """U28 (2): Save on each of the four new tiles still posts to the same
+    /api/... endpoint with the same field set the old inline forms used."""
+    client = _client()
+    for panel in MORE_PANEL_TILES:
+        client.get(f"/?panel={panel}")  # tap 1: open
+        url, payload = MORE_PANEL_SAVE[panel]
+        r = client.post(url, data=payload, headers={"HX-Request": "true"})  # tap 2: save
+        assert r.status_code == 200, f"{panel} save -> {r.status_code}"
+    hist = client.get("/history").text
+    assert "weight 3600g (home)" in hist
+    assert "36.9 C (axilla)" in hist
+    assert "first: First smile" in hist
+    assert "Slept well tonight" in hist
+
+
+def test_closing_a_more_panel_without_saving_writes_no_row() -> None:
+    """U16 abandoned-panel contract, applied to the four new tiles: opening a
+    panel via GET and then simply navigating back (a plain GET to "/",
+    exactly what the close affordances do) must not write anything."""
+    for panel in MORE_PANEL_TILES:
+        client = _client()
+        client.get(f"/?panel={panel}")  # open
+        client.get("/")  # close, no save
+        hist = client.get(f"/history?domain={panel}").text
+        assert "Nothing logged yet" in hist, f"{panel} wrote a row despite no save"
+
+
+def test_every_more_panel_stays_reachable_and_submittable_with_js_disabled() -> None:
+    """U18 no-JS fallback, applied to the four new tiles: the tile's plain
+    href must open the panel via an ordinary GET, and the panel's plain
+    <form method="post"> must still redirect on submit (no HX-Request)."""
+    client = _client()
+    for panel in MORE_PANEL_TILES:
+        r = client.get(f"/?panel={panel}")
+        assert r.status_code == 200, f"{panel} tile fallback -> {r.status_code}"
+        url, payload = MORE_PANEL_SAVE[panel]
+        r2 = client.post(url, data=payload)
+        assert r2.status_code == 303, f"{panel} save without JS -> {r2.status_code}"
