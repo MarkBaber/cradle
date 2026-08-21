@@ -26,6 +26,7 @@ from cradle.routers.deps import Services, device_name
 from cradle.services.export_service import DOMAINS as EXPORT_DOMAINS
 from cradle.services.history_service import DOMAINS
 from cradle.services.milestone_service import CATEGORIES as MILESTONE_CATEGORIES
+from cradle.services.series_service import MAX_DAYS
 
 
 def _format_age(age: timedelta) -> str:
@@ -300,12 +301,17 @@ def _open_panel(request: Request) -> tuple[str, str, str]:
     return "", "", ""
 
 
-def _int_param(request: Request, name: str, default: int) -> int:
+def _int_param(
+    request: Request, name: str, default: int, *, minimum: int = 1, maximum: int = MAX_DAYS
+) -> int:
+    """Clamped so a mistyped/malicious `days` can't force an unbounded row
+    build in series_service (task U13) - there is no auth (D7) gating this."""
     raw = request.query_params.get(name)
     try:
-        return int(raw) if raw is not None else default
+        value = int(raw) if raw is not None else default
     except ValueError:
         return default
+    return max(minimum, min(value, maximum))
 
 
 def _selected(request: Request) -> tuple[str, ...]:
