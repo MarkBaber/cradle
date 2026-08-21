@@ -11,6 +11,7 @@ from cradle.services import (
     LoggingService,
     MilestoneService,
     MilkStockService,
+    ProjectionService,
     SeriesService,
     SettingsService,
     TodayService,
@@ -29,6 +30,7 @@ class Services:
     export: ExportService
     series: SeriesService
     milk: MilkStockService
+    projections: ProjectionService
 
 
 def device_name(cookie: str | None) -> str:
