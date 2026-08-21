@@ -1,0 +1,42 @@
+{% if dial %}
+{% set outer_r = 54 %}
+{% set inner_r = 38 %}
+{% set outer_c = 2 * 3.14159265 * outer_r %}
+{% set inner_c = 2 * 3.14159265 * inner_r %}
+<section class="dials{{ ' cold' if dial.both_cold }}" id="projections">
+  <div class="dial-wrap">
+    <svg class="dial-svg" viewBox="0 0 128 128" aria-hidden="true">
+      <circle class="dial-track outer" cx="64" cy="64" r="{{ outer_r }}"></circle>
+      <circle class="dial-arc outer{{ ' overdue' if dial.feed_overdue }}{{ ' cold' if dial.feed_cold }}"
+              cx="64" cy="64" r="{{ outer_r }}"
+              stroke-dasharray="{{ (dial.feed_fraction * outer_c) | round(1) }} {{ outer_c | round(1) }}"
+              transform="rotate(-90 64 64)"></circle>
+      <circle class="dial-track inner" cx="64" cy="64" r="{{ inner_r }}"></circle>
+      <circle class="dial-arc inner{{ ' overdue' if dial.mess_overdue }}{{ ' cold' if dial.mess_cold }}"
+              cx="64" cy="64" r="{{ inner_r }}"
+              stroke-dasharray="{{ (dial.mess_fraction * inner_c) | round(1) }} {{ inner_c | round(1) }}"
+              transform="rotate(-90 64 64)"></circle>
+    </svg>
+    <p class="dial-center{{ ' overdue' if dial.center_overdue }}">{{ dial.center_label }}</p>
+  </div>
+  <div class="dial-ring-labels">
+    <p class="dial-ring-label feed{{ ' overdue' if dial.feed_overdue }}{{ ' cold' if dial.feed_cold }}">{{ dial.feed_label }}</p>
+    <p class="dial-ring-label mess{{ ' overdue' if dial.mess_overdue }}{{ ' cold' if dial.mess_cold }}">{{ dial.mess_label }}</p>
+  </div>
+  <div class="gauges">
+    <div class="gauge hunger{{ ' overdue' if dial.feed_overdue }}">
+      <div class="gauge-track"><i class="gauge-fill" style="height:{{ dial.hunger_pct }}%"></i></div>
+      <i class="gauge-icon">🍼</i>
+      <span class="gauge-label">Hunger &middot; {{ dial.hunger_pct }}%</span>
+    </div>
+    <div class="gauge mess{{ ' overdue' if dial.mess_overdue }}">
+      <div class="gauge-track"><i class="gauge-fill" style="height:{{ dial.mess_pct }}%"></i></div>
+      <i class="gauge-icon">💩</i>
+      <span class="gauge-label">Mess &middot; {{ dial.mess_pct }}%</span>
+    </div>
+  </div>
+  {% if dial.dirty_hint %}
+  <p class="dirty-hint">{{ dial.dirty_hint }}</p>
+  {% endif %}
+</section>
+{% endif %}

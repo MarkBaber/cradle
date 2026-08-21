@@ -173,6 +173,40 @@ sup{font-size:.6em}
 #dailychart,#sleepchart{height:260px;margin:10px 0;border:1px solid var(--line);
   border-radius:10px}
 
+/* next-event dials (task U23): nested feed/mess rings + hunger/mess bars.
+   Presentation only - inline SVG, no charting library. */
+.dials{position:relative;display:flex;flex-direction:column;align-items:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:14px;margin-bottom:12px}
+.dial-wrap{position:relative;width:160px;height:160px}
+.dial-svg{width:100%;height:100%}
+.dial-track{fill:none;stroke:var(--line);stroke-width:10}
+.dial-arc{fill:none;stroke-width:10;stroke-linecap:round}
+.dial-arc.outer{stroke:var(--feed)}
+.dial-arc.inner{stroke:var(--dirty)}
+.dial-arc.overdue{stroke:var(--err)}
+.dial-arc.cold{stroke:var(--dim);opacity:.35}
+.dial-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  margin:0;padding:0 18px;text-align:center;font-size:.85rem;font-weight:600;
+  font-variant-numeric:tabular-nums}
+.dial-center.overdue{color:var(--err)}
+.dials.cold .dial-center{color:var(--dim);font-weight:400}
+.dial-ring-labels{margin-top:8px;text-align:center}
+.dial-ring-label{font-size:.78rem;color:var(--dim);margin:2px 0}
+.dial-ring-label.overdue{color:var(--err)}
+.dial-ring-label.cold{font-style:italic}
+
+.gauges{display:flex;gap:18px;justify-content:center;margin:12px 0 2px}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:4px}
+.gauge-track{position:relative;width:22px;height:80px;background:var(--bg);
+  border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.gauge-fill{position:absolute;left:0;right:0;bottom:0;font-style:normal;background:var(--feed)}
+.gauge.mess .gauge-fill{background:var(--dirty)}
+.gauge.overdue .gauge-fill{background:var(--err)}
+.gauge-icon{font-style:normal;font-size:1.1rem}
+.gauge-label{font-size:.7rem;color:var(--dim)}
+.dirty-hint{color:var(--dim);font-size:.75rem;margin:6px 0 0}
+
 /* vendored wheel-picker (task U22): dark-theme overrides only, the library
    supplies its own layout/animation. */
 .wheelpicker{z-index:70}

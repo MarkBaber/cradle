@@ -3,6 +3,7 @@
 {% block title %}Today · CRADLE{% endblock %}
 {% block content %}
 <h1>Today</h1>
+{% include "_projections.html" %}
 <div hx-get="/today/fragment" hx-trigger="every 60s" hx-swap="outerHTML">
   {% include "_alerts.html" %}
 {% include "_today_strip.html" %}
