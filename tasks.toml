@@ -940,10 +940,10 @@ description = "quick_entry.html (\"/\", labelled Log in the nav) gains four tile
 exit_criteria = ["each of the four tiles opens its own modal panel and Save persists one activity event with the tapped category and entered duration (route test)", "each panel renders its own category's target text from V4 and not another category's (route test)", "closing a panel without Save writes no row, matching U16 (route test)", "quick-entry static payload is re-measured against the Q1 weight budget with the new tiles/markup, and either stays inside it or the budget test is amended in the same diff with the new total recorded (test)"]
 notes = "Depends on V4 for the per-category target text and on U22 for both the modal-panel machinery this reuses and the same file-collision reason U23 and the projections-settings task both cited - quick_entry.html and its route tests are open on that branch. Whether cumulative-today-vs-target should also show on /today, mirroring U23's hunger/mess bars, is deliberately left out of this task to keep touches tight; flag as a natural follow-on once this lands rather than folding it in here."
 
-# ---------------- Combined iOS-style date+time picker (U28) ----------------
+# ---------------- Combined iOS-style date+time picker (U29) ----------------
 
 [[task]]
-id = "U28"
+id = "U29"
 phase = 1
 title = "Combined iOS-style date+time picker for panels and history edit (AnyPicker/ios-style-picker or similar)"
 status = "todo"
