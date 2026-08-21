@@ -16,7 +16,7 @@ exportable history (timeseries + animated growth playback + milestones).
 | Target | Value |
 |---|---|
 | Quick-entry interaction cost | ≤2 taps to log a feed/nappy event at "now" with defaults accepted — tap tile, tap Save (§5.4); sleep start/end stays a single confirm-free tap |
-| Page weight (quick-entry screen) | ≤150 KB transferred, no build step |
+| Page weight (quick-entry screen) | ≤150 KB transferred, no build step (vendored date/time-picker assets on the entry-panel and `/history` edit controls are exempt — see §7.1, 2026-08-21) |
 | Server | Runs on Pi 4/5, ≤150 MB RSS, SQLite only, zero runtime network deps except ntfy POST |
 | Centile accuracy | z-score/centile matches published UK-WHO LMS reference to ±0.01 z (oracle-tested) |
 | Data safety | WAL + nightly `VACUUM INTO` backup; export to CSV/JSON at any time |
@@ -280,6 +280,7 @@ Recorded here so the SPEC stays ground truth rather than drifting from the code.
 | R1 | Added `LmsTable`, `value_at_z`, `z_for_centile`, `ReferenceDataMissingError` | Drawing centile curves needs the inverse of the z-score, and missing reference data must fail loudly rather than approximate. |
 | R3 | Gestation derived from a 40-week due date, not the 37-week threshold | The original formula conflated the two and would have mis-corrected every baby by three weeks. |
 | N4 | Reminder crons dropped in favour of 5-minute sweep | Reminder rules (e.g. `WEIGH_IN_DUE`) are evaluated in the 5-minute sweep with fingerprint de-duplication; separate cron jobs are redundant. |
+| U28 | Quick-entry weight budget (§1) exempts the vendored date/time-picker library, including its transitive dependencies (e.g. jQuery, if `AnyPicker` is the component chosen) | Mark Baber directed picking the best iOS-style combined date+time picker for the entry-panel and `/history` edit controls over trimming the choice to fit the historical 150 KB ceiling (2026-08-21). The gate itself is not removed — it still covers every other quick-entry asset (`app.css`, `entry.js`, htmx, the core tiles) exactly as before; this is a scoped carve-out of the same shape the table already gives Plotly on `/charts`. |
 
 ## 8. Deliberate-not-oversight callouts
 
