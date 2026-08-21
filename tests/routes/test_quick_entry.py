@@ -445,22 +445,110 @@ def test_panels_render_as_a_modal_overlay_with_a_dimmed_backdrop() -> None:
     assert 'class="overlay-backdrop" href="/"' in open_page
 
 
-def test_time_field_is_upgraded_by_the_vendored_scroll_wheel_picker() -> None:
-    """The picker is a vendored library over the real <input type=time
-    name=ts> (U19's constraints, carried verbatim into U22): with the script
-    unloaded - true of this client, which never executes JS - the native
-    control alone must still post a value /api/feed already accepts."""
+def test_time_field_is_upgraded_by_the_vendored_combined_picker() -> None:
+    """The picker is a vendored library (task U29: AnyPicker/jQuery, replacing
+    U22's wheel-picker) over the real <input type=time name=ts> (U19's
+    constraints, carried through U22 and now U29): with the script unloaded -
+    true of this client, which never executes JS - the native control alone
+    must still post a value /api/feed already accepts."""
     client = _client()
     page = client.get("/?panel=feed&method=breast_left").text
-    assert '<script src="/static/vendor/wheelpicker.min.js" defer></script>' in page
+    assert '<script src="/static/vendor/jquery.min.js" defer></script>' in page
+    assert '<script src="/static/vendor/anypicker.min.js" defer></script>' in page
     assert '<script src="/static/entry.js" defer></script>' in page
-    assert '<link rel="stylesheet" href="/static/vendor/wheelpicker.min.css">' in page
+    assert '<link rel="stylesheet" href="/static/vendor/anypicker-all.min.css">' in page
     assert '<input type="time" name="ts"' in page
     r = client.post("/api/feed", data={"method": "breast_left", "ts": "08:15"})
     assert r.status_code == 303
     feeds = client.app.state.services.logging.recent_feeds(1)
     local = to_local(feeds[0].ts)
     assert (local.hour, local.minute) == (8, 15)
+
+
+# --------------------------------------------------------------------- U29
+
+
+def test_panel_save_can_persist_a_picked_date_other_than_today() -> None:
+    """The panel's ts field still posts only "HH:MM" (api.py's _panel_ts is
+    unchanged, per this task's own contract), so a picked date reaches the
+    server via a follow-up /api/adjust-time call once the new event's id is
+    known from the create toast's data-table/data-event-id (api.py's
+    _toast()) - exactly what entry.js's onSetOutput -> submit -> htmx:afterSwap
+    chain drives client-side. This test performs that same two-step flow
+    directly, proving Save can end up on a date other than today, and that it
+    round-trips through /api/adjust-time's existing, unchanged
+    datetime.fromisoformat parsing."""
+    client = _client()
+    r = client.post(
+        "/api/feed", data={"method": "breast_left", "ts": "23:15"}, headers={"HX-Request": "true"}
+    )
+    assert r.status_code == 200
+    match = re.search(r'data-table="([^"]+)" data-event-id="(\d+)"', r.text)
+    assert match is not None, "create toast is missing data-table/data-event-id"
+    table, event_id = match.group(1), match.group(2)
+    assert table == "feed"
+
+    r2 = client.post(
+        "/api/adjust-time",
+        data={"table": table, "event_id": event_id, "ts": "2026-07-10 23:15"},
+    )
+    assert r2.status_code == 303
+
+    feeds = client.app.state.services.logging.recent_feeds(1)
+    local = to_local(feeds[0].ts)
+    assert local.date().isoformat() == "2026-07-10", "Save must land on a date other than today"
+    assert (local.hour, local.minute) == (23, 15)
+
+
+def test_history_edit_field_uses_the_vendored_combined_picker() -> None:
+    """/history's inline-edit timestamp field uses the same picker the panel
+    does. history.html/base.html have no touchable head-block for it, so
+    _history_table.html loads the vendor scripts itself (still functions
+    without a <head>: defer only cares about DOM-parse completion, not
+    document position)."""
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left"})
+    page = client.get("/history").text
+    assert '<script src="/static/vendor/jquery.min.js" defer></script>' in page
+    assert '<script src="/static/vendor/anypicker.min.js" defer></script>' in page
+    assert '<script src="/static/entry.js" defer></script>' in page
+    assert '<link rel="stylesheet" href="/static/vendor/anypicker-all.min.css">' in page
+    assert '<input type="datetime-local" name="ts"' in page
+
+
+def test_history_edit_corrects_both_date_and_time() -> None:
+    """A corrected date+time (not just a corrected time-of-day, already
+    covered by test_adjust_time_updates_history) round-trips through
+    /history's combined picker's underlying route, unchanged."""
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left"})
+    r = client.post(
+        "/api/adjust-time",
+        data={"table": "feed", "event_id": 1, "ts": "2026-07-10T06:45"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "10 Jul 06:45" in client.get("/history").text
+
+
+def test_panel_and_history_submit_correct_timestamps_with_picker_script_disabled() -> None:
+    """U19's and U22's no-JS contract, carried forward by U29 for both
+    surfaces the combined picker now touches: TestClient never executes JS,
+    so this - like every other test in this file - proves the native
+    fallback controls alone still post a timestamp the server accepts."""
+    client = _client()
+    r = client.post("/api/feed", data={"method": "breast_left", "ts": "08:15"})
+    assert r.status_code == 303
+    feeds = client.app.state.services.logging.recent_feeds(1)
+    local = to_local(feeds[0].ts)
+    assert (local.hour, local.minute) == (8, 15)
+
+    r2 = client.post(
+        "/api/adjust-time",
+        data={"table": "feed", "event_id": 1, "ts": "2026-07-14T21:00"},
+    )
+    assert r2.status_code == 303
+    assert "14 Jul 21:00" in client.get("/history").text
 
 
 def test_breast_panel_side_toggle_buttons_are_mutually_exclusive() -> None:
