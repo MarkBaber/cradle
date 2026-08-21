@@ -1,5 +1,6 @@
 """Page routes (tasks U1, U3, U4, U7). Templates in routers/templates/."""
 
+import math
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from cradle.routers.deps import Services, device_name
 from cradle.services.export_service import DOMAINS as EXPORT_DOMAINS
 from cradle.services.history_service import DOMAINS
 from cradle.services.milestone_service import CATEGORIES as MILESTONE_CATEGORIES
+from cradle.services.projection_service import ProjectionResult
 from cradle.services.series_service import MAX_DAYS
 
 
@@ -43,6 +45,117 @@ def _format_age(age: timedelta) -> str:
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 TEMPLATES.env.filters["local"] = to_local
 TEMPLATES.env.filters["age"] = _format_age
+
+
+# ------------------------------------------------------- next-event dials (U23)
+# Presentation-only view model over V3's ProjectionResult: no storage, no write
+# path. Lives here rather than in _projections.html because the auto-scaled
+# window is arithmetic shared between the two rings, and reads better as
+# Python than duplicated in Jinja.
+
+
+def _hours(earlier: datetime, later: datetime) -> float:
+    return (later - earlier).total_seconds() / 3600
+
+
+def _hm(hours: float) -> str:
+    """'0h30' style countdown, rounded to the minute."""
+    total_min = round(abs(hours) * 60)
+    h, m = divmod(total_min, 60)
+    return f"{h}h{m:02d}"
+
+
+def _ago(hours: float) -> str:
+    total_min = round(abs(hours) * 60)
+    h, m = divmod(total_min, 60)
+    return f"{h}h{m}m ago" if h else f"{m}m ago"
+
+
+def _fraction_left(due_at: datetime | None, now: datetime, window_h: float) -> float:
+    """1.0 = full ring (cold, nothing to deplete yet); 0.0 = emptied (overdue)."""
+    if due_at is None:
+        return 1.0
+    remaining = _hours(now, due_at)
+    if remaining <= 0:
+        return 0.0
+    return min(1.0, remaining / window_h)
+
+
+def _ring_label(name: str, due_at: datetime | None, overdue: bool, now: datetime) -> str:
+    if due_at is None:
+        cold_noun = "feeds" if name == "feed" else "nappies"
+        return f"log a few {cold_noun} and this will fill in"
+    delta = _hours(now, due_at)
+    if overdue:
+        return f"{name} due {_ago(delta)}"
+    return f"{name} in {_hm(delta)}, {to_local(due_at).strftime('%H:%M')}"
+
+
+def _feed_echo(p: ProjectionResult) -> str:
+    """The compact one-line feed-only readout for /log (task U23)."""
+    if p.feed_due_at is None:
+        return "log a few feeds and this will fill in"
+    delta = _hours(p.as_of, p.feed_due_at)
+    if p.feed_overdue:
+        return f"feed due {_ago(delta)}"
+    return f"next feed in {_hm(delta)}"
+
+
+def _dial_context(p: ProjectionResult) -> dict[str, object]:
+    now = p.as_of
+    window_h = float(p.window_max_h)
+    for due in (p.feed_due_at, p.mess_due_at):
+        if due is not None:
+            remaining = _hours(now, due)
+            if remaining > window_h:
+                window_h = math.ceil(remaining)
+
+    feed_cold = p.feed_due_at is None
+    mess_cold = p.mess_due_at is None
+    both_cold = feed_cold and mess_cold
+
+    if both_cold:
+        center_label = "log a few feeds and this will fill in"
+        center_overdue = False
+    else:
+        candidates = [
+            (due, overdue, which)
+            for due, overdue, which in (
+                (p.feed_due_at, p.feed_overdue, "feed"),
+                (p.mess_due_at, p.mess_overdue, "mess"),
+            )
+            if due is not None
+        ]
+        soonest_due, soonest_overdue, which = min(candidates, key=lambda c: c[0])
+        if soonest_overdue:
+            center_label = f"{which} due {_ago(_hours(now, soonest_due))}"
+        else:
+            center_label = (
+                f"next {which} in {_hm(_hours(now, soonest_due))}, "
+                f"{to_local(soonest_due).strftime('%H:%M')}"
+            )
+        center_overdue = soonest_overdue
+
+    dirty_hint = None
+    if p.dirty_due_at is not None:
+        dirty_hint = f"dirty due ~{to_local(p.dirty_due_at).strftime('%H:%M')}"
+
+    return {
+        "both_cold": both_cold,
+        "feed_cold": feed_cold,
+        "mess_cold": mess_cold,
+        "feed_overdue": p.feed_overdue,
+        "mess_overdue": p.mess_overdue,
+        "feed_fraction": _fraction_left(p.feed_due_at, now, window_h),
+        "mess_fraction": _fraction_left(p.mess_due_at, now, window_h),
+        "feed_label": _ring_label("feed", p.feed_due_at, p.feed_overdue, now),
+        "mess_label": _ring_label("mess", p.mess_due_at, p.mess_overdue, now),
+        "center_label": center_label,
+        "center_overdue": center_overdue,
+        "hunger_pct": 100 if p.feed_overdue else round(p.hunger_fraction * 100),
+        "mess_pct": 100 if p.mess_overdue else round(p.mess_level_fraction * 100),
+        "dirty_hint": dirty_hint,
+    }
 
 
 def build_pages_router(svc: Services) -> APIRouter:
@@ -67,6 +180,7 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "open_kind": kind,
                 "now_time": to_local(summary.as_of).strftime("%H:%M") if summary else "",
                 "entry_defaults": api_module.entry_defaults(api_module.CONFIG_PATH),
+                "feed_echo": _feed_echo(svc.projections.projections()),
             },
         )
 
@@ -81,6 +195,7 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "summary": svc.today.summary(),
                 "pinned": svc.alerts.pinned(),
                 "outstanding": svc.alerts.outstanding(),
+                "dial": _dial_context(svc.projections.projections()),
             },
         )
 
