@@ -32,7 +32,6 @@ cd /opt/cradle
 sudo -u cradle python3 -m venv .venv
 sudo -u cradle .venv/bin/pip install -e .
 sudo -u cradle mkdir -p data backups
-sudo -u cradle bash scripts/vendor_assets.sh    # htmx + plotly
 
 sudo cp scripts/deploy/cradle.service /etc/systemd/system/
 sudo cp scripts/deploy/cradle-backup.{service,timer} /etc/systemd/system/
@@ -91,6 +90,28 @@ scripts/lint.sh
 scripts/check_layers.sh   # architecture boundaries
 ```
 
+No extra setup is needed to see htmx, Plotly or the iOS-style AnyPicker date/
+time picker locally — they're committed under `src/cradle/routers/static/
+vendor/` (see below) and ship with the checkout.
+
 `docs/SPEC.md` holds the architecture and the settled decisions, `tasks.toml`
 the work queue and its Definition of Done, `CLAUDE.md` the rules for agents
 working in this repo.
+
+## Vendored front-end assets
+
+`src/cradle/routers/static/vendor/` holds `htmx.min.js`, `plotly.min.js`,
+`jquery.min.js`, `anypicker.min.js` and `anypicker-all.min.css`, committed to
+the repo so a fresh clone works offline with no fetch step. Every page
+degrades gracefully without them (plain HTML forms, native `<input type=time>`
+/ `<input type=datetime-local>`), but with them present quick-entry gets htmx
+and the AnyPicker combined date+time wheel, and `/charts` gets Plotly.
+
+To bump a pinned version, edit the version/URL/SHA-256 in
+`scripts/vendor_assets.sh`, then:
+
+```bash
+scripts/vendor_assets.sh   # re-fetches and checksum-verifies each file
+git add src/cradle/routers/static/vendor/
+git commit -m "vendor: bump <library> to <version>"
+```

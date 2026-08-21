@@ -35,9 +35,8 @@ junit.xml
 /data/
 /backups/
 
-# Vendored front-end assets: fetched by scripts/vendor_assets.sh against a
-# pinned checksum (tasks U8, R5), not committed. plotly.min.js alone is 4.5MB.
-# Covers every file type the vendored libraries ship (task U29: AnyPicker also
-# ships a .css bundle, not just .js) - a bare *.js pattern left wheelpicker.min.css
-# uncovered (flagged in U22's own notes) and would do the same to anypicker's CSS.
-src/cradle/routers/static/vendor/*
+# Vendored front-end assets (htmx, plotly, jquery, anypicker) are committed
+# under src/cradle/routers/static/vendor/ so a fresh checkout works without a
+# network fetch - see README.md "Vendored front-end assets". They are still
+# fetched and checksum-verified by scripts/vendor_assets.sh; re-run it and
+# commit the result when bumping a pinned version.
