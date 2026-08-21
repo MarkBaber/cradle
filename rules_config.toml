@@ -56,3 +56,13 @@ timezone = "Europe/London"
 # changed before Save, so this is never an entry gate (T1).
 bottle_volume_ml = 60
 breast_duration_min = 20
+
+[projections]
+# UX convenience overrides for the next-feed/next-mess dials (task V3/U24) -
+# NOT clinical thresholds, so outside CLAUDE.md's architect-only carve-out
+# for this file. 0 or blank means "compute it from the log"; window_max_h has
+# no computed alternative so it carries a real default.
+ml_per_hour = 0
+typical_feed_ml = 0
+mess_interval_min = 0
+window_max_h = 2

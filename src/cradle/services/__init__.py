@@ -19,6 +19,7 @@ from cradle.services.milk_service import (
     StoreStock,
     UnknownBatchError,
 )
+from cradle.services.projection_service import ProjectionResult, ProjectionService
 from cradle.services.series_service import DailySeries, Ribbon, SeriesService
 from cradle.services.settings_service import SettingsService
 from cradle.services.today_service import TodayService, TodaySummary
@@ -40,6 +41,8 @@ __all__ = [
     "MilkStockService",
     "ProductionSummary",
     "ProductionWindow",
+    "ProjectionResult",
+    "ProjectionService",
     "Ribbon",
     "SeriesService",
     "SettingsService",
