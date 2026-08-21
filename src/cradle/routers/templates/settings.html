@@ -71,4 +71,34 @@ fetch("/api/settings/ntfy").then((r) => r.json()).then((d) => {
 <p id="entry-defaults-result" class="note"></p>
 <p class="note">Pre-fills the bottle and breast panels on the log page. The value can always be
 changed before saving.</p>
+
+<h2>Next-feed &amp; next-mess estimates</h2>
+<form method="post" action="/api/settings/projections" class="stack"
+      hx-post="/api/settings/projections" hx-target="#projections-result" hx-swap="innerHTML">
+  <label>Feed rate (ml/hour) <input type="number" name="ml_per_hour" id="projections-ml-per-hour"
+    step="any" inputmode="decimal"></label>
+  <label>Typical feed volume (ml) <input type="number" name="typical_feed_ml"
+    id="projections-typical-feed-ml" step="any" inputmode="decimal"></label>
+  <label>Mess interval (min) <input type="number" name="mess_interval_min"
+    id="projections-mess-interval-min" step="any" inputmode="decimal"></label>
+  <button type="submit">Save overrides</button>
+</form>
+<p id="projections-result" class="note"></p>
+<p class="note">Each field's placeholder shows what your own log currently estimates. Leave a
+field blank to keep using that estimate; enter a number to use it instead.</p>
+<script>
+fetch("/api/settings/projections").then((r) => r.json()).then((d) => {
+  const ids = {
+    ml_per_hour: "projections-ml-per-hour",
+    typical_feed_ml: "projections-typical-feed-ml",
+    mess_interval_min: "projections-mess-interval-min",
+  };
+  for (const [key, id] of Object.entries(ids)) {
+    const el = document.getElementById(id);
+    const field = d[key];
+    el.value = field.override || "";
+    el.placeholder = field.computed == null ? "not enough log data yet" : field.computed;
+  }
+});
+</script>
 {% endblock %}

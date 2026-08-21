@@ -7,6 +7,7 @@ JavaScript disabled or htmx unvendored.
 """
 
 import re
+import statistics
 import tomllib
 from datetime import UTC, datetime
 from html import escape
@@ -31,6 +32,13 @@ from cradle.models import (
 )
 from cradle.routers.deps import Services, device_name
 from cradle.services import InvalidBatchTransitionError, UnknownBatchError
+from cradle.services.projection_service import (
+    FETCH_LIMIT,
+    MIN_SAMPLES,
+    _bottle_rate_samples,
+    _gap_median_hours,
+    _median_bottle_volume,
+)
 
 UNDO_SECONDS = 10
 DEVICE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60  # browsers cap persistent cookies at 400 days
@@ -94,6 +102,113 @@ def _write_entry_defaults(
         raise ValueError("rules_config.toml [entry_defaults] table is missing a key")
     text = text[: section_match.start()] + section + text[section_match.end() :]
     config_path.write_text(text)
+
+
+_PROJECTIONS_OVERRIDE_KEYS = ("ml_per_hour", "typical_feed_ml", "mess_interval_min")
+_PROJECTIONS_SECTION_RE = re.compile(r"(?ms)^\[projections\]\n(?:(?!^\[).)*")
+_PROJECTIONS_LINE_RES = {
+    key: re.compile(rf"(?m)^({key}\s*=\s*)[^\n]*") for key in _PROJECTIONS_OVERRIDE_KEYS
+}
+
+
+def projections_overrides(config_path: Path) -> dict[str, float]:
+    """Read the three manual overrides from [projections] (task U24).
+
+    Mirrors entry_defaults()'s "falls back if unset" shape, but the fallback
+    here is 0 - meaning "compute it" (V3's own _override convention), not an
+    out-of-the-box constant.
+    """
+    table: object = {}
+    if config_path.exists():
+        with config_path.open("rb") as fh:
+            table = tomllib.load(fh).get("projections", {})
+    if not isinstance(table, dict):
+        table = {}
+    out: dict[str, float] = {}
+    for key in _PROJECTIONS_OVERRIDE_KEYS:
+        value = table.get(key, 0)
+        is_number = isinstance(value, int | float) and not isinstance(value, bool)
+        out[key] = float(value) if is_number and value > 0 else 0.0
+    return out
+
+
+def _write_projections_overrides(config_path: Path, values: dict[str, float]) -> None:
+    """Patch only the three override keys inside [projections] (task U24).
+
+    Mirrors app.py's N3 _write_ntfy_topic / this file's U22
+    _write_entry_defaults: a targeted regex substitution scoped to this one
+    section, never a full TOML round-trip, so a settings-page POST can never
+    reach an architect-owned clinical threshold elsewhere in
+    rules_config.toml.
+    """
+    text = config_path.read_text()
+    section_match = _PROJECTIONS_SECTION_RE.search(text)
+    if section_match is None:
+        raise ValueError("rules_config.toml has no [projections] table")
+    section = section_match.group(0)
+    missing = []
+    for key in _PROJECTIONS_OVERRIDE_KEYS:
+        literal = _toml_number(values[key])
+
+        def _replace(m: re.Match[str], lit: str = literal) -> str:
+            return m.group(1) + lit
+
+        section, count = _PROJECTIONS_LINE_RES[key].subn(_replace, section, count=1)
+        if count == 0:
+            missing.append(key)
+    if missing:
+        raise ValueError(f"rules_config.toml [projections] table is missing: {', '.join(missing)}")
+    text = text[: section_match.start()] + section + text[section_match.end() :]
+    config_path.write_text(text)
+
+
+def _toml_number(value: float) -> str:
+    return str(int(value)) if value == int(value) else repr(float(value))
+
+
+def _computed_projections(svc: Services) -> dict[str, float | None]:
+    """What V3 would compute right now with no override in force (task U24).
+
+    Reuses V3's own sample functions directly rather than re-deriving the
+    medians here, so the settings panel can never drift from what the
+    projection actually does. api.py cannot import cradle.repos (routers may
+    only import models/services, SPEC 3), so this reads through the
+    already-built ProjectionService the app wired at startup rather than
+    constructing a second repo - the only two attributes it reaches are the
+    repo and nothing else touches config or clock.
+    """
+    repo = svc.projections._repo  # see docstring above for why
+    feeds_chrono = list(reversed(repo.list_feeds(limit=FETCH_LIMIT)))
+    nappies_chrono = list(reversed(repo.list_nappies(limit=FETCH_LIMIT)))
+
+    rate_samples = _bottle_rate_samples(feeds_chrono)
+    rate = statistics.median(rate_samples) if len(rate_samples) >= MIN_SAMPLES else None
+
+    typical_ml = _median_bottle_volume(feeds_chrono)
+
+    mess_gap_h = _gap_median_hours(nappies_chrono)
+    mess_interval_min = mess_gap_h * 60 if mess_gap_h is not None else None
+
+    return {
+        "ml_per_hour": round(rate, 1) if rate is not None else None,
+        "typical_feed_ml": round(typical_ml, 1) if typical_ml is not None else None,
+        "mess_interval_min": round(mess_interval_min, 1) if mess_interval_min is not None else None,
+    }
+
+
+def _clamp_projection_override(raw: str | None) -> float | None:
+    """Blank clears the override (returns None); a number must be positive.
+
+    A clamp, not a health claim (task U24 notes): rejects non-numeric and
+    non-positive input, but never tells a parent a number is too high or too
+    low for their baby.
+    """
+    if raw is None or raw.strip() == "":
+        return None
+    value = float(raw)
+    if value <= 0:
+        raise ValueError("projection overrides must be positive")
+    return value
 
 
 # Value coercion for the generic post-hoc field editor (U10). The allow-list
@@ -460,6 +575,38 @@ def build_api_router(svc: Services) -> APIRouter:
         _write_entry_defaults(CONFIG_PATH, bottle_volume_ml, breast_duration_min)
         if request.headers.get("HX-Request"):
             return HTMLResponse('<span class="ok">Defaults saved.</span>')
+        return RedirectResponse("/settings", status_code=303)
+
+    @router.get("/api/settings/projections")
+    def get_projections_overrides() -> JSONResponse:
+        overrides = projections_overrides(CONFIG_PATH)
+        computed = _computed_projections(svc)
+        return JSONResponse(
+            {
+                key: {"override": overrides[key], "computed": computed[key]}
+                for key in _PROJECTIONS_OVERRIDE_KEYS
+            }
+        )
+
+    @router.post("/api/settings/projections")
+    def post_projections_overrides(
+        request: Request,
+        ml_per_hour: Annotated[str, Form()] = "",
+        typical_feed_ml: Annotated[str, Form()] = "",
+        mess_interval_min: Annotated[str, Form()] = "",
+    ) -> Response:
+        try:
+            values = {
+                "ml_per_hour": _clamp_projection_override(ml_per_hour) or 0.0,
+                "typical_feed_ml": _clamp_projection_override(typical_feed_ml) or 0.0,
+                "mess_interval_min": _clamp_projection_override(mess_interval_min) or 0.0,
+            }
+        except ValueError:
+            msg = '<p class="err">Overrides must be blank or a positive number.</p>'
+            return HTMLResponse(msg, status_code=400)
+        _write_projections_overrides(CONFIG_PATH, values)
+        if request.headers.get("HX-Request"):
+            return HTMLResponse('<span class="ok">Projection overrides saved.</span>')
         return RedirectResponse("/settings", status_code=303)
 
     return router

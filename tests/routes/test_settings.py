@@ -10,6 +10,7 @@ import sys
 import tempfile
 import tomllib
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,8 +19,12 @@ sys.path.insert(0, str(ROOT / "src"))
 from fastapi.testclient import TestClient  # noqa: E402
 
 from cradle.app import create_app  # noqa: E402
+from cradle.models import FeedMethod, NappyKind  # noqa: E402
+from cradle.ports.clock import Clock, FixedClock  # noqa: E402
 from cradle.ports.notifier import NtfyNotifier  # noqa: E402
 from cradle.routers import api as api_module  # noqa: E402
+
+NOW = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
 
 PROFILE = {
     "name": "Test",
@@ -62,10 +67,11 @@ def _config_copy(tmp_path: Path, topic: str = "") -> Path:
     return dest
 
 
-def _client(config_path: Path, notifier=None) -> TestClient:
+def _client(config_path: Path, notifier=None, clock: Clock | None = None) -> TestClient:
     app = create_app(
         db_path=Path(tempfile.mkdtemp()) / "a.db",
         notifier=notifier,
+        clock=clock,
         config_path=config_path,
         reference=(None, "task R2 outstanding"),
         start_scheduler=False,
@@ -233,3 +239,168 @@ def test_new_entry_default_appears_on_the_next_panel_open(tmp_path: Path) -> Non
 
         after = client.get("/?panel=feed&method=bottle_expressed").text
         assert volume_value(after) == "90"
+
+
+# --------------------------------------------------------------------- U24
+
+
+def _seed_projection_timeline(client: TestClient) -> None:
+    """Same synthetic timeline as V3's own unit test: five 90ml bottles 3h
+    apart (30ml/hour, 90ml typical) and four wet nappies 6h apart (360min
+    typical gap) - so the computed values this seeds are known constants."""
+    assert client.post("/api/settings/profile", data=PROFILE).status_code == 303
+    logging = client.app.state.services.logging
+    for h in (13, 10, 7, 4, 1):
+        logging.log_feed(FeedMethod.BOTTLE_FORMULA, volume_ml=90, ts=NOW - timedelta(hours=h))
+    for h in (21, 15, 9, 3):
+        logging.log_nappy(NappyKind.WET, ts=NOW - timedelta(hours=h))
+
+
+def test_get_projections_reflects_config_out_of_the_box(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        body = client.get("/api/settings/projections").json()
+        for key in ("ml_per_hour", "typical_feed_ml", "mess_interval_min"):
+            assert body[key] == {"override": 0.0, "computed": None}
+
+
+def test_get_projections_computed_reflects_the_log(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path, clock=FixedClock(NOW))
+        _seed_projection_timeline(client)
+
+        body = client.get("/api/settings/projections").json()
+        assert body["ml_per_hour"] == {"override": 0.0, "computed": 30.0}
+        assert body["typical_feed_ml"] == {"override": 0.0, "computed": 90.0}
+        assert body["mess_interval_min"] == {"override": 0.0, "computed": 360.0}
+
+
+def test_post_projections_persists_and_is_reflected(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+
+        r = client.post(
+            "/api/settings/projections",
+            data={"ml_per_hour": "95", "typical_feed_ml": "80", "mess_interval_min": "150"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+
+        body = client.get("/api/settings/projections").json()
+        assert body["ml_per_hour"]["override"] == 95.0
+        assert body["typical_feed_ml"]["override"] == 80.0
+        assert body["mess_interval_min"]["override"] == 150.0
+        parsed = tomllib.loads(config_path.read_text())
+        assert parsed["projections"]["ml_per_hour"] == 95
+        assert parsed["projections"]["typical_feed_ml"] == 80
+        assert parsed["projections"]["mess_interval_min"] == 150
+
+
+def test_post_projections_leaves_other_tables_byte_identical(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        original = config_path.read_text()
+        client = _client(config_path)
+
+        r = client.post(
+            "/api/settings/projections",
+            data={"ml_per_hour": "95", "typical_feed_ml": "80", "mess_interval_min": "150"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+
+        new_text = config_path.read_text()
+        assert new_text != original
+        # Byte-identical outside [projections]: strip that one section from
+        # both copies and compare what remains, including the [weight]
+        # clinical threshold specifically (CLAUDE.md's architect-only carve-out).
+        section_re = api_module._PROJECTIONS_SECTION_RE
+        assert section_re.sub("", original) == section_re.sub("", new_text)
+        parsed = tomllib.loads(new_text)
+        assert parsed["weight"]["loss_red_fraction"] == 0.10
+
+
+def test_post_projections_without_htmx_redirects_to_settings(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        r = client.post(
+            "/api/settings/projections",
+            data={"ml_per_hour": "95", "typical_feed_ml": "80", "mess_interval_min": "150"},
+        )
+        assert r.status_code == 303
+        assert r.headers["location"] == "/settings"
+
+
+def test_post_projections_rejects_non_positive_values(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        r = client.post(
+            "/api/settings/projections",
+            data={"ml_per_hour": "0", "typical_feed_ml": "80", "mess_interval_min": "150"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 400
+        assert client.get("/api/settings/projections").json()["ml_per_hour"]["override"] == 0.0
+
+
+def test_post_projections_rejects_non_numeric_values(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        r = client.post(
+            "/api/settings/projections",
+            data={"ml_per_hour": "fast", "typical_feed_ml": "80", "mess_interval_min": "150"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 400
+        assert client.get("/api/settings/projections").json()["ml_per_hour"]["override"] == 0.0
+
+
+def test_clearing_override_returns_to_the_computed_value_on_next_projection(
+    tmp_path: Path,
+) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path, clock=FixedClock(NOW))
+        _seed_projection_timeline(client)
+        projections = client.app.state.services.projections
+
+        computed = projections.projections()
+        assert computed.feed_due_at == NOW + timedelta(hours=2)
+        assert computed.mess_due_at == NOW + timedelta(hours=3)
+
+        r = client.post(
+            "/api/settings/projections",
+            data={"ml_per_hour": "999", "typical_feed_ml": "999", "mess_interval_min": "5"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+        overridden = projections.projections()
+        assert overridden.feed_due_at != computed.feed_due_at
+        assert overridden.mess_due_at != computed.mess_due_at
+
+        r = client.post(
+            "/api/settings/projections",
+            data={"ml_per_hour": "", "typical_feed_ml": "", "mess_interval_min": ""},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+        cleared = projections.projections()
+        assert cleared.feed_due_at == computed.feed_due_at
+        assert cleared.mess_due_at == computed.mess_due_at
+
+
+def test_settings_page_carries_the_projections_panel(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        page = client.get("/settings").text
+        assert 'name="ml_per_hour"' in page
+        assert 'name="typical_feed_ml"' in page
+        assert 'name="mess_interval_min"' in page
+        assert '"/api/settings/projections"' in page
