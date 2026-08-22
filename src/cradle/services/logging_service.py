@@ -22,6 +22,8 @@ from cradle.models import (
     StoolConsistency,
     TemperatureEvent,
 )
+from cradle.models.enums import ActivityCategory
+from cradle.models.events import ActivityEvent
 from cradle.ports.clock import Clock
 from cradle.repos.events_repo import EventsRepo
 
@@ -208,6 +210,27 @@ class LoggingService:
                 logged_by=logged_by,
                 text=text,
                 tags=tags,
+            )
+        )
+
+    # -------------------------------------------------------------- activity
+    def log_activity(
+        self,
+        category: ActivityCategory,
+        duration_min: int | None = None,
+        note: str = "",
+        logged_by: str = "",
+        ts: datetime | None = None,
+    ) -> int:
+        return self._repo.insert_activity(
+            ActivityEvent(
+                event_id=None,
+                baby_id=BABY_ID,
+                ts=self._at(ts),
+                logged_by=logged_by,
+                category=category,
+                duration_min=duration_min,
+                note=note,
             )
         )
 

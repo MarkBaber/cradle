@@ -74,3 +74,40 @@ def test_adjust_time_persists() -> None:
     corrected = NOW - timedelta(minutes=35)
     svc.adjust_time("feed", fid, corrected)
     assert svc.recent_feeds()[0].ts == corrected
+
+
+# ------------------------------------------------------------ activity (V4)
+def test_log_activity_stamps_from_clock_when_ts_omitted() -> None:
+    repo = make_repo(make_db())
+    svc = LoggingService(repo, clock())
+    from cradle.models.enums import ActivityCategory
+
+    svc.log_activity(ActivityCategory.TUMMY_TIME, duration_min=3)
+    assert repo.list_activities()[0].ts == NOW
+
+
+def test_log_activity_explicit_ts_wins() -> None:
+    repo = make_repo(make_db())
+    svc = LoggingService(repo, clock())
+    from cradle.models.enums import ActivityCategory
+
+    earlier = NOW - timedelta(hours=2)
+    svc.log_activity(ActivityCategory.READING_TALKING, ts=earlier)
+    assert repo.list_activities()[0].ts == earlier
+
+
+def test_log_activity_persists_all_fields() -> None:
+    repo = make_repo(make_db())
+    svc = LoggingService(repo, clock())
+    from cradle.models.enums import ActivityCategory
+
+    event_id = svc.log_activity(
+        category=ActivityCategory.SENSORY_PLAY,
+        duration_min=7,
+        note="enjoyed it",
+    )
+    assert event_id > 0
+    ev = repo.list_activities()[0]
+    assert ev.category == ActivityCategory.SENSORY_PLAY
+    assert ev.duration_min == 7
+    assert ev.note == "enjoyed it"
