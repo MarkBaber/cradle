@@ -142,7 +142,7 @@ def build_services(
         alerts=AlertsService(events, baby, alert_log, growth, notifier, clock, config_path),
         milestones=MilestoneService(events, baby),
         export=ExportService(events, baby, alert_log, __version__),
-        series=SeriesService(events, baby, clock),
+        series=SeriesService(events, baby, clock, config_path),
         milk=MilkStockService(events, clock),
         projections=ProjectionService(events, clock, config_path),
     )
