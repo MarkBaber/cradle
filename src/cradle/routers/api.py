@@ -306,11 +306,21 @@ def build_api_router(svc: Services) -> APIRouter:
     def post_feed(
         request: Request,
         method: Annotated[str, Form()] = FeedMethod.BREAST_LEFT.value,
+        side_left: Annotated[str | None, Form()] = None,
+        side_right: Annotated[str | None, Form()] = None,
         duration_min: Annotated[int | None, Form()] = None,
         volume_ml: Annotated[int | None, Form()] = None,
         ts: Annotated[str | None, Form()] = None,
     ) -> Response:
-        m = FeedMethod(method)
+        if side_left is not None or side_right is not None:
+            if side_left is not None and side_right is not None:
+                m = FeedMethod.BREAST_BOTH
+            elif side_left is not None:
+                m = FeedMethod.BREAST_LEFT
+            else:
+                m = FeedMethod.BREAST_RIGHT
+        else:
+            m = FeedMethod(method)
         event_id = svc.logging.log_feed(
             m,
             logged_by=who(request),

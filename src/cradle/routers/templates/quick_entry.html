@@ -121,17 +121,17 @@
   <div class="modal">
     <a class="modal-close" href="/" aria-label="Close"
        hx-get="/" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&times;</a>
-{% if open_panel == "feed" and open_method in ("breast_left", "breast_right") %}
+{% if open_panel == "feed" and open_method in ("breast_left", "breast_right", "breast_both") %}
   <form class="stack panel" method="post" action="/api/feed"
         hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
     <span>Side</span>
     <div class="toggle-group">
-      <input type="radio" id="side_left" name="method" value="breast_left" class="toggle-input"
-        {{ "checked" if open_method != "breast_right" else "" }}>
-      <label for="side_left" class="toggle-btn {{ 'active' if open_method != 'breast_right' else 'inactive' }}">L</label>
-      <input type="radio" id="side_right" name="method" value="breast_right" class="toggle-input"
-        {{ "checked" if open_method == "breast_right" else "" }}>
-      <label for="side_right" class="toggle-btn {{ 'inactive' if open_method != 'breast_right' else 'active' }}">R</label>
+      <input type="checkbox" id="side_left" name="side_left" value="1" class="toggle-input"
+        {{ "checked" if open_method in ("breast_left", "breast_both") else "" }}>
+      <label for="side_left" class="toggle-btn {{ 'active' if open_method in ('breast_left', 'breast_both') else 'inactive' }}">L</label>
+      <input type="checkbox" id="side_right" name="side_right" value="1" class="toggle-input"
+        {{ "checked" if open_method in ("breast_right", "breast_both") else "" }}>
+      <label for="side_right" class="toggle-btn {{ 'active' if open_method in ('breast_right', 'breast_both') else 'inactive' }}">R</label>
     </div>
     <label>Duration (min)<input type="number" name="duration_min" min="0" inputmode="numeric"
       value="{{ entry_defaults.breast_duration_min }}"></label>

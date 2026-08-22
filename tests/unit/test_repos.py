@@ -66,6 +66,20 @@ def test_feed_roundtrip() -> None:
     assert f.ts == NOW
 
 
+def test_feed_breast_both_roundtrip() -> None:
+    """U32: a both-sides breastfeed logs as ONE event (method=breast_both),
+    not two separate breast_left/breast_right rows."""
+    repo = make_repo(make_db())
+    repo.insert_feed(
+        FeedEvent(ts=NOW, method=FeedMethod.BREAST_BOTH, duration_min=18, **BASE)
+    )
+    (f,) = repo.list_feeds()
+    assert f.method is FeedMethod.BREAST_BOTH
+    assert f.method.value == "breast_both"
+    assert f.duration_min == 18
+    assert f.ts == NOW
+
+
 def test_nappy_roundtrip() -> None:
     repo = make_repo(make_db())
     repo.insert_nappy(

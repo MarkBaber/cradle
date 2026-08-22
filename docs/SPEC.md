@@ -56,6 +56,7 @@ the alert rules in §6.
 | **Temperature** | ts, temp_c, site | ≥38 °C under 3 months is a red-flag threshold (NICE NG143 traffic-light) |
 | **Milestones** | ts, category (motor/social/communication/first), title, note | The "look back in future" record: first smile, rolls, sits, etc.; keyed to typical age windows for context, never scored |
 | **Notes/Observations** | ts, text, tags | Jaundice observations, vitamin-D drops given, medication, anything unstructured |
+| **Activities** | ts, category (tummy_time/reading_talking/sensory_play/foreign_language), duration_min, note | Developmental time, logged in minutes rather than volume or count. Per-category best-practice guidance is display copy in `rules_config.toml`'s `[activity_targets]` (task M2) — shown to a parent for context, never scored and read by no alert rule |
 
 **Baby profile** (single row): name, sex, dob, due_date (→ gestational age; centiles use
 *corrected* age when born <37 weeks), birth_weight_g.
@@ -163,10 +164,11 @@ acknowledged. All thresholds live in `rules_config.toml` — code never hard-cod
 
 ### 5.3 `repos/` + schema
 Tables: `baby`, `feed`, `nappy`, `sleep`, `growth`, `temperature`, `milestone`, `note`,
-`expression`, `milk_batch`, `alert_log`, `schema_version`. All event tables: `id, baby_id,
-ts (UTC ISO-8601), logged_by, created_at, edited_at, deleted_at`. Migrations = ordered SQL
-files in `repos/migrations/`, applied at startup, tracked in `schema_version` **by
-filename, not ordinal** — a lower-numbered file that lands later still applies exactly once.
+`expression`, `milk_batch`, `activity`, `alert_log`, `schema_version`. All event tables:
+`id, baby_id, ts (UTC ISO-8601), logged_by, created_at, edited_at, deleted_at`. Migrations =
+ordered SQL files in `repos/migrations/`, applied at startup, tracked in `schema_version`
+**by filename, not ordinal** — a lower-numbered file that lands later still applies exactly
+once.
 
 `milk_batch` is one row per physical bottle rather than an event: it carries `expressed_at`,
 `stored_at`, `store`, `colour`, `volume_ml`, `state`, `thawed_at`, `opened_at`, `used_at`
@@ -177,6 +179,19 @@ bottle goes in to cool, not when it was expressed at the cot side an hour earlie
 timestamp shows. Colour identifies the bottle physically, so a **partial unique index**
 allows at most one live batch (`stored|thawed|opened`, not soft-deleted) per colour;
 otherwise an alert naming the blue bottle points at two different bottles.
+
+`activity` is one row per developmental-activity session alongside the shared columns:
+`category` (a closed `ActivityCategory` — `tummy_time`, `reading_talking`, `sensory_play`,
+`foreign_language`, stored by `.value` and constrained by a `CHECK`), `duration_min` and
+`note`. `duration_min` is nullable on purpose: the session is logged as it starts and the
+minutes are filled in afterwards, the same two-tap shape as `expression`. The best-practice
+target text each category displays lives in `rules_config.toml`'s `[activity_targets]`, one
+entry per enum member. That table is **display copy, not a threshold** — it gates nothing,
+carries no severity and has no `messages.py` entry — but because the values are the
+health-guidance claims themselves rather than a UX convenience default, they stay inside
+CLAUDE.md's architect-only carve-out for that file, unlike `[entry_defaults]` and
+`[projections]`. Alerting on a missed activity would be a new `alerts/` rule with its own
+severity and copy.
 
 ### 5.4 `routers/` + UI
 - `/` **Quick-entry**: six oversized tiles (Feed L / Feed R / Bottle / Wet / Dirty /
