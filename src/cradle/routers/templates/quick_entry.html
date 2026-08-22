@@ -49,6 +49,43 @@
     </button>
   </form>
 </section>
+{% if summary and summary.running_sleep %}
+<div class="stack panel sleep-detail">
+  <span class="note">Asleep since {{ (summary.running_sleep.ts | local).strftime('%H:%M') }}
+    in {{ summary.running_sleep.location }}</span>
+  <form class="inline" method="post" action="/api/adjust-time"
+        hx-post="/api/adjust-time" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="table" value="sleep">
+    <input type="hidden" name="event_id" value="{{ summary.running_sleep.event_id }}">
+    <label>Start<input type="datetime-local" name="ts"
+      value="{{ (summary.running_sleep.ts | local).strftime('%Y-%m-%dT%H:%M') }}"></label>
+    <button type="submit">Set start</button>
+  </form>
+  <form class="inline" method="post" action="/api/edit-field"
+        hx-post="/api/edit-field" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="table" value="sleep">
+    <input type="hidden" name="event_id" value="{{ summary.running_sleep.event_id }}">
+    <input type="hidden" name="field" value="ts_end">
+    <label>Wake<input type="datetime-local" name="value"></label>
+    <button type="submit">Set wake</button>
+  </form>
+  <form class="inline" method="post" action="/api/edit-field"
+        hx-post="/api/edit-field" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="table" value="sleep">
+    <input type="hidden" name="event_id" value="{{ summary.running_sleep.event_id }}">
+    <input type="hidden" name="field" value="location">
+    <label>Location
+      <select name="value">
+        <option value="cot" {{ "selected" if summary.running_sleep.location == "cot" else "" }}>Cot</option>
+        <option value="pram" {{ "selected" if summary.running_sleep.location == "pram" else "" }}>Pram</option>
+        <option value="arms" {{ "selected" if summary.running_sleep.location == "arms" else "" }}>Arms</option>
+        <option value="other" {{ "selected" if summary.running_sleep.location == "other" else "" }}>Other</option>
+      </select>
+    </label>
+    <button type="submit">Set location</button>
+  </form>
+</div>
+{% endif %}
 
 <h2>Milk</h2>
 <section class="grid">

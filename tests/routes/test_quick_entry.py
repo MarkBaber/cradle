@@ -6,7 +6,7 @@ Skipped by the offline runner when fastapi is unavailable.
 import re
 import sys
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -724,3 +724,128 @@ def test_minute_wheel_is_configured_for_5_minute_steps() -> None:
     assert js.count("intervals: MINUTE_INTERVAL") == 2, (
         "both bindPanelPickers and bindHistoryPickers must apply the 5-minute interval"
     )
+
+
+# --------------------------------------------------------------------- U20
+
+
+def test_sleep_panel_shows_start_wake_and_location_controls_while_running() -> None:
+    """U20: unlike Feed/Mess, Sleep can't gain a query-param-routed modal (this
+    task's touches exclude pages.py/api.py), so the panel is a card that
+    appears inline once summary.running_sleep exists, wiring straight into
+    U10's already-editable sleep columns (ts/ts_end/location)."""
+    client = _client()
+    client.post("/api/sleep/toggle")  # start -> event_id 1
+    page = client.get("/").text
+    assert 'action="/api/adjust-time"' in page
+    assert 'name="event_id" value="1"' in page
+    assert 'field" value="ts_end"' in page
+    assert 'field" value="location"' in page
+    for value in ("cot", "pram", "arms", "other"):
+        assert f'value="{value}"' in page
+
+
+def test_sleep_panel_absent_when_no_sleep_running() -> None:
+    client = _client()
+    page = client.get("/").text
+    assert "sleep-detail" not in page
+    assert 'field" value="ts_end"' not in page
+
+
+def test_sleep_start_adjustable_from_the_panel_and_reflected_in_history() -> None:
+    client = _client()
+    client.post("/api/sleep/toggle")
+    page = client.get("/").text
+    match = re.search(r'name="ts"\s+value="([^"]+)"', page)
+    assert match is not None, "panel does not prefill the sleep's start time"
+    assert match.group(1) == to_local(NOW).strftime("%Y-%m-%dT%H:%M")
+
+    r = client.post(
+        "/api/adjust-time",
+        data={"table": "sleep", "event_id": 1, "ts": "2026-07-15T10:00"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "10:00" in client.get("/history").text
+
+
+def test_forgotten_wake_correctable_from_the_panel_without_deleting_the_row() -> None:
+    """A sleep left running (Wake never tapped) is fixed by setting ts_end
+    directly on the same row via /api/edit-field - not by deleting and
+    re-logging."""
+    client = _client()
+    client.post("/api/sleep/toggle")  # start; wake tap never happens
+    page = client.get("/").text
+    assert 'field" value="ts_end"' in page
+
+    # NOW (12:00 UTC) is the running sleep's start, displayed/entered in the
+    # configured Europe/London zone (13:00 local in July/BST) - one hour on
+    # from that, in the same local zone, is 60 minutes later.
+    wake_local = to_local(NOW) + timedelta(hours=1)
+    r = client.post(
+        "/api/edit-field",
+        data={
+            "table": "sleep",
+            "event_id": 1,
+            "field": "ts_end",
+            "value": wake_local.strftime("%Y-%m-%dT%H:%M"),
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    hist = client.get("/history").text
+    assert 'id="sleep-1"' in hist, "correcting the wake must update the existing row, not delete it"
+    assert "slept 60 min" in hist
+
+
+def test_sleep_location_set_from_the_panel_and_read_back_on_quick_entry() -> None:
+    client = _client()
+    client.post("/api/sleep/toggle")  # starts at the default location, cot
+    assert "in cot" in client.get("/").text
+
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "sleep", "event_id": 1, "field": "location", "value": "pram"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    page = client.get("/").text
+    assert "in pram" in page
+    match = re.search(r'<option value="pram"\s*(selected)?', page)
+    assert match is not None and match.group(1) == "selected", "updated location not preselected"
+
+
+def test_one_tap_on_sleep_still_starts_and_ends_a_sleep_at_now() -> None:
+    client = _client()
+    client.post("/api/sleep/toggle")  # tap 1: start at now
+    running = client.app.state.services.logging.running_sleep()
+    assert running is not None and running.ts == NOW
+
+    client.post("/api/sleep/toggle")  # tap 1 again: end at now
+    assert client.app.state.services.logging.running_sleep() is None
+    assert "slept 0 min" in client.get("/history").text
+
+
+def test_growth_length_and_head_circ_entered_through_the_panel_controls() -> None:
+    """Weight and temperature already round-trip through their panels (U28);
+    this covers the other two growth measures the same select+number panel
+    offers, completing the four quantities named in this task's exit
+    criteria. Growth/temperature keep their existing /api/growth and
+    /api/temperature post targets (this task's notes) - only new coverage."""
+    client = _client()
+    client.get("/?panel=growth")  # tap 1: open
+    r1 = client.post(
+        "/api/growth",
+        data={"measure": "length", "value": "520", "source": "home"},
+        headers={"HX-Request": "true"},
+    )
+    assert r1.status_code == 200
+    r2 = client.post(
+        "/api/growth",
+        data={"measure": "head_circ", "value": "350", "source": "home"},
+        headers={"HX-Request": "true"},
+    )
+    assert r2.status_code == 200
+    hist = client.get("/history").text
+    assert "length 520mm (home)" in hist
+    assert "head_circ 350mm (home)" in hist
