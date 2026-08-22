@@ -724,3 +724,61 @@ def test_minute_wheel_is_configured_for_5_minute_steps() -> None:
     assert js.count("intervals: MINUTE_INTERVAL") == 2, (
         "both bindPanelPickers and bindHistoryPickers must apply the 5-minute interval"
     )
+
+
+# --------------------------------------------------------------------- U26
+
+
+def test_history_edit_field_sets_nappy_stool_colour() -> None:
+    client = _client()
+    client.post("/api/nappy", data={"kind": "dirty"})
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "nappy", "event_id": 1, "field": "stool_colour", "value": "green"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "dirty (green)" in client.get("/history").text
+
+
+def test_history_edit_field_sets_nappy_consistency() -> None:
+    client = _client()
+    client.post("/api/nappy", data={"kind": "dirty"})
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "nappy", "event_id": 1, "field": "consistency", "value": "seedy"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    csv_rows = client.get("/export/nappy.csv").text.strip().splitlines()
+    header = csv_rows[0].split(",")
+    row = csv_rows[1].split(",")
+    assert row[header.index("consistency")] == "seedy"
+
+
+def test_history_edit_field_nappy_no_js_path_updates_and_redirects() -> None:
+    """A plain form POST with no HX-Request header - the no-JS fallback the
+    inline nappy forms share with the feed/sleep ones beside them."""
+    client = _client()
+    client.post("/api/nappy", data={"kind": "dirty"})
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "nappy", "event_id": 1, "field": "stool_colour", "value": "black"},
+    )
+    assert r.status_code == 303
+    assert r.headers["location"] == "/history"
+    assert "dirty (black)" in client.get("/history").text
+
+
+def test_history_edit_field_rejects_nappy_column_outside_allow_list() -> None:
+    """The new nappy forms post through the same /api/edit-field allow-list
+    as every other table - a column outside EDITABLE["nappy"] is still
+    rejected regardless of the new UI (U10 notes)."""
+    client = _client()
+    client.post("/api/nappy", data={"kind": "dirty"})
+    r = client.post(
+        "/api/edit-field",
+        data={"table": "nappy", "event_id": 1, "field": "logged_by", "value": "hacker"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 400
