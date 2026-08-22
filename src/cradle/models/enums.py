@@ -123,3 +123,21 @@ class BatchState(StrEnum):
 LIVE_BATCH_STATES: frozenset[BatchState] = frozenset(
     {BatchState.STORED, BatchState.THAWED, BatchState.OPENED}
 )
+
+
+class ActivityCategory(StrEnum):
+    """Developmental activities logged in minutes rather than volume or count
+    (task M2).
+
+    Closed set: these four are what the Log page offers. Best-practice guidance
+    text for each lives in rules_config.toml's [activity_targets] table, which
+    is display copy only - no alert rule reads this field and none should be
+    added against it here. An activity that becomes an alert condition (say, no
+    tummy time logged today) needs its own severity and messages.py copy, so it
+    goes through a new alerts/ task.
+    """
+
+    TUMMY_TIME = "tummy_time"
+    READING_TALKING = "reading_talking"
+    SENSORY_PLAY = "sensory_play"
+    FOREIGN_LANGUAGE = "foreign_language"
