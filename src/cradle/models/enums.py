@@ -11,6 +11,7 @@ class Sex(StrEnum):
 class FeedMethod(StrEnum):
     BREAST_LEFT = "breast_left"
     BREAST_RIGHT = "breast_right"
+    BREAST_BOTH = "breast_both"
     BOTTLE_EXPRESSED = "bottle_expressed"
     BOTTLE_FORMULA = "bottle_formula"
 

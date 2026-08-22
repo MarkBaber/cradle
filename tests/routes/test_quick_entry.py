@@ -551,10 +551,13 @@ def test_panel_and_history_submit_correct_timestamps_with_picker_script_disabled
     assert "14 Jul 21:00" in client.get("/history").text
 
 
-def test_breast_panel_side_toggle_buttons_are_mutually_exclusive() -> None:
-    """L and R are toggle buttons (radio inputs styled as buttons), not a
-    <select>: exactly one carries the active class matching open_method, the
-    other carries the dimmed/inactive class."""
+def test_breast_panel_single_side_preselects_exactly_that_side() -> None:
+    """U32: L and R are independently-toggleable buttons (can both be active
+    at once, see test_breast_panel_both_sides_checkboxes_can_both_be_active),
+    but opening the panel for a single side still preselects only that one
+    active - and posting method= directly (the pre-U32 wire shape, still
+    accepted by /api/feed for backward compatibility) still logs that single
+    side unchanged."""
     client = _client()
 
     left_open = client.get("/?panel=feed&method=breast_left").text
@@ -578,6 +581,63 @@ def test_breast_panel_side_toggle_buttons_are_mutually_exclusive() -> None:
     )
     assert r.status_code == 200
     assert "breast right" in client.get("/history").text
+
+
+# --------------------------------------------------------------------- U32
+
+
+def test_breast_panel_both_sides_checkboxes_can_both_be_active() -> None:
+    """U32: L and R become independently-toggleable checkboxes, so both can be
+    active at once (open_method=breast_both), unlike U22's mutually-exclusive
+    radio pair."""
+    client = _client()
+    page = client.get("/?panel=feed&method=breast_both").text
+    left_label = re.search(r'<label for="side_left"[^>]*>', page)
+    right_label = re.search(r'<label for="side_right"[^>]*>', page)
+    assert left_label is not None and right_label is not None
+    assert "active" in left_label.group(0) and "inactive" not in left_label.group(0)
+    assert "active" in right_label.group(0) and "inactive" not in right_label.group(0)
+
+
+def test_breast_panel_save_with_both_sides_checked_logs_one_breast_both_row() -> None:
+    """U32: Save with both L and R checkboxes active posts a single
+    method=breast_both event, not two separate breast_left/breast_right rows."""
+    client = _client()
+    client.get("/?panel=feed&method=breast_both")  # tap 1: open
+    r = client.post(
+        "/api/feed",
+        data={"side_left": "1", "side_right": "1", "duration_min": "16"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    hist = client.get("/history").text
+    assert "breast both" in hist
+    assert "16 min" in hist
+
+    feeds = client.app.state.services.logging.recent_feeds(10)
+    assert len(feeds) == 1, f"expected exactly one feed row, got {len(feeds)}"
+    assert feeds[0].method.value == "breast_both"
+
+
+def test_breast_panel_save_with_only_side_left_checked_logs_breast_left() -> None:
+    """U32: the new checkbox wiring must not regress the single-side case -
+    checking only side_left (no side_right in the payload) still persists as
+    breast_left, exactly like the plain method=breast_left path."""
+    client = _client()
+    client.get("/?panel=feed&method=breast_left")  # tap 1: open
+    r = client.post(
+        "/api/feed",
+        data={"side_left": "1", "duration_min": "9"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    hist = client.get("/history").text
+    assert "breast left" in hist
+    assert "9 min" in hist
+
+    feeds = client.app.state.services.logging.recent_feeds(10)
+    assert len(feeds) == 1
+    assert feeds[0].method.value == "breast_left"
 
 
 def test_breast_is_a_single_tile() -> None:

@@ -85,6 +85,41 @@ def test_breast_feed_as_last_feed_falls_back_to_median_gap() -> None:
     assert r.feed_overdue is False
 
 
+def test_breast_both_feed_between_bottles_contributes_no_rate_sample() -> None:
+    """U32: a breast_both feed must be treated exactly like breast_left/
+    breast_right - skipped as a rate sample, not folded in as a bottle."""
+    log, proj = _build()
+    log.log_feed(FeedMethod.BOTTLE_FORMULA, volume_ml=60, ts=NOW - timedelta(hours=15))
+    log.log_feed(FeedMethod.BOTTLE_FORMULA, volume_ml=60, ts=NOW - timedelta(hours=13))
+    log.log_feed(FeedMethod.BOTTLE_FORMULA, volume_ml=60, ts=NOW - timedelta(hours=11))
+    log.log_feed(FeedMethod.BREAST_BOTH, duration_min=10, ts=NOW - timedelta(hours=9))
+    log.log_feed(FeedMethod.BOTTLE_FORMULA, volume_ml=90, ts=NOW - timedelta(hours=3))
+
+    r = proj.projections()
+
+    # Only 2 genuine bottle-to-bottle pairs exist (below MIN_SAMPLES=3), so the
+    # rate cannot be trusted and the projection falls back to the feed-to-feed
+    # gap median. If the breast-adjacent pair had wrongly counted as a rate
+    # sample, the rate would be available and this would project differently.
+    assert r.feed_due_at == NOW - timedelta(hours=1)
+    assert r.feed_overdue is True
+
+
+def test_breast_both_feed_as_last_feed_falls_back_to_median_gap() -> None:
+    """U32: a breast_both feed as the LAST feed must fall back to the median
+    feed-to-feed gap, not be treated as a bottle feed (which would require
+    volume_ml; breast feeds carry duration_min instead)."""
+    log, proj = _build()
+    for h in (9, 7, 5, 3):
+        log.log_feed(FeedMethod.BOTTLE_FORMULA, volume_ml=60, ts=NOW - timedelta(hours=h))
+    log.log_feed(FeedMethod.BREAST_BOTH, duration_min=15, ts=NOW - timedelta(hours=1))
+
+    r = proj.projections()
+
+    assert r.feed_due_at == NOW + timedelta(hours=1)
+    assert r.feed_overdue is False
+
+
 def test_combined_mess_uses_every_kind_dirty_hint_uses_dirty_and_mixed_only() -> None:
     log, proj = _build()
     log.log_nappy(NappyKind.DIRTY, ts=NOW - timedelta(hours=24))
