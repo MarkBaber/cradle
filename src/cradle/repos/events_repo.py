@@ -1,4 +1,4 @@
-"""Per-domain event repositories (tasks P1, P2, M1).
+"""Per-domain event repositories (tasks P1, P2, M1, M2).
 
 All event tables share the shape defined in migrations/0001_init.sql:
     id, baby_id, ts, logged_by, <domain columns>, created_at, edited_at, deleted_at
@@ -7,6 +7,11 @@ milk_batch (0003) is the exception: one row per physical bottle, keyed on a
 lifecycle of timestamps rather than a single ts.
 
 Reads exclude soft-deleted rows. Timestamps are stored as UTC ISO-8601 text.
+
+ActivityCategory and ActivityEvent (0005) come from cradle.models.enums and
+cradle.models.events rather than the cradle.models package root, unlike every
+other model here: re-exporting them was outside M2's touches. Task M3 folds
+them back in.
 """
 
 from collections.abc import Collection, Sequence
@@ -35,6 +40,8 @@ from cradle.models import (
     UneditableFieldError,
     UnknownTableError,
 )
+from cradle.models.enums import ActivityCategory
+from cradle.models.events import ActivityEvent
 from cradle.repos.db import Db
 
 # Tables an editor/deleter may target, and the columns they may set (P2 allow-list).
@@ -61,6 +68,7 @@ EDITABLE: dict[str, frozenset[str]] = {
             "expression_id",
         }
     ),
+    "activity": frozenset({"ts", "category", "duration_min", "note"}),
 }
 
 # The timestamp a transition stamps on the batch. DISCARDED stamps none: the
@@ -439,6 +447,37 @@ class EventsRepo:
             (*params, _now_iso(), batch_id),
         )
         self._db.conn.commit()
+
+    # -------------------------------------------------------------- activity
+    def insert_activity(self, ev: ActivityEvent) -> int:
+        return self._insert(
+            "activity",
+            ("baby_id", "ts", "logged_by", "category", "duration_min", "note"),
+            (
+                ev.baby_id,
+                ev.ts.isoformat(),
+                ev.logged_by,
+                ev.category.value,
+                ev.duration_min,
+                ev.note,
+            ),
+        )
+
+    def list_activities(
+        self, limit: int = 200, since: datetime | None = None, until: datetime | None = None
+    ) -> list[ActivityEvent]:
+        return [
+            ActivityEvent(
+                event_id=r["id"],
+                baby_id=r["baby_id"],
+                ts=_require_dt(r["ts"]),
+                logged_by=r["logged_by"],
+                category=ActivityCategory(r["category"]),
+                duration_min=r["duration_min"],
+                note=r["note"],
+            )
+            for r in self._rows("activity", limit, since, until)
+        ]
 
     # ------------------------------------------------------- export support
     def dump(self, table: str, include_deleted: bool = True) -> list[dict[str, object]]:

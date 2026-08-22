@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from cradle.models.enums import (
+    ActivityCategory,
     AlertSeverity,
     BatchState,
     BottleColour,
@@ -123,6 +124,21 @@ class MilkBatch:
 class Note(_EventBase):
     text: str = ""
     tags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ActivityEvent(_EventBase):
+    """One developmental-activity session (task M2), measured in minutes.
+
+    ts is when it started; duration_min is a post-hoc edit like ExpressionEvent's,
+    so starting tummy time stays a two-tap log. Best-practice guidance per
+    category is display copy in rules_config.toml's [activity_targets], not an
+    alert condition - nothing here is scored or gated.
+    """
+
+    category: ActivityCategory = ActivityCategory.TUMMY_TIME
+    duration_min: int | None = None
+    note: str = ""
 
 
 @dataclass(frozen=True, slots=True)

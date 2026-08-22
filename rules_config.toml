@@ -66,3 +66,24 @@ ml_per_hour = 0
 typical_feed_ml = 0
 mess_interval_min = 0
 window_max_h = 2
+
+[activity_targets]
+# Best-practice guidance shown next to each developmental-activity category on
+# the Log page (tasks M2/U27). Display copy for a parent, one entry per
+# ActivityCategory member - these gate nothing and fire no alert, so there is no
+# severity, no Finding and no messages.py entry. They are nonetheless the
+# health-guidance values themselves rather than a UX convenience default, so
+# unlike [entry_defaults] and [projections] they stay inside CLAUDE.md's
+# architect-only carve-out for this file: a future settings page must not let
+# them be edited at runtime. Alerting on a missed activity would be a new
+# alerts/ rule with its own severity and copy, not a threshold read from here.
+tummy_time = "Start at 1-2 min, build to 10-15 min, several short sessions across the day"
+reading_talking = "15-20 min cumulative per day"
+sensory_play = "1-2 brief sessions of 2-5 min"
+# UNVERIFIED - awaiting architect confirmation. Unlike the three above and the
+# rest of SPEC 2's domain table, this figure is not a cited NHS/NICE value:
+# NICE publishes no newborn foreign-language-exposure guideline. The reasoning
+# is general early-language-acquisition practice - consistent short daily
+# exposure matters more than session length at this age - folded into the same
+# little-and-often pattern as reading_talking. Accept, edit or replace it.
+foreign_language = "10-15 min cumulative per day of dedicated exposure (talking, singing, reading), folded into the same little-and-often pattern as reading_talking"
