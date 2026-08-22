@@ -87,3 +87,32 @@ sensory_play = "1-2 brief sessions of 2-5 min"
 # exposure matters more than session length at this age - folded into the same
 # little-and-often pattern as reading_talking. Accept, edit or replace it.
 foreign_language = "10-15 min cumulative per day of dedicated exposure (talking, singing, reading), folded into the same little-and-often pattern as reading_talking"
+
+[feed_volume_target]
+# UNVERIFIED — awaiting architect confirmation (task C5).
+# 150 ml/kg/day is a commonly cited formula-feeding guideline but is not yet
+# matched to a specific NHS/NICE page. This line is only meaningful against
+# bottle-fed volume (DailySeries.bottle_ml); breastfed intake has no ml figure.
+# Accept, edit or replace before C6 builds on this.
+ml_per_kg_per_day = 150
+max_age_days = 180
+
+[nappy_targets]
+# UNVERIFIED — awaiting architect confirmation (task C5).
+# No upper bound for wet nappies or count-based dirty-nappy guidance exists in
+# NHS/NICE sources cited elsewhere in this file. These are reasonable starting
+# figures, not sourced. wet_min is NOT duplicated here — SeriesService reads
+# [wet_nappy_low].by_day_of_life directly so the two views can never disagree.
+# Accept, edit or replace before C6 builds on these.
+wet_max = 8
+dirty_min = 1
+dirty_max = 5
+max_age_days = 90
+
+[sleep_hours_target]
+# UNVERIFIED — awaiting architect confirmation (task C5).
+# General infant-sleep guidance for total 24h sleep, not NHS/NICE-sourced.
+# Accept, edit or replace before C6 builds on these.
+min_hours = 14.0
+max_hours = 17.0
+max_age_days = 90

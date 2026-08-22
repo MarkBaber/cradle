@@ -49,9 +49,9 @@ the alert rules in §6.
 
 | Domain | Fields | Why it's key |
 |---|---|---|
-| **Feeds** | ts_start, method (breast-L/breast-R/bottle-expressed/bottle-formula), duration_min (breast), volume_ml (bottle), note | Feed frequency/intake is the primary early-days health signal: 8–12 feeds/24 h expected in weeks 0–4 |
-| **Nappies** | ts, kind (wet/dirty/mixed), stool_colour (enum incl. amber-flag colours) | Output is the proxy for intake: day-of-life-dependent wet/dirty counts are the standard NHS hydration check |
-| **Sleep** | ts_start, ts_end (nullable while running), location (cot/pram/arms/other) | Sleep-cycle consolidation trend; total/24 h context for feeding and development |
+| **Feeds** | ts_start, method (breast-L/breast-R/bottle-expressed/bottle-formula), duration_min (breast), volume_ml (bottle), note | Feed frequency/intake is the primary early-days health signal: 8–12 feeds/24 h expected in weeks 0–4. Chart reference line from `rules_config.toml`'s `[feed_volume_target]` (task C5, UNVERIFIED) — 150 ml/kg/day × most-recent weight, bottle-fed volume only |
+| **Nappies** | ts, kind (wet/dirty/mixed), stool_colour (enum incl. amber-flag colours) | Output is the proxy for intake: day-of-life-dependent wet/dirty counts are the standard NHS hydration check. Chart reference bands from `[wet_nappy_low]` (wet min, NHS-cited) and `[nappy_targets]` (wet max, dirty min/max — task C5, UNVERIFIED) |
+| **Sleep** | ts_start, ts_end (nullable while running), location (cot/pram/arms/other) | Sleep-cycle consolidation trend; total/24 h context for feeding and development. Chart reference band from `rules_config.toml`'s `[sleep_hours_target]` (task C5, UNVERIFIED) — total-24h-sleep min/max hours |
 | **Growth** | ts, weight_g, length_mm (optional), head_circ_mm (optional), source (midwife/home) | Centile tracking; weight-loss %, regain-by-day-14, centile-channel crossing are the core NICE escalation signals |
 | **Temperature** | ts, temp_c, site | ≥38 °C under 3 months is a red-flag threshold (NICE NG143 traffic-light) |
 | **Milestones** | ts, category (motor/social/communication/first), title, note | The "look back in future" record: first smile, rolls, sits, etc.; keyed to typical age windows for context, never scored |
