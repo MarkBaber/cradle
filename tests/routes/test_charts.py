@@ -49,6 +49,16 @@ def test_charts_page_renders() -> None:
     assert r.status_code == 200
     assert "Growth" in r.text
     assert "3500g" in r.text, "table fallback must show the raw measurement"
+    assert "day 14" in r.text and "15 Jul 2026" in r.text, (
+        "row must show the real calendar date next to the age-in-days count"
+    )
+
+
+def test_charts_page_empty_history_renders_without_error() -> None:
+    client = _client()
+    r = client.get("/charts")
+    assert r.status_code == 200
+    assert "No weight logged yet." in r.text
 
 
 def test_series_endpoint_returns_curves_and_trajectory() -> None:
@@ -57,7 +67,7 @@ def test_series_endpoint_returns_curves_and_trajectory() -> None:
     d = client.get("/api/charts/weight").json()
     assert d["unavailable_reason"] is None
     assert set(d["curves"]) == {"0.4", "2", "9", "25", "50", "75", "91", "98", "99.6"}
-    assert d["trajectory"] == [[14, 3500.0]]
+    assert d["trajectory"] == [[14, 3500.0, "15 Jul 2026"]]
     assert d["frames"] == [1]
     assert all(len(v) == len(d["ages"]) for v in d["curves"].values())
 

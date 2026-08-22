@@ -136,7 +136,7 @@ def test_chart_series_has_all_centile_curves_and_trajectory() -> None:
     assert s.unavailable_reason is None
     assert set(s.curves) == {f"{c:g}" for c in CENTILES}
     assert all(len(v) == len(s.ages) for v in s.curves.values())
-    assert s.trajectory == ((1, 3400.0), (14, 3900.0))
+    assert s.trajectory == ((1, 3400.0, "02 Jul 2026"), (14, 3900.0, "15 Jul 2026"))
 
 
 def test_chart_curves_are_ordered_by_centile() -> None:
