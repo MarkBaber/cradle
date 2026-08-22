@@ -247,6 +247,9 @@ def _panel_ts(raw: str | None) -> datetime | None:
     return to_utc(datetime(today.year, today.month, today.day, hour, minute))
 
 
+_PANEL_CLOSE_OOB = '<div id="panel" class="overlay" hx-swap-oob="true"></div>'
+
+
 def _toast(table: str, event_id: int, label: str) -> str:
     return (
         f'<div class="toast" role="status" data-table="{table}" '
@@ -281,7 +284,15 @@ def _device_saved(name: str) -> str:
 
 def _respond(request: Request, table: str, event_id: int, label: str) -> Response:
     if request.headers.get("HX-Request"):
-        return HTMLResponse(_toast(table, event_id, label))
+        # quick_entry.html's Save buttons target #toast, which sits under the
+        # #panel overlay (z-index 60, position:fixed) while a panel is open -
+        # any toast swapped in there is invisible until the overlay closes.
+        # Nothing else closes it, so a successful save looked like it silently
+        # did nothing. An out-of-band swap collapses #panel back to its closed
+        # (no "open" class, empty) markup regardless of what the primary
+        # #toast target is, making the toast visible and the panel close on
+        # every quick-entry save in the same response.
+        return HTMLResponse(_toast(table, event_id, label) + _PANEL_CLOSE_OOB)
     return RedirectResponse(f"/?logged={table}:{event_id}", status_code=303)
 
 

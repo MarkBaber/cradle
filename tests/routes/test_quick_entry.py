@@ -78,6 +78,17 @@ def test_every_quick_action_is_one_request_with_minimal_payload() -> None:
         assert "Undo" in r.text, f"{url} must offer undo"
 
 
+def test_every_quick_action_closes_the_panel_via_oob_swap() -> None:
+    """U33: every quick action shares _respond, so every one of them - not
+    just the Dirty nappy panel - must close #panel on save."""
+    client = _client()
+    for url, payload in QUICK_ACTIONS:
+        r = client.post(url, data=payload, headers={"HX-Request": "true"})
+        assert 'id="panel" class="overlay" hx-swap-oob="true"></div>' in r.text, (
+            f"{url} {payload} did not close the panel"
+        )
+
+
 def test_quick_actions_work_without_htmx() -> None:
     """No HX-Request header: plain form post must redirect, not 4xx."""
     client = _client()
@@ -336,6 +347,23 @@ def test_dirty_panel_save_logs_stool_colour_end_to_end() -> None:
     )
     assert r.status_code == 200
     assert "dirty (green)" in client.get("/history").text
+
+
+def test_dirty_panel_save_closes_the_panel_and_the_toast_is_visible() -> None:
+    """U33 bugfix: #toast sits under the #panel overlay while a panel is
+    open (z-index 60, position:fixed), so nothing told the panel to close
+    on save - the toast swapped in but stayed hidden behind the still-open
+    modal, which looked exactly like save silently doing nothing."""
+    client = _client()
+    client.get("/?panel=nappy&kind=dirty")
+    r = client.post(
+        "/api/nappy",
+        data={"kind": "dirty", "stool_colour": "green", "ts": "10:00"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert 'id="panel" class="overlay" hx-swap-oob="true"></div>' in r.text
+    assert "overlay open" not in r.text
 
 
 def test_stool_colour_alert_fires_from_a_colour_entered_through_the_ui() -> None:
