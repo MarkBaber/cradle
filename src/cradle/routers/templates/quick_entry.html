@@ -182,22 +182,24 @@
   <form class="stack panel" method="post" action="/api/growth"
         hx-post="/api/growth" hx-target="#toast" hx-swap="innerHTML">
     <label>Measure
-      <select name="measure">
+      <select name="measure" id="growth-measure">
         <option value="weight">Weight (g)</option>
         <option value="length">Length (mm)</option>
         <option value="head_circ">Head circ (mm)</option>
       </select>
     </label>
-    <label>Value<input type="number" name="value" inputmode="numeric" placeholder="value" required></label>
+    <label>Value<input type="number" name="value" id="growth-value" inputmode="numeric" placeholder="value" required></label>
     <label>Source
       <select name="source"><option value="home">home</option><option value="midwife">midwife</option></select>
     </label>
+    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
 {% elif open_panel == "temperature" %}
   <form class="stack panel" method="post" action="/api/temperature"
         hx-post="/api/temperature" hx-target="#toast" hx-swap="innerHTML">
-    <label>Temperature (°C)<input type="number" step="0.1" name="temp_c" inputmode="decimal" placeholder="°C" required></label>
+    <label>Temperature (°C)<input type="number" step="0.1" name="temp_c" id="temp-c" inputmode="decimal" placeholder="°C" required></label>
+    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
 {% elif open_panel == "milestone" %}
@@ -210,6 +212,7 @@
       </select>
     </label>
     <label>Title<input type="text" name="title" placeholder="First smile…" required></label>
+    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
 {% elif open_panel == "note" %}

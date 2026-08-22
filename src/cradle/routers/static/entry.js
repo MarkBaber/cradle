@@ -31,6 +31,20 @@
  *   public onShowPicker(this) hook. Setting this.tmp.sDateTimeTab inside that
  *   hook is what that later call actually reads, so it opens on Time without
  *   touching the vendored file.
+ *
+ * Task U34 numeric scroll wheels (growth's Value field, temperature's temp_c):
+ * AnyPicker's extra.sArrModes is exactly ["select","datetime"] - there is no
+ * separate range/step mode, so "select" is the only fit. Its manual dataSource
+ * is NOT a bare array of values, however plausible that looks - verified
+ * against __setComponentsOfSelect, the source's own auto-derive branch that
+ * builds this same shape from a plain <select>'s <option>s: one entry per
+ * wheel column, `dataSource: [{component, data: [{val, label, selected}, ...]}]`,
+ * with a matching `components: [{component}, ...]` sizing the picker (its
+ * default is null, read only via .length, so a select-mode init with no
+ * `components` renders nothing). `inputElement` and the "destroy" plugin
+ * action (both used below to rebuild the wheel when Measure changes) are
+ * likewise real options/actions, confirmed directly in the source rather than
+ * assumed from AnyPicker's docs, per the same caveat U29/U30 already needed.
  */
 (function () {
   "use strict";
@@ -141,9 +155,101 @@
     });
   }
 
+  function rangeValues(min, max, step) {
+    var out = [];
+    for (var v = min; v <= max; v += step) out.push(String(v));
+    return out;
+  }
+
+  function decimalRangeValues(minTenths, maxTenths) {
+    var out = [];
+    for (var t = minTenths; t <= maxTenths; t++) out.push((t / 10).toFixed(1));
+    return out;
+  }
+
+  function numericWheelRows(values, unit, current) {
+    return values.map(function (v) {
+      return { val: v, label: v + " " + unit, selected: v === current };
+    });
+  }
+
+  // Binds (or rebuilds, on Measure change) a select-mode wheel over
+  // `nativeInput`. `spec()` returns {values, unit, defaultValue} - called
+  // fresh each time so the growth panel's Measure select can swap the
+  // wheel's range/unit without a page reload. Returns the rebuild function.
+  function bindNumericWheel(nativeInput, spec) {
+    if (!anyPickerAvailable()) return function () {};
+    var picker = null;
+
+    function apply() {
+      var s = spec();
+      var current = s.values.indexOf(nativeInput.value) !== -1 ? nativeInput.value : s.defaultValue;
+      nativeInput.value = current;
+
+      if (picker) {
+        jQuery(picker).AnyPicker("destroy");
+      } else {
+        picker = makePickerInput("");
+        nativeInput.insertAdjacentElement("afterend", picker);
+        nativeInput.type = "hidden";
+      }
+      picker.value = current + " " + s.unit;
+
+      jQuery(picker).AnyPicker({
+        mode: "select",
+        theme: "iOS",
+        inputElement: picker,
+        componentsCoverFullWidth: true,
+        components: [{ component: 1 }],
+        dataSource: [{ component: 1, data: numericWheelRows(s.values, s.unit, current) }],
+        onSetOutput: function (sOutput, selectedValues) {
+          nativeInput.value = selectedValues.values[0].val;
+        },
+      });
+    }
+
+    apply();
+    return apply;
+  }
+
+  var GROWTH_WHEELS = {
+    weight: { values: rangeValues(200, 25000, 25), unit: "g", defaultValue: "3500" },
+    length: { values: rangeValues(250, 1200, 5), unit: "mm", defaultValue: "500" },
+    head_circ: { values: rangeValues(250, 600, 5), unit: "mm", defaultValue: "350" },
+  };
+
+  var TEMP_WHEEL = { values: decimalRangeValues(340, 420), unit: "°C", defaultValue: "37.0" };
+
+  function bindGrowthValueWheel(root) {
+    if (!anyPickerAvailable()) return;
+    var scope = root && root.querySelectorAll ? root : document;
+    var measureSelect = scope.querySelector("#growth-measure");
+    var valueInput = scope.querySelector("#growth-value");
+    if (!measureSelect || !valueInput || valueInput.dataset.apBound) return;
+    valueInput.dataset.apBound = "1";
+
+    var rebuild = bindNumericWheel(valueInput, function () {
+      return GROWTH_WHEELS[measureSelect.value] || GROWTH_WHEELS.weight;
+    });
+    measureSelect.addEventListener("change", rebuild);
+  }
+
+  function bindTemperatureWheel(root) {
+    if (!anyPickerAvailable()) return;
+    var scope = root && root.querySelectorAll ? root : document;
+    var tempInput = scope.querySelector("#temp-c");
+    if (!tempInput || tempInput.dataset.apBound) return;
+    tempInput.dataset.apBound = "1";
+    bindNumericWheel(tempInput, function () {
+      return TEMP_WHEEL;
+    });
+  }
+
   function bindPickers(root) {
     bindPanelPickers(root);
     bindHistoryPickers(root);
+    bindGrowthValueWheel(root);
+    bindTemperatureWheel(root);
   }
 
   // Exactly one panel form can be open at a time (quick_entry.html's
