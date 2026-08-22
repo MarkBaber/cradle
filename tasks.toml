@@ -422,7 +422,7 @@ notes = "systemd units hardened (ProtectSystem=strict, ReadWritePaths); nightly 
 id = "Q1"
 phase = 5
 title = "Weight-budget gate"
-status = "review"
+status = "done"
 routing = "tester"
 depends = ["W1", "C2"]
 touches = ["tests/unit/test_weight_budget.py"]
