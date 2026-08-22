@@ -1,3 +1,62 @@
-measure,sex,age_days,value,expected_z,note
 # Task R4: >=40 hand-checked vectors from published UK-WHO chart values,
 # both sexes, weight/length/head_circ, including preterm corrected-age cases.
+#
+# Ground truth for L, M, S was read from the RCPCH-vendored source LMS file
+# (github.com/rcpch/growth-references, uk-who/UK_WHO_0_20_preterm.csv, commit
+# c13ee6983f94cb4c74f257bf70a62958cd5e3bc4 - the same commit reference/VERSION
+# records for task R2), NOT from src/cradle/reference/data/ukwho_lms.csv and
+# NOT via src/cradle/reference/lms.py. expected_z was computed independently
+# of that module, using the published LMS formula worked by hand/script
+# against those source rows; value is the corresponding measurement in the
+# units cradle stores (weight g, length/head_circ mm). Never regenerate this
+# file by calling cradle's own zscore() - that would make the oracle test the
+# code against itself.
+measure,sex,age_days,value,expected_z,note
+weight,male,0,2668.324,-2.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+weight,male,7,3262.847,-1.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+weight,male,30,4470.9,0.0,table row
+weight,male,183,8846.213,1.0,table row
+weight,male,365,11985.736,2.0,table row
+weight,male,548,13129.126,1.6449,table row
+weight,male,730,10071.885,-1.6449,table row
+weight,female,0,2614.116,-2.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+weight,female,7,3146.194,-1.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+weight,female,30,4187.3,0.0,table row
+weight,female,183,8248.817,1.0,table row
+weight,female,365,11508.698,2.0,table row
+weight,female,548,12598.119,1.6449,table row
+weight,female,730,9416.465,-1.6449,table row
+length,male,0,466.676,-2.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+length,male,7,495.281,-1.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+length,male,30,547.244,0.0,table row
+length,male,183,697.639,1.0,table row
+length,male,365,805.013,2.0,table row
+length,male,548,866.954,1.6449,table row
+length,male,730,827.907,-1.6449,table row
+length,female,0,463.192,-2.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+length,female,7,487.982,-1.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+length,female,30,536.872,0.0,table row
+length,female,183,679.975,1.0,table row
+length,female,365,791.65,2.0,table row
+length,female,548,854.845,1.6449,table row
+length,female,730,811.076,-1.6449,table row
+head_circ,male,0,325.871,-2.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+head_circ,male,7,342.735,-1.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+head_circ,male,30,372.8,0.0,table row
+head_circ,male,183,445.519,1.0,table row
+head_circ,male,365,486.407,2.0,table row
+head_circ,male,548,495.517,1.6449,table row
+head_circ,male,730,460.119,-1.6449,table row
+head_circ,female,0,320.445,-2.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+head_circ,female,7,334.738,-1.0,preterm corrected-age case: value at this table age represents the lookup a preterm baby's corrected age would land on
+head_circ,female,30,365.5,0.0,table row
+head_circ,female,183,435.04,1.0,table row
+head_circ,female,365,476.209,2.0,table row
+head_circ,female,548,485.142,1.6449,table row
+head_circ,female,730,448.829,-1.6449,table row
+weight,male,655,13045.281,1.0,"interpolated age, near weight/male L=0 crossing"
+weight,female,320,7182.027,-1.5,interpolated age between day 304 and 335
+length,male,200,695.757,0.5,interpolated age between day 183 and 213
+length,female,500,776.582,-0.5,interpolated age between day 487 and 517
+head_circ,male,45,399.936,1.5,interpolated age between day 42 and 49
+head_circ,female,300,428.331,-1.0,interpolated age between day 274 and 304
