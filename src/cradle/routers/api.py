@@ -30,6 +30,7 @@ from cradle.models import (
     to_local,
     to_utc,
 )
+from cradle.models.enums import ActivityCategory
 from cradle.routers.deps import Services, device_name
 from cradle.services import InvalidBatchTransitionError, UnknownBatchError
 from cradle.services.projection_service import (
@@ -59,7 +60,7 @@ _BREAST_DURATION_LINE_RE = re.compile(r"(?m)^(breast_duration_min\s*=\s*)\d+")
 
 
 def entry_defaults(config_path: Path) -> dict[str, int]:
-    """Read [entry_defaults] from *config_path* (task U22).
+    """Read [entry_defaults] from *config_path* (task U22/U27).
 
     Falls back to the out-of-the-box values (60ml bottle, 20min breast) if
     the table or a key is missing, same "falls back if unset" convention as
@@ -71,10 +72,30 @@ def entry_defaults(config_path: Path) -> dict[str, int]:
             table = tomllib.load(fh).get("entry_defaults", {})
     if not isinstance(table, dict):
         table = {}
-    return {
+    res: dict[str, int] = {
         "bottle_volume_ml": int(table.get("bottle_volume_ml", DEFAULT_BOTTLE_VOLUME_ML)),
         "breast_duration_min": int(table.get("breast_duration_min", DEFAULT_BREAST_DURATION_MIN)),
     }
+    for cat in ("tummy_time", "reading_talking", "sensory_play", "foreign_language"):
+        for key in (f"{cat}_duration_min", cat):
+            if key in table and table[key] is not None:
+                try:
+                    res[f"{cat}_duration_min"] = int(table[key])
+                    break
+                except (ValueError, TypeError):
+                    pass
+    return res
+
+
+def activity_targets(config_path: Path) -> dict[str, str]:
+    """Read [activity_targets] from *config_path* (task U27/V4)."""
+    table: object = {}
+    if config_path.exists():
+        with config_path.open("rb") as fh:
+            table = tomllib.load(fh).get("activity_targets", {})
+    if not isinstance(table, dict):
+        return {}
+    return {str(k): str(v) for k, v in table.items() if isinstance(v, str)}
 
 
 def _write_entry_defaults(
@@ -353,6 +374,30 @@ def build_api_router(svc: Services) -> APIRouter:
             k, StoolColour(stool_colour), logged_by=who(request), ts=_panel_ts(ts)
         )
         return _respond(request, "nappy", event_id, f"{k.value} nappy")
+
+    @router.post("/api/activity")
+    def post_activity(
+        request: Request,
+        category: Annotated[str, Form()],
+        duration_min: Annotated[str | None, Form()] = None,
+        note: Annotated[str, Form()] = "",
+        ts: Annotated[str | None, Form()] = None,
+    ) -> Response:
+        cat = ActivityCategory(category)
+        dur: int | None = None
+        if duration_min is not None and str(duration_min).strip() != "":
+            try:
+                dur = int(duration_min)
+            except ValueError:
+                dur = None
+        event_id = svc.logging.log_activity(
+            cat,
+            duration_min=dur,
+            note=note,
+            logged_by=who(request),
+            ts=_panel_ts(ts),
+        )
+        return _respond(request, "activity", event_id, cat.value.replace("_", " "))
 
     @router.post("/api/sleep/toggle")
     def post_sleep_toggle(request: Request) -> Response:

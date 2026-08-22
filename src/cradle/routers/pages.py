@@ -22,6 +22,7 @@ from cradle.models import (
     to_local,
     to_utc,
 )
+from cradle.models.enums import ActivityCategory
 from cradle.routers import api as api_module
 from cradle.routers.deps import Services, device_name
 from cradle.services.export_service import DOMAINS as EXPORT_DOMAINS
@@ -165,7 +166,7 @@ def build_pages_router(svc: Services) -> APIRouter:
     def quick_entry(request: Request) -> Response:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
-        panel, method, kind = _open_panel(request)
+        panel, method, kind, category = _open_panel(request)
         summary = svc.today.summary()
         return TEMPLATES.TemplateResponse(
             request,
@@ -178,8 +179,10 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "open_panel": panel,
                 "open_method": method,
                 "open_kind": kind,
+                "open_category": category,
                 "now_time": to_local(summary.as_of).strftime("%H:%M") if summary else "",
                 "entry_defaults": api_module.entry_defaults(api_module.CONFIG_PATH),
+                "activity_targets": api_module.activity_targets(api_module.CONFIG_PATH),
                 "feed_echo": _feed_echo(svc.projections.projections()),
             },
         )
@@ -398,25 +401,31 @@ def build_pages_router(svc: Services) -> APIRouter:
 
 _FEED_METHODS = {m.value for m in FeedMethod}
 _NAPPY_KINDS = {k.value for k in NappyKind}
+_ACTIVITY_CATEGORIES = {c.value for c in ActivityCategory}
 _MORE_PANELS = {"growth", "temperature", "milestone", "note"}
 
 
-def _open_panel(request: Request) -> tuple[str, str, str]:
-    """Which quick-entry panel (if any) a tile tap asked to open (U18).
+def _open_panel(request: Request) -> tuple[str, str, str, str]:
+    """Which quick-entry panel (if any) a tile tap asked to open (U18/U27).
 
-    A bad/unknown method or kind collapses back to no panel rather than 4xx-ing -
+    A bad/unknown method, kind or category collapses back to no panel rather than 4xx-ing -
     the panel is a GET, so there is nothing to reject, only nothing to show.
     """
     panel = request.query_params.get("panel", "")
     method = request.query_params.get("method", "")
     kind = request.query_params.get("kind", "")
+    category = request.query_params.get("category", "")
     if panel == "feed" and method in _FEED_METHODS:
-        return "feed", method, ""
+        return "feed", method, "", ""
     if panel == "nappy" and kind in _NAPPY_KINDS:
-        return "nappy", "", kind
+        return "nappy", "", kind, ""
+    if panel == "activity" and category in _ACTIVITY_CATEGORIES:
+        return "activity", "", "", category
+    if panel in _ACTIVITY_CATEGORIES:
+        return "activity", "", "", panel
     if panel in _MORE_PANELS:
-        return panel, "", ""
-    return "", "", ""
+        return panel, "", "", ""
+    return "", "", "", ""
 
 
 def _int_param(
