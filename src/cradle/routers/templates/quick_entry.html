@@ -153,7 +153,7 @@
         {{ "checked" if open_method in ("breast_right", "breast_both") else "" }}>
       <label for="side_right" class="toggle-btn {{ 'active' if open_method in ('breast_right', 'breast_both') else 'inactive' }}">R</label>
     </div>
-    <label>Duration (min)<input type="number" name="duration_min" min="0" inputmode="numeric"
+    <label>Duration (min)<input type="number" name="duration_min" id="breast-duration" min="0" inputmode="numeric"
       value="{{ entry_defaults.breast_duration_min }}"></label>
     <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
@@ -167,7 +167,7 @@
         <option value="bottle_formula" {{ "selected" if open_method == "bottle_formula" else "" }}>Formula</option>
       </select>
     </label>
-    <label>Volume (ml)<input type="number" name="volume_ml" min="0" inputmode="numeric"
+    <label>Volume (ml)<input type="number" name="volume_ml" id="bottle-volume" min="0" inputmode="numeric"
       value="{{ entry_defaults.bottle_volume_ml }}"></label>
     <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
@@ -245,7 +245,7 @@
   <form class="stack panel" method="post" action="/api/activity"
         hx-post="/api/activity" hx-target="#toast" hx-swap="innerHTML">
     <input type="hidden" name="category" value="{{ open_category }}">
-    <label>Duration (min)<input type="number" name="duration_min" min="0" inputmode="numeric"
+    <label>Duration (min)<input type="number" name="duration_min" {% if open_category == 'tummy_time' %}id="tummy-duration"{% endif %} min="0" inputmode="numeric"
       value="{{ entry_defaults.get(open_category + '_duration_min', '') }}"></label>
     {% if activity_targets.get(open_category) %}
     <span class="note">{{ activity_targets[open_category] }}</span>
