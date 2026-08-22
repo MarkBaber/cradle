@@ -20,11 +20,27 @@
  * (onSetOutput, not e.g. onSet/afterDateSet) and default inputChangeEvent
  * ("onSet" - only fires on the picker's own Set button, not while scrolling)
  * were verified directly against the shipped dist/anypicker.min.js source.
+ *
+ * Task U30 polish, both verified against the same shipped source rather than
+ * AnyPicker's docs:
+ * - the minute wheel's step is the real `intervals` option (an {h,m,s} object,
+ *   default {h:1,m:1,s:1}; no separate minuteInterval/step key exists).
+ * - which of the Date/Time columns opens active has no public init option at
+ *   all - the source hardcodes tmp.sDateTimeTab="date" and, on every show,
+ *   calls this._setDateTimeTabs(this.tmp.sDateTimeTab) *after* running the
+ *   public onShowPicker(this) hook. Setting this.tmp.sDateTimeTab inside that
+ *   hook is what that later call actually reads, so it opens on Time without
+ *   touching the vendored file.
  */
 (function () {
   "use strict";
 
   var DATETIME_FORMAT = "yyyy-MM-dd HH:mm";
+  var MINUTE_INTERVAL = { h: 1, m: 5, s: 1 };
+
+  function openToTimeTab() {
+    this.tmp.sDateTimeTab = "time";
+  }
 
   function pad2(n) {
     return String(n).padStart(2, "0");
@@ -79,6 +95,8 @@
         theme: "iOS",
         dateTimeFormat: DATETIME_FORMAT,
         selectedDate: initial,
+        intervals: MINUTE_INTERVAL,
+        onShowPicker: openToTimeTab,
         onSetOutput: function (sOutput) {
           var timePart = sOutput.split(" ")[1];
           if (timePart) nativeInput.value = timePart;
@@ -114,6 +132,8 @@
         theme: "iOS",
         dateTimeFormat: DATETIME_FORMAT,
         selectedDate: initial,
+        intervals: MINUTE_INTERVAL,
+        onShowPicker: openToTimeTab,
         onSetOutput: function (sOutput) {
           nativeInput.value = sOutput.replace(" ", "T");
         },

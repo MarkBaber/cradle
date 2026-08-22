@@ -225,3 +225,16 @@ sup{font-size:.6em}
 .ap-theme-ios .ap-row-disabled{color:var(--line)}
 .ap-theme-ios .ap-component-selector{border-color:var(--line)}
 .ap-theme-ios .ap-component-gradient{background:linear-gradient(180deg,var(--bg),rgba(13,17,23,.4) 75%)}
+
+/* task U30: the .ap-button rule above never actually reached the Cancel/Set
+   footer buttons - anypicker-all.min.css is linked *after* app.css in both
+   quick_entry.html and _history_table.html, so on the tied specificity of
+   two ".ap-theme-ios .ap-button" rules the vendored sheet's plain white
+   background wins by source order, and its own more specific
+   ".ap-button:last-child"/":not(:last-child)" rules (verified in
+   anypicker-all.min.css) always win the #007AFF text colour regardless of
+   order. Targeting the real #ap-button-set/#ap-button-cancel ids the
+   vendored markup renders (verified in anypicker.min.js's setButton/
+   cancelButton markup strings) outweighs both by specificity alone. */
+.ap-theme-ios #ap-button-cancel{background:var(--panel);color:var(--dim)}
+.ap-theme-ios #ap-button-set{background:var(--panel);color:var(--feed)}
