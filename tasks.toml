@@ -157,7 +157,7 @@ exit_criteria = ["term baby: corrected == chronological (test)", "preterm offset
 id = "R4"
 phase = 2
 title = "Oracle vectors + parity gate"
-status = "review"
+status = "done"
 routing = "tester"
 depends = ["R1", "R2", "R3"]
 touches = ["tests/oracle/ukwho_vectors.csv", "tests/oracle/test_ukwho_parity.py"]
