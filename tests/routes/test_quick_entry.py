@@ -662,3 +662,65 @@ def test_every_more_panel_stays_reachable_and_submittable_with_js_disabled() -> 
         url, payload = MORE_PANEL_SAVE[panel]
         r2 = client.post(url, data=payload)
         assert r2.status_code == 303, f"{panel} save without JS -> {r2.status_code}"
+
+
+# --------------------------------------------------------------------- U30
+
+
+def test_app_css_overrides_anypickers_cancel_and_set_buttons_for_dark_theme() -> None:
+    """The vendored anypicker-all.min.css gives Cancel/Set no distinct class
+    (only positional :last-child/:not(:last-child) selectors, both #007AFF on
+    a white .ap-button background) and is linked *after* app.css on both
+    surfaces, so a same-specificity ".ap-theme-ios .ap-button" override in
+    app.css never wins. The real, higher-specificity hooks are the ids the
+    vendored markup renders for these two buttons - #ap-button-set/
+    #ap-button-cancel (verified against anypicker.min.js's setButton/
+    cancelButton markup strings) - so app.css must override those ids
+    directly, wired to the site's dark-palette variables, not hardcoded
+    colours."""
+    client = _client()
+    css = client.get("/static/app.css").text
+    assert ".ap-theme-ios #ap-button-cancel" in css
+    assert ".ap-theme-ios #ap-button-set" in css
+    cancel_rule = re.search(r"\.ap-theme-ios #ap-button-cancel\{([^}]*)\}", css)
+    set_rule = re.search(r"\.ap-theme-ios #ap-button-set\{([^}]*)\}", css)
+    assert cancel_rule is not None and set_rule is not None
+    assert "var(--panel)" in cancel_rule.group(1)
+    assert "var(--panel)" in set_rule.group(1)
+    # dark-palette tokens, not the vendor's literal #007AFF/white
+    assert "var(--" in cancel_rule.group(1).split("color:")[-1]
+    assert "var(--" in set_rule.group(1).split("color:")[-1]
+    assert "#007AFF" not in cancel_rule.group(1)
+    assert "#007AFF" not in set_rule.group(1)
+
+
+def test_picker_opens_with_time_as_the_default_tab() -> None:
+    """AnyPicker's shipped source has no public init option for which of the
+    Date/Time columns opens active - it hardcodes tmp.sDateTimeTab="date" and,
+    on every show, calls _setDateTimeTabs(this.tmp.sDateTimeTab) after running
+    the public onShowPicker(this) hook (both verified directly against
+    anypicker.min.js). Setting this.tmp.sDateTimeTab="time" inside that real
+    onShowPicker hook is what the later call actually reads. Both the panel
+    and /history bindings must wire onShowPicker to do this, not just one."""
+    client = _client()
+    js = client.get("/static/entry.js").text
+    assert "onShowPicker" in js
+    assert 'this.tmp.sDateTimeTab = "time"' in js
+    assert js.count("onShowPicker:") == 2, "both bind functions must set it"
+
+
+def test_minute_wheel_is_configured_for_5_minute_steps() -> None:
+    """The real step option is `intervals` - an {h,m,s} object read by the
+    hour/minute/second wheel-building loops (verified directly against
+    anypicker.min.js: `for(q=l.m;q-j.setting.intervals.m>=0;)q-=j.setting.
+    intervals.m` builds the minute wheel); there is no separate
+    minuteInterval/step key. Both pickers must pass intervals.m = 5."""
+    client = _client()
+    js = client.get("/static/entry.js").text
+    assert "intervals" in js
+    assert re.search(r"MINUTE_INTERVAL\s*=\s*\{[^}]*m:\s*5[^}]*\}", js), (
+        "minute interval must be exactly 5"
+    )
+    assert js.count("intervals: MINUTE_INTERVAL") == 2, (
+        "both bindPanelPickers and bindHistoryPickers must apply the 5-minute interval"
+    )
