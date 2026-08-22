@@ -993,3 +993,155 @@ def test_history_edit_field_rejects_nappy_column_outside_allow_list() -> None:
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 400
+
+
+# --------------------------------------------------------------------- U34
+
+
+def test_growth_value_field_is_an_anypicker_select_wheel() -> None:
+    """The growth panel's Value field is upgraded to AnyPicker's mode:"select"
+    scroll wheel (verified against the real vendored source: extra.sArrModes
+    is exactly ["select","datetime"], and a manual dataSource for that mode
+    is an array of {component, data} objects, not the bare array of numbers
+    the task's own quoted example used - __setComponentsOfSelect's own
+    auto-derive branch, which builds this same shape from a plain <select>'s
+    <option>s, proves it). The Measure <select> and Value <input> both need
+    stable ids for entry.js to wire the swap-on-change handler; entry.js's
+    GROWTH_WHEELS table supplies a distinct dataSource per measure."""
+    client = _client()
+    page = client.get("/?panel=growth").text
+    assert 'id="growth-measure"' in page
+    assert 'id="growth-value"' in page
+
+    js = client.get("/static/entry.js").text
+    assert 'mode: "select"' in js
+    assert '"#growth-measure"' in js
+    assert '"#growth-value"' in js
+    assert "GROWTH_WHEELS" in js
+    for measure in ("weight", "length", "head_circ"):
+        assert f"{measure}:" in js
+    assert 'measureSelect.addEventListener("change"' in js
+
+
+def test_temperature_field_is_an_anypicker_select_wheel_over_a_decimal_datasource() -> None:
+    client = _client()
+    page = client.get("/?panel=temperature").text
+    assert 'id="temp-c"' in page
+
+    js = client.get("/static/entry.js").text
+    assert '"#temp-c"' in js
+    assert "TEMP_WHEEL" in js
+    assert "decimalRangeValues" in js
+
+
+def test_growth_and_temperature_saves_post_the_picked_value_through_unchanged_parsing() -> None:
+    """The wheel only ever changes how the number is picked client-side; the
+    posted field name/parsing (Annotated[int|float, Form()]) is untouched."""
+    client = _client()
+    client.get("/?panel=growth")
+    r = client.post(
+        "/api/growth",
+        data={"measure": "weight", "value": "4120", "source": "home", "ts": ""},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    client.get("/?panel=temperature")
+    r2 = client.post(
+        "/api/temperature", data={"temp_c": "38.4", "ts": ""}, headers={"HX-Request": "true"}
+    )
+    assert r2.status_code == 200
+    hist = client.get("/history").text
+    assert "weight 4120g (home)" in hist
+    assert "38.4 C (axilla)" in hist
+
+
+GROWTH_TEMP_MILESTONE_SAVE = [
+    ("/api/growth", {"measure": "weight", "value": "3600", "source": "home"}),
+    ("/api/temperature", {"temp_c": "36.9"}),
+    ("/api/milestone", {"category": "first", "title": "First smile"}),
+]
+
+
+def test_growth_temperature_milestone_panels_each_gain_a_time_field() -> None:
+    """Matches feed/nappy's existing markup exactly - the same verbatim
+    <label>Time<input type=time name=ts value=...></label>."""
+    client = _client()
+    expected = to_local(NOW).strftime("%H:%M")
+    for panel in ("growth", "temperature", "milestone"):
+        page = client.get(f"/?panel={panel}").text
+        match = re.search(r'name="ts"[^>]*>', page)
+        assert match is not None, f"{panel} has no time field"
+        assert match.group(0).startswith('name="ts" value="'), f"{panel} time field markup differs"
+        assert f'value="{expected}"' in match.group(0)
+
+
+def test_growth_temperature_milestone_save_with_ts_untouched_still_logs_at_now() -> None:
+    client = _client()
+    for url, payload in GROWTH_TEMP_MILESTONE_SAVE:
+        r = client.post(url, data=payload, headers={"HX-Request": "true"})
+        assert r.status_code == 200, f"{url} -> {r.status_code}"
+    hist = client.get("/history").text
+    expected = to_local(NOW).strftime("%d %b %H:%M")
+    assert hist.count(expected) >= 3, "growth/temperature/milestone saves must log at now"
+
+
+def test_growth_temperature_milestone_save_with_picked_time_persists_that_exact_time() -> None:
+    """Same _panel_ts(ts) pattern feed/nappy already use (this task's notes) -
+    the picked "HH:MM" is combined with *today* in the configured display
+    zone, exactly like test_panel_time_field_combines_with_todays_display_zone_date."""
+    client = _client()
+    for url, payload in GROWTH_TEMP_MILESTONE_SAVE:
+        r = client.post(url, data={**payload, "ts": "09:30"}, headers={"HX-Request": "true"})
+        assert r.status_code == 200, f"{url} -> {r.status_code}"
+    hist = client.get("/history").text
+    today_local = to_local(datetime.now(UTC)).strftime("%d %b")
+    assert hist.count(f"{today_local} 09:30") >= 3
+
+
+def test_growth_temperature_milestone_time_field_round_trips_through_adjust_time() -> None:
+    """Same two-step flow as test_panel_save_can_persist_a_picked_date_other_than_today,
+    proving the new Time fields ride the existing generic pendingCorrection ->
+    /api/adjust-time follow-up (entry.js's bindPanelPickers already binds
+    every input[type=time][name=ts] inside #panel, task U29) with no entry.js
+    change needed to reach these three panels."""
+    client = _client()
+    for url, payload in GROWTH_TEMP_MILESTONE_SAVE:
+        table = url.rsplit("/", 1)[-1]
+        r = client.post(url, data={**payload, "ts": "23:15"}, headers={"HX-Request": "true"})
+        assert r.status_code == 200
+        match = re.search(r'data-table="([^"]+)" data-event-id="(\d+)"', r.text)
+        assert match is not None
+        got_table, event_id = match.group(1), match.group(2)
+        assert got_table == table
+
+        r2 = client.post(
+            "/api/adjust-time",
+            data={"table": got_table, "event_id": event_id, "ts": "2026-07-10 23:15"},
+        )
+        assert r2.status_code == 303
+
+    hist = client.get("/history").text
+    assert hist.count("10 Jul 23:15") >= 3
+
+
+def test_growth_temperature_milestone_fields_submit_correctly_with_picker_script_disabled() -> None:
+    """U19/U22/U29's no-JS contract, carried forward: TestClient never
+    executes JS, so the underlying native inputs alone - the value/temp_c
+    wheels' picker proxies never materialize, ts stays a plain
+    <input type=time> - must still post values the server already accepts."""
+    client = _client()
+    r = client.post(
+        "/api/growth",
+        data={"measure": "weight", "value": "3600", "source": "home", "ts": "08:15"},
+    )
+    assert r.status_code == 303
+    r2 = client.post("/api/temperature", data={"temp_c": "36.9", "ts": "08:20"})
+    assert r2.status_code == 303
+    r3 = client.post(
+        "/api/milestone", data={"category": "first", "title": "First smile", "ts": "08:25"}
+    )
+    assert r3.status_code == 303
+    hist = client.get("/history").text
+    assert "08:15" in hist
+    assert "08:20" in hist
+    assert "08:25" in hist

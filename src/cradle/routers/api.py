@@ -425,9 +425,10 @@ def build_api_router(svc: Services) -> APIRouter:
         measure: Annotated[str, Form()],
         value: Annotated[int, Form()],
         source: Annotated[str, Form()] = "home",
+        ts: Annotated[str | None, Form()] = None,
     ) -> Response:
         event_id = svc.logging.log_growth(
-            GrowthMeasure(measure), value, source, logged_by=who(request)
+            GrowthMeasure(measure), value, source, logged_by=who(request), ts=_panel_ts(ts)
         )
         return _respond(request, "growth", event_id, measure)
 
@@ -436,8 +437,11 @@ def build_api_router(svc: Services) -> APIRouter:
         request: Request,
         temp_c: Annotated[float, Form()],
         site: Annotated[str, Form()] = "axilla",
+        ts: Annotated[str | None, Form()] = None,
     ) -> Response:
-        event_id = svc.logging.log_temperature(temp_c, site, logged_by=who(request))
+        event_id = svc.logging.log_temperature(
+            temp_c, site, logged_by=who(request), ts=_panel_ts(ts)
+        )
         return _respond(request, "temperature", event_id, f"{temp_c:.1f} C")
 
     @router.post("/api/milestone")
@@ -446,8 +450,11 @@ def build_api_router(svc: Services) -> APIRouter:
         title: Annotated[str, Form()],
         category: Annotated[str, Form()] = "first",
         note: Annotated[str, Form()] = "",
+        ts: Annotated[str | None, Form()] = None,
     ) -> Response:
-        event_id = svc.logging.log_milestone(category, title, note, logged_by=who(request))
+        event_id = svc.logging.log_milestone(
+            category, title, note, logged_by=who(request), ts=_panel_ts(ts)
+        )
         return _respond(request, "milestone", event_id, "milestone")
 
     @router.post("/api/note")
