@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from cradle.app import create_app  # noqa: E402
 from cradle.models import to_local  # noqa: E402
 from cradle.ports.clock import FixedClock  # noqa: E402
+from cradle.routers import api as api_module  # noqa: E402
 
 NOW = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
 PROFILE = {
@@ -267,6 +268,10 @@ PANEL_TILES = [
     ("feed", "method", "bottle_expressed"),
     ("nappy", "kind", "wet"),
     ("nappy", "kind", "dirty"),
+    ("activity", "category", "tummy_time"),
+    ("activity", "category", "reading_talking"),
+    ("activity", "category", "sensory_play"),
+    ("activity", "category", "foreign_language"),
 ]
 
 
@@ -285,6 +290,8 @@ def test_each_tile_opens_a_panel_with_its_choice_preselected() -> None:
             assert "checked" in match.group(0), f"{value} not preselected"
         elif panel == "feed":
             assert f'value="{value}" selected' in r.text, f"{value} not preselected"
+        elif panel == "activity":
+            assert f'name="category" value="{value}"' in r.text, f"{value} not preselected"
         else:  # nappy kind is a hidden field, not a select - the panel shape itself is the choice
             assert f'name="kind" value="{value}"' in r.text
     dirty = client.get("/?panel=nappy&kind=dirty").text
@@ -393,6 +400,10 @@ PANEL_SAVE_WITH_BLANK_OPTIONAL_FIELDS = [
     ("/api/feed", {"method": "bottle_expressed", "volume_ml": "", "ts": ""}),
     ("/api/nappy", {"kind": "wet", "ts": ""}),
     ("/api/nappy", {"kind": "dirty", "stool_colour": "unset", "ts": ""}),
+    ("/api/activity", {"category": "tummy_time", "duration_min": "", "ts": ""}),
+    ("/api/activity", {"category": "reading_talking", "duration_min": "", "ts": ""}),
+    ("/api/activity", {"category": "sensory_play", "duration_min": "", "ts": ""}),
+    ("/api/activity", {"category": "foreign_language", "duration_min": "", "ts": ""}),
 ]
 
 
@@ -698,11 +709,11 @@ def test_more_details_element_is_gone_and_each_more_panel_opens_as_a_modal_overl
     centred modal overlay the feed/nappy panels already use (U22 shape)."""
     client = _client()
     closed = client.get("/").text
-    assert "<details class=\"more\">" not in closed
+    assert '<details class="more">' not in closed
     assert "More: weight, temperature, milestone, note" not in closed
     for panel in MORE_PANEL_TILES:
         page = client.get(f"/?panel={panel}").text
-        assert "<details class=\"more\">" not in page
+        assert '<details class="more">' not in page
         assert "More: weight, temperature, milestone, note" not in page
         assert '<div id="panel" class="overlay open">' in page, f"{panel} did not open a panel"
         assert 'class="overlay-backdrop"' in page, f"{panel} missing backdrop"
@@ -937,6 +948,8 @@ def test_growth_length_and_head_circ_entered_through_the_panel_controls() -> Non
     hist = client.get("/history").text
     assert "length 520mm (home)" in hist
     assert "head_circ 350mm (home)" in hist
+
+
 # --------------------------------------------------------------------- U26
 
 
@@ -1145,3 +1158,89 @@ def test_growth_temperature_milestone_fields_submit_correctly_with_picker_script
     assert "08:15" in hist
     assert "08:20" in hist
     assert "08:25" in hist
+
+
+# --------------------------------------------------------------------- U27
+
+
+ACTIVITY_TILES = [
+    ("tummy_time", "Start at 1-2 min, build to 10-15 min, several short sessions across the day"),
+    ("reading_talking", "15-20 min cumulative per day"),
+    ("sensory_play", "1-2 brief sessions of 2-5 min"),
+    (
+        "foreign_language",
+        "10-15 min cumulative per day of dedicated exposure (talking, singing, reading), folded"
+        " into the same little-and-often pattern as reading_talking",
+    ),
+]
+
+
+def test_each_activity_tile_opens_modal_panel_and_save_persists_event() -> None:
+    """U27 (1): Each of the four activity tiles opens its own modal panel, and
+    Save persists one activity event with the tapped category and entered
+    duration."""
+    client = _client()
+    for cat, _target in ACTIVITY_TILES:
+        page = client.get(f"/?panel=activity&category={cat}").text
+        assert '<div id="panel" class="overlay open">' in page, f"{cat} panel did not open"
+        assert f'name="category" value="{cat}"' in page, f"{cat} category not preselected"
+
+        r = client.post(
+            "/api/activity",
+            data={"category": cat, "duration_min": "15", "note": "Great session", "ts": "14:30"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200, f"{cat} save -> {r.status_code}"
+
+    activities = client.app.state.services.logging._repo.list_activities(limit=10)
+    assert len(activities) == 4
+    categories_saved = {a.category.value for a in activities}
+    assert categories_saved == {"tummy_time", "reading_talking", "sensory_play", "foreign_language"}
+    for a in activities:
+        assert a.duration_min == 15
+        assert a.note == "Great session"
+
+
+def test_each_activity_panel_renders_verbatim_target_text_from_v4() -> None:
+    """U27 (2): Each panel renders its own category's target text from V4 and not
+    another category's."""
+    client = _client()
+    for cat, target_text in ACTIVITY_TILES:
+        page = client.get(f"/?panel=activity&category={cat}").text
+        assert target_text in page, f"Target text missing for {cat}"
+        for other_cat, other_target in ACTIVITY_TILES:
+            if other_cat != cat:
+                assert other_target not in page, (
+                    f"Other category target text {other_cat} found in {cat} panel"
+                )
+
+
+def test_closing_activity_panel_without_save_writes_no_row() -> None:
+    """U27 (3): Closing an activity panel without Save writes no row, matching U16."""
+    for cat, _target in ACTIVITY_TILES:
+        client = _client()
+        client.get(f"/?panel=activity&category={cat}")  # open
+        client.get("/")  # close, no save
+        activities = client.app.state.services.logging._repo.list_activities(limit=10)
+        assert len(activities) == 0, f"{cat} wrote a row despite no save"
+
+
+def test_activity_panel_prefills_configured_entry_defaults(monkeypatch) -> None:
+    """U27: duration_min pre-fills from [entry_defaults] if configured, else empty."""
+    client = _client()
+    # Unconfigured: value=""
+    page = client.get("/?panel=activity&category=tummy_time").text
+    assert 'name="duration_min" min="0" inputmode="numeric"\n      value=""' in page
+
+    # Configured via custom rules_config.toml
+    config_text = (ROOT / "rules_config.toml").read_text()
+    modified_text = config_text.replace(
+        "breast_duration_min = 20",
+        "breast_duration_min = 20\ntummy_time_duration_min = 10",
+    )
+    with tempfile.NamedTemporaryFile("w+", suffix=".toml") as tf:
+        tf.write(modified_text)
+        tf.flush()
+        monkeypatch.setattr(api_module, "CONFIG_PATH", Path(tf.name))
+        page2 = client.get("/?panel=activity&category=tummy_time").text
+        assert 'name="duration_min" min="0" inputmode="numeric"\n      value="10"' in page2
