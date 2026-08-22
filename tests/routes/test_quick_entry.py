@@ -1228,9 +1228,11 @@ def test_closing_activity_panel_without_save_writes_no_row() -> None:
 def test_activity_panel_prefills_configured_entry_defaults(monkeypatch) -> None:
     """U27: duration_min pre-fills from [entry_defaults] if configured, else empty."""
     client = _client()
-    # Unconfigured: value=""
     page = client.get("/?panel=activity&category=tummy_time").text
-    assert 'name="duration_min" min="0" inputmode="numeric"\n      value=""' in page
+    assert (
+        'name="duration_min" id="tummy-duration" min="0" inputmode="numeric"\n      value=""'
+        in page
+    )
 
     # Configured via custom rules_config.toml
     config_text = (ROOT / "rules_config.toml").read_text()
@@ -1243,4 +1245,114 @@ def test_activity_panel_prefills_configured_entry_defaults(monkeypatch) -> None:
         tf.flush()
         monkeypatch.setattr(api_module, "CONFIG_PATH", Path(tf.name))
         page2 = client.get("/?panel=activity&category=tummy_time").text
-        assert 'name="duration_min" min="0" inputmode="numeric"\n      value="10"' in page2
+        assert (
+            'name="duration_min" id="tummy-duration" min="0" inputmode="numeric"\n      value="10"'
+            in page2
+        )
+
+
+# --------------------------------------------------------------------- U31
+
+
+def test_bottle_volume_is_scroll_wheel_in_5ml_increments_and_saves_unchanged() -> None:
+    """U31 (1): Bottle volume_ml is a scroll-wheel control in 5ml increments,
+    and Save posts the picked value through existing volume_ml parsing unchanged."""
+    client = _client()
+    js = client.get("/static/entry.js").text
+    assert "bindBottleVolumeWheel" in js
+    assert "BOTTLE_VOLUME_WHEEL" in js
+    assert "rangeValues(5, 500, 5)" in js
+    assert "bindBottleVolumeWheel(root)" in js
+
+    # Open bottle panel and verify input ID
+    page = client.get("/?panel=feed&method=bottle_formula").text
+    assert 'id="bottle-volume"' in page
+
+    # Save posts picked volume_ml through existing parsing unchanged
+    r = client.post(
+        "/api/feed",
+        data={"method": "bottle_formula", "volume_ml": "60"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    feeds = client.app.state.services.logging._repo.list_feeds(limit=10)
+    assert len(feeds) == 1
+    assert feeds[0].volume_ml == 60
+
+
+def test_breast_duration_is_scroll_wheel_in_5min_steps_and_saves_unchanged() -> None:
+    """U31 (2): Breast duration_min is a scroll-wheel control in 5-minute steps,
+    and Save posts the picked value through existing duration_min parsing unchanged."""
+    client = _client()
+    js = client.get("/static/entry.js").text
+    assert "bindBreastDurationWheel" in js
+    assert "BREAST_DURATION_WHEEL" in js
+    assert "rangeValues(5, 120, 5)" in js
+    assert "bindBreastDurationWheel(root)" in js
+
+    # Open breast panel and verify input ID
+    page = client.get("/?panel=feed&method=breast_left").text
+    assert 'id="breast-duration"' in page
+
+    # Save posts picked duration_min through existing parsing unchanged
+    r = client.post(
+        "/api/feed",
+        data={"method": "breast_left", "duration_min": "15"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    feeds = client.app.state.services.logging._repo.list_feeds(limit=10)
+    assert len(feeds) == 1
+    assert feeds[0].duration_min == 15
+
+
+def test_tummy_time_duration_is_scroll_wheel_in_1min_steps_and_saves_unchanged() -> None:
+    """U31 (3): Tummy Time duration_min is a scroll-wheel control in 1-minute steps,
+    and Save posts the picked value through existing duration_min parsing unchanged."""
+    client = _client()
+    js = client.get("/static/entry.js").text
+    assert "bindTummyDurationWheel" in js
+    assert "TUMMY_DURATION_WHEEL" in js
+    assert "rangeValues(1, 60, 1)" in js
+    assert "bindTummyDurationWheel(root)" in js
+
+    # Open tummy_time panel and verify input ID
+    page = client.get("/?panel=activity&category=tummy_time").text
+    assert 'id="tummy-duration"' in page
+
+    # Save posts picked duration_min through existing parsing unchanged
+    r = client.post(
+        "/api/activity",
+        data={"category": "tummy_time", "duration_min": "10"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    activities = client.app.state.services.logging._repo.list_activities(limit=10)
+    assert len(activities) == 1
+    assert activities[0].duration_min == 10
+
+
+def test_u31_converted_fields_submit_correctly_without_js() -> None:
+    """U31 (4): Converted bottle, breast, and tummy time fields still submit correct
+    values with picker script disabled or unloaded, via underlying native number input."""
+    client = _client()
+
+    # Plain form post without JS (no HX-Request header)
+    r1 = client.post("/api/feed", data={"method": "bottle_formula", "volume_ml": "75"})
+    assert r1.status_code == 303
+
+    r2 = client.post("/api/feed", data={"method": "breast_right", "duration_min": "25"})
+    assert r2.status_code == 303
+
+    r3 = client.post("/api/activity", data={"category": "tummy_time", "duration_min": "8"})
+    assert r3.status_code == 303
+
+    feeds = client.app.state.services.logging._repo.list_feeds(limit=10)
+    assert len(feeds) == 2
+    assert feeds[0].duration_min == 25
+    assert feeds[1].volume_ml == 75
+
+    activities = client.app.state.services.logging._repo.list_activities(limit=10)
+    assert len(activities) == 1
+    assert activities[0].duration_min == 8
+

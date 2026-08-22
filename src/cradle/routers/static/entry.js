@@ -219,6 +219,9 @@
   };
 
   var TEMP_WHEEL = { values: decimalRangeValues(340, 420), unit: "°C", defaultValue: "37.0" };
+  var BOTTLE_VOLUME_WHEEL = { values: rangeValues(5, 500, 5), unit: "ml", defaultValue: "60" };
+  var BREAST_DURATION_WHEEL = { values: rangeValues(5, 120, 5), unit: "min", defaultValue: "15" };
+  var TUMMY_DURATION_WHEEL = { values: rangeValues(1, 60, 1), unit: "min", defaultValue: "5" };
 
   function bindGrowthValueWheel(root) {
     if (!anyPickerAvailable()) return;
@@ -245,11 +248,47 @@
     });
   }
 
+  function bindBottleVolumeWheel(root) {
+    if (!anyPickerAvailable()) return;
+    var scope = root && root.querySelectorAll ? root : document;
+    var volInput = scope.querySelector("#bottle-volume");
+    if (!volInput || volInput.dataset.apBound) return;
+    volInput.dataset.apBound = "1";
+    bindNumericWheel(volInput, function () {
+      return BOTTLE_VOLUME_WHEEL;
+    });
+  }
+
+  function bindBreastDurationWheel(root) {
+    if (!anyPickerAvailable()) return;
+    var scope = root && root.querySelectorAll ? root : document;
+    var durInput = scope.querySelector("#breast-duration");
+    if (!durInput || durInput.dataset.apBound) return;
+    durInput.dataset.apBound = "1";
+    bindNumericWheel(durInput, function () {
+      return BREAST_DURATION_WHEEL;
+    });
+  }
+
+  function bindTummyDurationWheel(root) {
+    if (!anyPickerAvailable()) return;
+    var scope = root && root.querySelectorAll ? root : document;
+    var tummyInput = scope.querySelector("#tummy-duration");
+    if (!tummyInput || tummyInput.dataset.apBound) return;
+    tummyInput.dataset.apBound = "1";
+    bindNumericWheel(tummyInput, function () {
+      return TUMMY_DURATION_WHEEL;
+    });
+  }
+
   function bindPickers(root) {
     bindPanelPickers(root);
     bindHistoryPickers(root);
     bindGrowthValueWheel(root);
     bindTemperatureWheel(root);
+    bindBottleVolumeWheel(root);
+    bindBreastDurationWheel(root);
+    bindTummyDurationWheel(root);
   }
 
   // Exactly one panel form can be open at a time (quick_entry.html's
