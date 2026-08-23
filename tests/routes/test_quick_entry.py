@@ -1652,4 +1652,88 @@ def test_dirty_panel_consistency_submits_without_js() -> None:
     assert nappies[0].consistency.value == "soft"
 
 
+# --------------------------------------------------------------------- U37
+
+
+from test_settings import _config_copy, _entry_defaults_config_path
+
+
+def test_wheel_step_change_updates_data_step_attributes_on_rendered_page(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        app = create_app(
+            db_path=tmp_path / "test.db",
+            clock=FixedClock(NOW),
+            config_path=config_path,
+        )
+        client = TestClient(app, follow_redirects=False)
+        assert client.post("/api/settings/profile", data=PROFILE).status_code == 303
+
+        # Default bottle volume step attribute
+        page_before = client.get("/?panel=feed&method=bottle_expressed").text
+        assert 'data-step="5"' in page_before
+
+        # Update wheel steps
+        data = {
+            "weight": "10",
+            "length": "2",
+            "head_circ": "2",
+            "temp_c": "0.2",
+            "bottle_volume_ml": "10",
+            "breast_duration_min": "10",
+            "tummy_time_duration_min": "2",
+            "reading_talking_duration_min": "2",
+            "sensory_play_duration_min": "2",
+            "foreign_language_duration_min": "2",
+        }
+        r = client.post("/api/settings/wheel-steps", data=data)
+        assert r.status_code == 303
+
+        page_after = client.get("/?panel=feed&method=bottle_expressed").text
+        assert 'data-step="10"' in page_after
+
+        growth_after = client.get("/?panel=growth").text
+        assert 'data-step-weight="10"' in growth_after
+        assert 'data-step-length="2"' in growth_after
+
+
+def test_wheel_step_change_preserves_valid_defaults_and_submission(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        app = create_app(
+            db_path=tmp_path / "test.db",
+            clock=FixedClock(NOW),
+            config_path=config_path,
+        )
+        client = TestClient(app, follow_redirects=False)
+        assert client.post("/api/settings/profile", data=PROFILE).status_code == 303
+
+        data = {
+            "weight": "10",
+            "length": "2",
+            "head_circ": "2",
+            "temp_c": "0.2",
+            "bottle_volume_ml": "10",
+            "breast_duration_min": "10",
+            "tummy_time_duration_min": "2",
+            "reading_talking_duration_min": "2",
+            "sensory_play_duration_min": "2",
+            "foreign_language_duration_min": "2",
+        }
+        client.post("/api/settings/wheel-steps", data=data)
+
+        # Ensure logging with new defaults still succeeds
+        r = client.post(
+            "/api/feed",
+            data={"method": "bottle_expressed", "volume_ml": "60"},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+        feeds = client.app.state.services.logging._repo.list_feeds(limit=1)
+        assert len(feeds) == 1
+        assert feeds[0].volume_ml == 60
+
+
+
+
 

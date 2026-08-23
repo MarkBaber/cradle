@@ -12,7 +12,7 @@ import tomllib
 from datetime import UTC, datetime
 from html import escape
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Request
@@ -55,12 +55,80 @@ CONFIG_PATH = Path("rules_config.toml")
 DEFAULT_BOTTLE_VOLUME_ML = 60
 DEFAULT_BREAST_DURATION_MIN = 20
 
+DEFAULT_WHEEL_STEPS: dict[str, int | float] = {
+    "weight": 25,
+    "length": 5,
+    "head_circ": 5,
+    "temp_c": 0.1,
+    "bottle_volume_ml": 5,
+    "breast_duration_min": 5,
+    "tummy_time_duration_min": 1,
+    "reading_talking_duration_min": 1,
+    "sensory_play_duration_min": 1,
+    "foreign_language_duration_min": 1,
+}
+
 _ENTRY_DEFAULTS_SECTION_RE = re.compile(r"(?ms)^\[entry_defaults\]\n(?:(?!^\[).)*")
 _BOTTLE_VOLUME_LINE_RE = re.compile(r"(?m)^(bottle_volume_ml\s*=\s*)\d+")
 _BREAST_DURATION_LINE_RE = re.compile(r"(?m)^(breast_duration_min\s*=\s*)\d+")
 
+_WHEEL_STEPS_SECTION_RE = re.compile(r"(?ms)^\[wheel_steps\]\n(?:(?!^\[).)*")
+_WHEEL_STEPS_LINE_RES = {
+    key: re.compile(rf"(?m)^({key}\s*=\s*)[^\n]*") for key in DEFAULT_WHEEL_STEPS
+}
 
-def entry_defaults(config_path: Path) -> dict[str, int]:
+
+def wheel_steps(config_path: Path) -> dict[str, int | float]:
+    """Read [wheel_steps] from *config_path* (task U37)."""
+    table: object = {}
+    if config_path.exists():
+        with config_path.open("rb") as fh:
+            table = tomllib.load(fh).get("wheel_steps", {})
+    if not isinstance(table, dict):
+        table = {}
+    res: dict[str, int | float] = {}
+    for key, default in DEFAULT_WHEEL_STEPS.items():
+        val = table.get(key, default)
+        is_num = isinstance(val, int | float) and not isinstance(val, bool)
+        if is_num and val > 0:
+            res[key] = float(val) if key == "temp_c" else (int(val) if val == int(val) else val)
+        else:
+            res[key] = default
+    return res
+
+
+def _write_wheel_steps(config_path: Path, values: dict[str, int | float]) -> None:
+    """Patch only the keys inside [wheel_steps] (task U37).
+
+    Mirrors app.py's N3 _write_ntfy_topic / this file's U22 _write_entry_defaults:
+    a targeted regex substitution scoped to this one section, never a full TOML
+    round-trip.
+    """
+    text = config_path.read_text()
+    section_match = _WHEEL_STEPS_SECTION_RE.search(text)
+    if section_match is None:
+        raise ValueError("rules_config.toml has no [wheel_steps] table")
+    section = section_match.group(0)
+    missing = []
+    for key in DEFAULT_WHEEL_STEPS:
+        if key not in values:
+            missing.append(key)
+            continue
+        literal = _toml_number(values[key])
+
+        def _replace(m: re.Match[str], lit: str = literal) -> str:
+            return m.group(1) + lit
+
+        section, count = _WHEEL_STEPS_LINE_RES[key].subn(_replace, section, count=1)
+        if count == 0:
+            missing.append(key)
+    if missing:
+        raise ValueError(f"rules_config.toml [wheel_steps] table is missing: {', '.join(missing)}")
+    text = text[: section_match.start()] + section + text[section_match.end() :]
+    config_path.write_text(text)
+
+
+def entry_defaults(config_path: Path) -> dict[str, Any]:
     """Read [entry_defaults] from *config_path* (task U22/U27).
 
     Falls back to the out-of-the-box values (60ml bottle, 20min breast) if
@@ -73,7 +141,7 @@ def entry_defaults(config_path: Path) -> dict[str, int]:
             table = tomllib.load(fh).get("entry_defaults", {})
     if not isinstance(table, dict):
         table = {}
-    res: dict[str, int] = {
+    res: dict[str, Any] = {
         "bottle_volume_ml": int(table.get("bottle_volume_ml", DEFAULT_BOTTLE_VOLUME_ML)),
         "breast_duration_min": int(table.get("breast_duration_min", DEFAULT_BREAST_DURATION_MIN)),
     }
@@ -85,6 +153,7 @@ def entry_defaults(config_path: Path) -> dict[str, int]:
                     break
                 except (ValueError, TypeError):
                     pass
+    res["wheel_steps"] = wheel_steps(config_path)
     return res
 
 
@@ -641,7 +710,11 @@ def build_api_router(svc: Services) -> APIRouter:
 
     @router.get("/api/settings/entry-defaults")
     def get_entry_defaults() -> JSONResponse:
-        return JSONResponse(entry_defaults(CONFIG_PATH))
+        defs = entry_defaults(CONFIG_PATH)
+        return JSONResponse({
+            "bottle_volume_ml": defs["bottle_volume_ml"],
+            "breast_duration_min": defs["breast_duration_min"],
+        })
 
     @router.post("/api/settings/entry-defaults")
     def post_entry_defaults(
@@ -687,6 +760,52 @@ def build_api_router(svc: Services) -> APIRouter:
         _write_projections_overrides(CONFIG_PATH, values)
         if request.headers.get("HX-Request"):
             return HTMLResponse('<span class="ok">Projection overrides saved.</span>')
+        return RedirectResponse("/settings", status_code=303)
+
+    @router.get("/api/settings/wheel-steps")
+    def get_wheel_steps_endpoint() -> JSONResponse:
+        return JSONResponse(wheel_steps(CONFIG_PATH))
+
+    @router.post("/api/settings/wheel-steps")
+    def post_wheel_steps_endpoint(
+        request: Request,
+        weight: Annotated[str, Form()] = "25",
+        length: Annotated[str, Form()] = "5",
+        head_circ: Annotated[str, Form()] = "5",
+        temp_c: Annotated[str, Form()] = "0.1",
+        bottle_volume_ml: Annotated[str, Form()] = "5",
+        breast_duration_min: Annotated[str, Form()] = "5",
+        tummy_time_duration_min: Annotated[str, Form()] = "1",
+        reading_talking_duration_min: Annotated[str, Form()] = "1",
+        sensory_play_duration_min: Annotated[str, Form()] = "1",
+        foreign_language_duration_min: Annotated[str, Form()] = "1",
+    ) -> Response:
+        raw = {
+            "weight": weight,
+            "length": length,
+            "head_circ": head_circ,
+            "temp_c": temp_c,
+            "bottle_volume_ml": bottle_volume_ml,
+            "breast_duration_min": breast_duration_min,
+            "tummy_time_duration_min": tummy_time_duration_min,
+            "reading_talking_duration_min": reading_talking_duration_min,
+            "sensory_play_duration_min": sensory_play_duration_min,
+            "foreign_language_duration_min": foreign_language_duration_min,
+        }
+        values: dict[str, int | float] = {}
+        try:
+            for k, v in raw.items():
+                val = float(v)
+                if val <= 0:
+                    raise ValueError(f"{k} must be positive")
+                values[k] = val if k == "temp_c" else (int(val) if val == int(val) else val)
+        except ValueError:
+            msg = '<p class="err">Wheel steps must be positive numbers.</p>'
+            return HTMLResponse(msg, status_code=400)
+
+        _write_wheel_steps(CONFIG_PATH, values)
+        if request.headers.get("HX-Request"):
+            return HTMLResponse('<span class="ok">Scroll-wheel increments saved.</span>')
         return RedirectResponse("/settings", status_code=303)
 
     return router
