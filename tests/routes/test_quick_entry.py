@@ -1230,8 +1230,8 @@ def test_activity_panel_prefills_configured_entry_defaults(monkeypatch) -> None:
     client = _client()
     page = client.get("/?panel=activity&category=tummy_time").text
     assert (
-        'name="duration_min" id="tummy-duration" min="0" inputmode="numeric"\n      value=""'
-        in page
+        'name="duration_min" id="activity-duration" data-category="tummy_time"'
+        ' min="0" inputmode="numeric"\n      value=""' in page
     )
 
     # Configured via custom rules_config.toml
@@ -1246,8 +1246,8 @@ def test_activity_panel_prefills_configured_entry_defaults(monkeypatch) -> None:
         monkeypatch.setattr(api_module, "CONFIG_PATH", Path(tf.name))
         page2 = client.get("/?panel=activity&category=tummy_time").text
         assert (
-            'name="duration_min" id="tummy-duration" min="0" inputmode="numeric"\n      value="10"'
-            in page2
+            'name="duration_min" id="activity-duration" data-category="tummy_time"'
+            ' min="0" inputmode="numeric"\n      value="10"' in page2
         )
 
 
@@ -1318,7 +1318,8 @@ def test_tummy_time_duration_is_scroll_wheel_in_1min_steps_and_saves_unchanged()
 
     # Open tummy_time panel and verify input ID
     page = client.get("/?panel=activity&category=tummy_time").text
-    assert 'id="tummy-duration"' in page
+    assert 'id="activity-duration"' in page
+    assert 'data-category="tummy_time"' in page
 
     # Save posts picked duration_min through existing parsing unchanged
     r = client.post(
@@ -1356,3 +1357,73 @@ def test_u31_converted_fields_submit_correctly_without_js() -> None:
     assert len(activities) == 1
     assert activities[0].duration_min == 8
 
+
+# --------------------------------------------------------------------- U36
+
+
+def test_remaining_activity_categories_render_duration_min_as_scroll_wheel() -> None:
+    """U36 (1): Reading & Talking, Sensory Play, and Foreign Language activity panels
+    each render duration_min as an AnyPicker select-mode scroll-wheel input."""
+    client = _client()
+    js = client.get("/static/entry.js").text
+    assert "bindActivityDurationWheel" in js
+    assert "ACTIVITY_DURATION_WHEELS" in js
+    assert "READING_TALKING_DURATION_WHEEL" in js
+    assert "SENSORY_PLAY_DURATION_WHEEL" in js
+    assert "FOREIGN_LANGUAGE_DURATION_WHEEL" in js
+    assert "bindActivityDurationWheel(root)" in js
+
+    categories = ["reading_talking", "sensory_play", "foreign_language"]
+    for cat in categories:
+        page = client.get(f"/?panel=activity&category={cat}").text
+        assert 'id="activity-duration"' in page, f"id='activity-duration' missing for {cat}"
+        assert f'data-category="{cat}"' in page, f"data-category='{cat}' missing for {cat}"
+
+
+def test_remaining_activity_categories_duration_saves_picked_value_unchanged() -> None:
+    """U36 (2): Picking a value on each of the three wheels and saving posts through
+    the existing duration_min parsing unchanged, persisting the picked value."""
+    client = _client()
+    test_cases = [
+        ("reading_talking", 15),
+        ("sensory_play", 20),
+        ("foreign_language", 30),
+    ]
+    for cat, dur in test_cases:
+        r = client.post(
+            "/api/activity",
+            data={"category": cat, "duration_min": str(dur)},
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200, f"Failed POST for {cat}"
+
+    activities = client.app.state.services.logging._repo.list_activities(limit=10)
+    assert len(activities) == 3
+    act_by_cat = {a.category.value: a.duration_min for a in activities}
+    assert act_by_cat["reading_talking"] == 15
+    assert act_by_cat["sensory_play"] == 20
+    assert act_by_cat["foreign_language"] == 30
+
+
+def test_u36_converted_fields_submit_correctly_without_js() -> None:
+    """U36 (3): Each converted activity duration field still submits a correct value
+    with the picker script disabled or unloaded, via underlying native number input."""
+    client = _client()
+    test_cases = [
+        ("reading_talking", 12),
+        ("sensory_play", 18),
+        ("foreign_language", 25),
+    ]
+    for cat, dur in test_cases:
+        r = client.post(
+            "/api/activity",
+            data={"category": cat, "duration_min": str(dur)},
+        )
+        assert r.status_code == 303, f"Failed no-JS POST for {cat}"
+
+    activities = client.app.state.services.logging._repo.list_activities(limit=10)
+    assert len(activities) == 3
+    act_by_cat = {a.category.value: a.duration_min for a in activities}
+    assert act_by_cat["reading_talking"] == 12
+    assert act_by_cat["sensory_play"] == 18
+    assert act_by_cat["foreign_language"] == 25
