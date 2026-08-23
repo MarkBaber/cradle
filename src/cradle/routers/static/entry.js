@@ -292,13 +292,32 @@
     });
   }
 
-  function bindTummyDurationWheel(root) {
-    bindActivityDurationWheel(root);
+  function bindHistoryNumericWheels(root) {
+    if (!anyPickerAvailable()) return;
+    var scope = root && root.querySelectorAll ? root : document;
+    var mlInputs = scope.querySelectorAll('form[action="/api/edit-field"] input[name="field"][value="volume_ml"] ~ input[name="value"]');
+    mlInputs.forEach(function (nativeInput) {
+      if (nativeInput.dataset.apBound) return;
+      nativeInput.dataset.apBound = "1";
+      bindNumericWheel(nativeInput, function () {
+        return BOTTLE_VOLUME_WHEEL;
+      });
+    });
+
+    var minInputs = scope.querySelectorAll('form[action="/api/edit-field"] input[name="field"][value="duration_min"] ~ input[name="value"]');
+    minInputs.forEach(function (nativeInput) {
+      if (nativeInput.dataset.apBound) return;
+      nativeInput.dataset.apBound = "1";
+      bindNumericWheel(nativeInput, function () {
+        return BREAST_DURATION_WHEEL;
+      });
+    });
   }
 
   function bindPickers(root) {
     bindPanelPickers(root);
     bindHistoryPickers(root);
+    bindHistoryNumericWheels(root);
     bindGrowthValueWheel(root);
     bindTemperatureWheel(root);
     bindBottleVolumeWheel(root);

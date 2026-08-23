@@ -15,6 +15,12 @@ class HistoryRow:
     ts: datetime
     detail: str
     logged_by: str
+    method: str | None = None
+    kind: str | None = None
+    volume_ml: int | None = None
+    duration_min: int | None = None
+    stool_colour: str | None = None
+    consistency: str | None = None
 
 
 class HistoryService:
@@ -32,10 +38,34 @@ class HistoryService:
         wanted = set(domains) & set(DOMAINS)
 
         def add(
-            table: str, event_id: int | None, ts: datetime, detail: str, logged_by: str
+            table: str,
+            event_id: int | None,
+            ts: datetime,
+            detail: str,
+            logged_by: str,
+            method: str | None = None,
+            kind: str | None = None,
+            volume_ml: int | None = None,
+            duration_min: int | None = None,
+            stool_colour: str | None = None,
+            consistency: str | None = None,
         ) -> None:
             if event_id is not None:
-                out.append(HistoryRow(table, event_id, ts, detail, logged_by))
+                out.append(
+                    HistoryRow(
+                        table=table,
+                        event_id=event_id,
+                        ts=ts,
+                        detail=detail,
+                        logged_by=logged_by,
+                        method=method,
+                        kind=kind,
+                        volume_ml=volume_ml,
+                        duration_min=duration_min,
+                        stool_colour=stool_colour,
+                        consistency=consistency,
+                    )
+                )
 
         if "feed" in wanted:
             for e in self._repo.list_feeds(limit, since, until):
@@ -44,13 +74,31 @@ class HistoryService:
                     bits.append(f"{e.duration_min} min")
                 if e.volume_ml:
                     bits.append(f"{e.volume_ml} ml")
-                add("feed", e.event_id, e.ts, ", ".join(bits), e.logged_by)
+                add(
+                    "feed",
+                    e.event_id,
+                    e.ts,
+                    ", ".join(bits),
+                    e.logged_by,
+                    method=e.method.value,
+                    volume_ml=e.volume_ml,
+                    duration_min=e.duration_min,
+                )
         if "nappy" in wanted:
             for n in self._repo.list_nappies(limit, since, until):
                 detail = n.kind.value
                 if n.stool_colour.value != "unset":
                     detail += f" ({n.stool_colour.value.replace('_', ' ')})"
-                add("nappy", n.event_id, n.ts, detail, n.logged_by)
+                add(
+                    "nappy",
+                    n.event_id,
+                    n.ts,
+                    detail,
+                    n.logged_by,
+                    kind=n.kind.value,
+                    stool_colour=n.stool_colour.value,
+                    consistency=n.consistency.value,
+                )
         if "sleep" in wanted:
             for s in self._repo.list_sleeps(limit, since, until):
                 if s.ts_end is None:

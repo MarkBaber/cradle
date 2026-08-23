@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from _helpers import NOW, clock, make_db, make_repo
 
-from cradle.models import FeedMethod, GrowthMeasure, NappyKind
+from cradle.models import FeedMethod, GrowthMeasure, NappyKind, StoolColour, StoolConsistency
 from cradle.services.history_service import HistoryService
 from cradle.services.logging_service import LoggingService
 
@@ -52,3 +52,29 @@ def test_running_sleep_rendered_distinctly() -> None:
     log.toggle_sleep(ts=NOW - timedelta(minutes=20))
     (row,) = hist.rows()
     assert "running" in row.detail
+
+
+def test_history_row_carries_raw_fields() -> None:
+    log, hist = _build()
+    log.log_feed(FeedMethod.BOTTLE_EXPRESSED, volume_ml=60)
+    log.log_feed(FeedMethod.BREAST_LEFT, duration_min=15)
+    log.log_nappy(
+        NappyKind.DIRTY, stool_colour=StoolColour.GREEN, consistency=StoolConsistency.SEEDY
+    )
+    log.log_nappy(NappyKind.WET)
+
+    rows = hist.rows()
+    wet_row = [r for r in rows if r.table == "nappy" and r.kind == "wet"][0]
+    dirty_row = [r for r in rows if r.table == "nappy" and r.kind == "dirty"][0]
+    bottle_row = [r for r in rows if r.table == "feed" and r.method == "bottle_expressed"][0]
+    breast_row = [r for r in rows if r.table == "feed" and r.method == "breast_left"][0]
+
+    assert wet_row.kind == "wet"
+    assert dirty_row.kind == "dirty"
+    assert dirty_row.stool_colour == "green"
+    assert dirty_row.consistency == "seedy"
+    assert bottle_row.method == "bottle_expressed"
+    assert bottle_row.volume_ml == 60
+    assert breast_row.method == "breast_left"
+    assert breast_row.duration_min == 15
+
