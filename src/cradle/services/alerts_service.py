@@ -3,7 +3,7 @@
 import logging
 import tomllib
 from collections.abc import Mapping
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from cradle.alerts import FactSet, RuleSet, build_rules, evaluate
@@ -70,6 +70,22 @@ class AlertsService:
             as_of=now,
         )
 
+    @property
+    def _auto_dismiss_window(self) -> timedelta:
+        cfg = load_config(self._config_path)
+        alerts_cfg = cfg.get("alerts", {})
+        hours = 24.0
+        if isinstance(alerts_cfg, Mapping):
+            val = alerts_cfg.get("auto_dismiss_hours")
+            if isinstance(val, int | float) and val > 0:
+                hours = float(val)
+        return timedelta(hours=hours)
+
+    def auto_dismiss(self, older_than: datetime | None = None) -> int:
+        now = self._clock.now()
+        cutoff = older_than if older_than is not None else (now - self._auto_dismiss_window)
+        return self._alert_log.auto_dismiss(cutoff, as_of=now)
+
     def sweep(self) -> int:
         """One evaluation pass. Returns the count of findings newly raised.
 
@@ -78,6 +94,7 @@ class AlertsService:
         alert, nor stop the remaining findings in the same sweep from being
         recorded. The count reflects findings raised, not pushes delivered.
         """
+        self.auto_dismiss()
         facts = self.facts()
         if facts is None:
             return 0
@@ -94,10 +111,16 @@ class AlertsService:
 
     def pinned(self) -> list[Finding]:
         """Red findings stay on screen until acknowledged (task U6)."""
+        self.auto_dismiss()
         return self._alert_log.unacknowledged(AlertSeverity.RED)
 
     def outstanding(self) -> list[Finding]:
+        self.auto_dismiss()
         return self._alert_log.unacknowledged()
 
     def acknowledge(self, fingerprint: str) -> bool:
-        return self._alert_log.acknowledge(fingerprint)
+        return self._alert_log.acknowledge(fingerprint, acknowledged_at=self._clock.now())
+
+    def all_messages(self, severity: AlertSeverity | None = None) -> list[Finding]:
+        self.auto_dismiss()
+        return self._alert_log.all(severity=severity)

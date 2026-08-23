@@ -160,3 +160,4 @@ class Finding:
     message: str
     fingerprint: str
     ts: datetime
+    acknowledged_at: datetime | None = None

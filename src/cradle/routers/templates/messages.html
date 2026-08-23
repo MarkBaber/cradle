@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% set nav = 'messages' %}
+{% block title %}Messages · CRADLE{% endblock %}
+{% block content %}
+<h1>Messages</h1>
+<div class="message-pane">
+  {% for m in messages %}
+  <div class="message-card {{ m.severity.value }}" id="msg-{{ loop.index }}">
+    <div class="msg-time">{{ (m.ts | local).strftime('%d %b %H:%M') }}</div>
+    <div class="msg-body">
+      <div class="msg-header">
+        <span class="tag {{ m.severity.value }}">{{ m.severity.value }}</span>
+        {% if m.acknowledged_at %}
+        <span class="msg-status dismissed">Dismissed at {{ (m.acknowledged_at | local).strftime('%d %b %H:%M') }}</span>
+        {% else %}
+        <span class="msg-status active">Active</span>
+        {% endif %}
+      </div>
+      <p class="msg-text">{{ m.message }}</p>
+      {% if not m.acknowledged_at %}
+      <form method="post" action="/api/alerts/acknowledge"
+            hx-post="/api/alerts/acknowledge" hx-target="#msg-{{ loop.index }}"
+            hx-swap="outerHTML" class="inline">
+        <input type="hidden" name="fingerprint" value="{{ m.fingerprint }}">
+        <button type="submit" class="dismiss-btn">Dismiss</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p class="empty">No messages recorded yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}

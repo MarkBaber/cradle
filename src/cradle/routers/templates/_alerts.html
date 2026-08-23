@@ -1,14 +1,28 @@
 {% for f in pinned %}
-<div class="alert red" id="alert-{{ loop.index }}" role="alert">
-  <p>{{ f.message }}</p>
-  <form method="post" action="/api/alerts/acknowledge"
-        hx-post="/api/alerts/acknowledge" hx-target="#alert-{{ loop.index }}"
-        hx-swap="outerHTML">
-    <input type="hidden" name="fingerprint" value="{{ f.fingerprint }}">
-    <button type="submit">Acknowledge</button>
-  </form>
+<div class="alert red" id="alert-pinned-{{ loop.index }}" role="alert">
+  <div class="alert-time">{{ (f.ts | local).strftime('%d %b %H:%M') }}</div>
+  <div class="alert-body">
+    <p>{{ f.message }}</p>
+    <form method="post" action="/api/alerts/acknowledge"
+          hx-post="/api/alerts/acknowledge" hx-target="#alert-pinned-{{ loop.index }}"
+          hx-swap="outerHTML">
+      <input type="hidden" name="fingerprint" value="{{ f.fingerprint }}">
+      <button type="submit">Acknowledge</button>
+    </form>
+  </div>
 </div>
 {% endfor %}
 {% for f in outstanding if f.severity.value != 'red' %}
-<div class="alert {{ f.severity.value }}"><p>{{ f.message }}</p></div>
+<div class="alert {{ f.severity.value }}" id="alert-nonred-{{ loop.index }}">
+  <div class="alert-time">{{ (f.ts | local).strftime('%d %b %H:%M') }}</div>
+  <div class="alert-body">
+    <p>{{ f.message }}</p>
+    <form method="post" action="/api/alerts/acknowledge"
+          hx-post="/api/alerts/acknowledge" hx-target="#alert-nonred-{{ loop.index }}"
+          hx-swap="outerHTML">
+      <input type="hidden" name="fingerprint" value="{{ f.fingerprint }}">
+      <button type="submit">Dismiss</button>
+    </form>
+  </div>
+</div>
 {% endfor %}

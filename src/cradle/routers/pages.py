@@ -393,6 +393,18 @@ def build_pages_router(svc: Services) -> APIRouter:
             headers={"Content-Disposition": f'attachment; filename="{domain}.csv"'},
         )
 
+    @router.get("/messages", response_class=HTMLResponse)
+    def messages(request: Request) -> Response:
+        if not svc.settings.has_profile():
+            return RedirectResponse("/settings?first_run=1", status_code=303)
+        return TEMPLATES.TemplateResponse(
+            request,
+            "messages.html",
+            {
+                "messages": svc.alerts.all_messages(),
+            },
+        )
+
     @router.get("/settings", response_class=HTMLResponse)
     def settings(request: Request) -> Response:
         return TEMPLATES.TemplateResponse(
