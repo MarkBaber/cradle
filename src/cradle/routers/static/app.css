@@ -261,3 +261,14 @@ sup{font-size:.6em}
    cancelButton markup strings) outweighs both by specificity alone. */
 .ap-theme-ios #ap-button-cancel{background:var(--panel);color:var(--dim)}
 .ap-theme-ios #ap-button-set{background:var(--panel);color:var(--feed)}
+
+/* day summary (task U40) */
+.day-group{margin-bottom:1.2rem}
+.day-group h2{font-size:1rem;margin:.8rem 0 .4rem;color:var(--dim);border-bottom:1px solid var(--line);padding-bottom:4px}
+table.summary-table{width:100%;border-collapse:collapse;font-size:.88rem}
+table.summary-table td{padding:6px 4px;vertical-align:top;border-bottom:1px solid var(--line)}
+table.summary-table td.time{width:54px;white-space:nowrap;color:var(--dim);font-variant-numeric:tabular-nums}
+table.summary-table td.activity{width:90px}
+table.summary-table td.kind{font-weight:500}
+table.summary-table td.detail{color:var(--dim)}
+
