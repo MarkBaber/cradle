@@ -154,7 +154,7 @@
       <label for="side_right" class="toggle-btn {{ 'active' if open_method in ('breast_right', 'breast_both') else 'inactive' }}">R</label>
     </div>
     <label>Duration (min)<input type="number" name="duration_min" id="breast-duration" min="0" inputmode="numeric"
-      value="{{ entry_defaults.breast_duration_min }}"></label>
+      value="{{ entry_defaults.breast_duration_min }}" data-step="{{ entry_defaults.wheel_steps.breast_duration_min if entry_defaults and entry_defaults.wheel_steps else 5 }}"></label>
     <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
@@ -168,7 +168,7 @@
       </select>
     </label>
     <label>Volume (ml)<input type="number" name="volume_ml" id="bottle-volume" min="0" inputmode="numeric"
-      value="{{ entry_defaults.bottle_volume_ml }}"></label>
+      value="{{ entry_defaults.bottle_volume_ml }}" data-step="{{ entry_defaults.wheel_steps.bottle_volume_ml if entry_defaults and entry_defaults.wheel_steps else 5 }}"></label>
     <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
@@ -220,7 +220,10 @@
         <option value="head_circ">Head circ (mm)</option>
       </select>
     </label>
-    <label>Value<input type="number" name="value" id="growth-value" inputmode="numeric" placeholder="value" required></label>
+    <label>Value<input type="number" name="value" id="growth-value" inputmode="numeric" placeholder="value" required
+      data-step-weight="{{ entry_defaults.wheel_steps.weight if entry_defaults and entry_defaults.wheel_steps else 25 }}"
+      data-step-length="{{ entry_defaults.wheel_steps.length if entry_defaults and entry_defaults.wheel_steps else 5 }}"
+      data-step-head-circ="{{ entry_defaults.wheel_steps.head_circ if entry_defaults and entry_defaults.wheel_steps else 5 }}"></label>
     <label>Source
       <select name="source"><option value="home">home</option><option value="midwife">midwife</option></select>
     </label>
@@ -230,7 +233,8 @@
 {% elif open_panel == "temperature" %}
   <form class="stack panel" method="post" action="/api/temperature"
         hx-post="/api/temperature" hx-target="#toast" hx-swap="innerHTML">
-    <label>Temperature (°C)<input type="number" step="0.1" name="temp_c" id="temp-c" inputmode="decimal" placeholder="°C" required></label>
+    <label>Temperature (°C)<input type="number" step="0.1" name="temp_c" id="temp-c" inputmode="decimal" placeholder="°C" required
+      data-step="{{ entry_defaults.wheel_steps.temp_c if entry_defaults and entry_defaults.wheel_steps else 0.1 }}"></label>
     <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
@@ -258,7 +262,8 @@
         hx-post="/api/activity" hx-target="#toast" hx-swap="innerHTML">
     <input type="hidden" name="category" value="{{ open_category }}">
     <label>Duration (min)<input type="number" name="duration_min" id="activity-duration" data-category="{{ open_category }}" min="0" inputmode="numeric"
-      value="{{ entry_defaults.get(open_category + '_duration_min', '') }}"></label>
+      value="{{ entry_defaults.get(open_category + '_duration_min', '') }}"
+      data-step="{{ entry_defaults.wheel_steps.get(open_category + '_duration_min', 1) if entry_defaults and entry_defaults.wheel_steps else 1 }}"></label>
     {% if activity_targets.get(open_category) %}
     <span class="note">{{ activity_targets[open_category] }}</span>
     {% endif %}

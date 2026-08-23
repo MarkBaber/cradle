@@ -404,3 +404,155 @@ def test_settings_page_carries_the_projections_panel(tmp_path: Path) -> None:
         assert 'name="typical_feed_ml"' in page
         assert 'name="mess_interval_min"' in page
         assert '"/api/settings/projections"' in page
+
+
+# --------------------------------------------------------------------- U37
+
+
+def test_get_wheel_steps_reflects_config_out_of_the_box(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        assert client.get("/api/settings/wheel-steps").json() == {
+            "weight": 25,
+            "length": 5,
+            "head_circ": 5,
+            "temp_c": 0.1,
+            "bottle_volume_ml": 5,
+            "breast_duration_min": 5,
+            "tummy_time_duration_min": 1,
+            "reading_talking_duration_min": 1,
+            "sensory_play_duration_min": 1,
+            "foreign_language_duration_min": 1,
+        }
+
+
+def test_post_wheel_steps_persists_and_is_reflected(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+
+        data = {
+            "weight": "10",
+            "length": "2",
+            "head_circ": "2",
+            "temp_c": "0.2",
+            "bottle_volume_ml": "10",
+            "breast_duration_min": "10",
+            "tummy_time_duration_min": "2",
+            "reading_talking_duration_min": "2",
+            "sensory_play_duration_min": "2",
+            "foreign_language_duration_min": "2",
+        }
+        r = client.post(
+            "/api/settings/wheel-steps",
+            data=data,
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+
+        res = client.get("/api/settings/wheel-steps").json()
+        assert res["weight"] == 10
+        assert res["temp_c"] == 0.2
+        parsed = tomllib.loads(config_path.read_text())
+        assert parsed["wheel_steps"]["weight"] == 10
+        assert parsed["wheel_steps"]["temp_c"] == 0.2
+
+
+def test_post_wheel_steps_leaves_other_tables_byte_identical(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        original = config_path.read_text()
+        client = _client(config_path)
+
+        data = {
+            "weight": "10",
+            "length": "2",
+            "head_circ": "2",
+            "temp_c": "0.2",
+            "bottle_volume_ml": "10",
+            "breast_duration_min": "10",
+            "tummy_time_duration_min": "2",
+            "reading_talking_duration_min": "2",
+            "sensory_play_duration_min": "2",
+            "foreign_language_duration_min": "2",
+        }
+        r = client.post(
+            "/api/settings/wheel-steps",
+            data=data,
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200
+
+        new_text = config_path.read_text()
+        assert new_text != original
+        section_re = api_module._WHEEL_STEPS_SECTION_RE
+        assert section_re.sub("", original) == section_re.sub("", new_text)
+        parsed = tomllib.loads(new_text)
+        assert parsed["weight"]["loss_red_fraction"] == 0.10
+
+
+def test_post_wheel_steps_without_htmx_redirects_to_settings(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        data = {
+            "weight": "10",
+            "length": "2",
+            "head_circ": "2",
+            "temp_c": "0.2",
+            "bottle_volume_ml": "10",
+            "breast_duration_min": "10",
+            "tummy_time_duration_min": "2",
+            "reading_talking_duration_min": "2",
+            "sensory_play_duration_min": "2",
+            "foreign_language_duration_min": "2",
+        }
+        r = client.post("/api/settings/wheel-steps", data=data)
+        assert r.status_code == 303
+        assert r.headers["location"] == "/settings"
+
+
+def test_post_wheel_steps_rejects_non_positive_values(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        data = {
+            "weight": "0",
+            "length": "2",
+            "head_circ": "2",
+            "temp_c": "0.2",
+            "bottle_volume_ml": "10",
+            "breast_duration_min": "10",
+            "tummy_time_duration_min": "2",
+            "reading_talking_duration_min": "2",
+            "sensory_play_duration_min": "2",
+            "foreign_language_duration_min": "2",
+        }
+        r = client.post(
+            "/api/settings/wheel-steps",
+            data=data,
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 400
+        assert client.get("/api/settings/wheel-steps").json()["weight"] == 25
+
+
+def test_settings_page_carries_scroll_wheel_increments_section(tmp_path: Path) -> None:
+    config_path = _config_copy(tmp_path)
+    with _entry_defaults_config_path(config_path):
+        client = _client(config_path)
+        page = client.get("/settings").text
+        assert "Scroll-wheel increments" in page
+        assert 'name="weight"' in page
+        assert 'name="length"' in page
+        assert 'name="head_circ"' in page
+        assert 'name="temp_c"' in page
+        assert 'name="bottle_volume_ml"' in page
+        assert 'name="breast_duration_min"' in page
+        assert 'name="tummy_time_duration_min"' in page
+        assert 'name="reading_talking_duration_min"' in page
+        assert 'name="sensory_play_duration_min"' in page
+        assert 'name="foreign_language_duration_min"' in page
+        assert '"/api/settings/wheel-steps"' in page
+

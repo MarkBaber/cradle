@@ -156,16 +156,77 @@
   }
 
   function rangeValues(min, max, step) {
+    step = Number(step) || 1;
     var out = [];
     for (var v = min; v <= max; v += step) out.push(String(v));
     return out;
   }
 
-  function decimalRangeValues(minTenths, maxTenths) {
+  function decimalRangeValues(min, max, step) {
+    step = Number(step) || 0.1;
+    var decimals = (String(step).split(".")[1] || "").length;
+    decimals = Math.max(1, decimals);
     var out = [];
-    for (var t = minTenths; t <= maxTenths; t++) out.push((t / 10).toFixed(1));
+    for (var v = min; v <= max + 1e-9; v += step) out.push(v.toFixed(decimals));
     return out;
   }
+
+  function findClosestDefault(values, preferredDefault) {
+    var prefStr = String(preferredDefault);
+    if (values.indexOf(prefStr) !== -1) {
+      return prefStr;
+    }
+    var pref = parseFloat(preferredDefault);
+    var best = values[0];
+    var minDiff = Math.abs(parseFloat(values[0]) - pref);
+    for (var i = 1; i < values.length; i++) {
+      var diff = Math.abs(parseFloat(values[i]) - pref);
+      if (diff < minDiff) {
+        minDiff = diff;
+        best = values[i];
+      }
+    }
+    return String(best);
+  }
+
+  function makeIntWheelSpec(min, max, step, unit, preferredDefault) {
+    var vals = rangeValues(min, max, step);
+    var defVal = findClosestDefault(vals, preferredDefault);
+    return { values: vals, unit: unit, defaultValue: defVal };
+  }
+
+  function makeDecWheelSpec(min, max, step, unit, preferredDefault) {
+    var vals = decimalRangeValues(min, max, step);
+    var defVal = findClosestDefault(vals, preferredDefault);
+    return { values: vals, unit: unit, defaultValue: defVal };
+  }
+
+  var WHEEL_STEPS = {
+    weight: 25,
+    length: 5,
+    head_circ: 5,
+    temp_c: 0.1,
+    bottle_volume_ml: 5,
+    breast_duration_min: 5,
+    tummy_time_duration_min: 1,
+    reading_talking_duration_min: 1,
+    sensory_play_duration_min: 1,
+    foreign_language_duration_min: 1,
+  };
+
+  function updateWheelStepsFromApi() {
+    if (typeof fetch === "undefined") return;
+    fetch("/api/settings/wheel-steps")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data) return;
+        for (var k in data) {
+          if (data[k] !== undefined) WHEEL_STEPS[k] = data[k];
+        }
+      })
+      .catch(function () {});
+  }
+  updateWheelStepsFromApi();
 
   function numericWheelRows(values, unit, current) {
     return values.map(function (v) {
@@ -211,7 +272,6 @@
     apply();
     return apply;
   }
-
   var GROWTH_WHEELS = {
     weight: { values: rangeValues(200, 25000, 25), unit: "g", defaultValue: "3500" },
     length: { values: rangeValues(250, 1200, 5), unit: "mm", defaultValue: "500" },
@@ -232,6 +292,53 @@
     sensory_play: SENSORY_PLAY_DURATION_WHEEL,
     foreign_language: FOREIGN_LANGUAGE_DURATION_WHEEL,
   };
+  function getGrowthWheel(measure, nativeInput) {
+    var stepKey = measure === "length" ? "stepLength" : (measure === "head_circ" ? "stepHeadCirc" : "stepWeight");
+    var configKey = measure === "length" ? "length" : (measure === "head_circ" ? "head_circ" : "weight");
+    var defaultStep = configKey === "weight" ? 25 : 5;
+    var step = (nativeInput && nativeInput.dataset && nativeInput.dataset[stepKey])
+      ? parseFloat(nativeInput.dataset[stepKey])
+      : (WHEEL_STEPS[configKey] || defaultStep);
+
+    if (measure === "length") {
+      return makeIntWheelSpec(250, 1200, step, "mm", 500);
+    } else if (measure === "head_circ") {
+      return makeIntWheelSpec(250, 600, step, "mm", 350);
+    } else {
+      return makeIntWheelSpec(200, 25000, step, "g", 3500);
+    }
+  }
+
+  function getTempWheel(nativeInput) {
+    var step = (nativeInput && nativeInput.dataset && nativeInput.dataset.step)
+      ? parseFloat(nativeInput.dataset.step)
+      : (WHEEL_STEPS.temp_c || 0.1);
+    return makeDecWheelSpec(34.0, 42.0, step, "°C", "37.0");
+  }
+
+  function getBottleVolumeWheel(nativeInput) {
+    var step = (nativeInput && nativeInput.dataset && nativeInput.dataset.step)
+      ? parseFloat(nativeInput.dataset.step)
+      : (WHEEL_STEPS.bottle_volume_ml || 5);
+    return makeIntWheelSpec(5, 500, step, "ml", 60);
+  }
+
+  function getBreastDurationWheel(nativeInput) {
+    var step = (nativeInput && nativeInput.dataset && nativeInput.dataset.step)
+      ? parseFloat(nativeInput.dataset.step)
+      : (WHEEL_STEPS.breast_duration_min || 5);
+    return makeIntWheelSpec(5, 120, step, "min", 15);
+  }
+
+  function getActivityDurationWheel(nativeInput) {
+    var category = (nativeInput && nativeInput.dataset && nativeInput.dataset.category) || "tummy_time";
+    var configKey = category + "_duration_min";
+    var step = (nativeInput && nativeInput.dataset && nativeInput.dataset.step)
+      ? parseFloat(nativeInput.dataset.step)
+      : (WHEEL_STEPS[configKey] || 1);
+    var prefDefault = category === "tummy_time" ? 5 : 15;
+    return makeIntWheelSpec(1, 60, step, "min", prefDefault);
+  }
 
   function bindGrowthValueWheel(root) {
     if (!anyPickerAvailable()) return;
@@ -242,7 +349,7 @@
     valueInput.dataset.apBound = "1";
 
     var rebuild = bindNumericWheel(valueInput, function () {
-      return GROWTH_WHEELS[measureSelect.value] || GROWTH_WHEELS.weight;
+      return getGrowthWheel(measureSelect.value, valueInput);
     });
     measureSelect.addEventListener("change", rebuild);
   }
@@ -254,7 +361,7 @@
     if (!tempInput || tempInput.dataset.apBound) return;
     tempInput.dataset.apBound = "1";
     bindNumericWheel(tempInput, function () {
-      return TEMP_WHEEL;
+      return getTempWheel(tempInput);
     });
   }
 
@@ -265,7 +372,7 @@
     if (!volInput || volInput.dataset.apBound) return;
     volInput.dataset.apBound = "1";
     bindNumericWheel(volInput, function () {
-      return BOTTLE_VOLUME_WHEEL;
+      return getBottleVolumeWheel(volInput);
     });
   }
 
@@ -276,7 +383,7 @@
     if (!durInput || durInput.dataset.apBound) return;
     durInput.dataset.apBound = "1";
     bindNumericWheel(durInput, function () {
-      return BREAST_DURATION_WHEEL;
+      return getBreastDurationWheel(durInput);
     });
   }
 
@@ -287,10 +394,11 @@
     if (!actInput || actInput.dataset.apBound) return;
     actInput.dataset.apBound = "1";
     bindNumericWheel(actInput, function () {
-      var cat = actInput.dataset.category || "tummy_time";
-      return ACTIVITY_DURATION_WHEELS[cat] || TUMMY_DURATION_WHEEL;
+      return getActivityDurationWheel(actInput);
     });
   }
+
+  var bindTummyDurationWheel = bindActivityDurationWheel;
 
   function bindHistoryNumericWheels(root) {
     if (!anyPickerAvailable()) return;

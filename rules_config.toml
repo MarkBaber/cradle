@@ -57,6 +57,21 @@ timezone = "Europe/London"
 bottle_volume_ml = 60
 breast_duration_min = 20
 
+[wheel_steps]
+# UX convenience step sizes for AnyPicker scroll-wheels (task U37), editable from
+# /settings - NOT clinical thresholds, so outside CLAUDE.md's architect-only
+# carve-out for this file.
+weight = 25
+length = 5
+head_circ = 5
+temp_c = 0.1
+bottle_volume_ml = 5
+breast_duration_min = 5
+tummy_time_duration_min = 1
+reading_talking_duration_min = 1
+sensory_play_duration_min = 1
+foreign_language_duration_min = 1
+
 [projections]
 # UX convenience overrides for the next-feed/next-mess dials (task V3/U24) -
 # NOT clinical thresholds, so outside CLAUDE.md's architect-only carve-out

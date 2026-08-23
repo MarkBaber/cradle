@@ -101,4 +101,51 @@ fetch("/api/settings/projections").then((r) => r.json()).then((d) => {
   }
 });
 </script>
+
+<h2>Scroll-wheel increments</h2>
+<form method="post" action="/api/settings/wheel-steps" class="stack"
+      hx-post="/api/settings/wheel-steps" hx-target="#wheel-steps-result" hx-swap="innerHTML">
+  <label>Weight step (g) <input type="number" name="weight" id="wheel-step-weight" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.weight if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Length step (mm) <input type="number" name="length" id="wheel-step-length" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.length if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Head circumference step (mm) <input type="number" name="head_circ" id="wheel-step-head-circ" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.head_circ if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Temperature step (°C) <input type="number" name="temp_c" id="wheel-step-temp-c" step="any" min="0.01" inputmode="decimal"
+    value="{{ entry_defaults.wheel_steps.temp_c if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Bottle volume step (ml) <input type="number" name="bottle_volume_ml" id="wheel-step-bottle-volume-ml" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.bottle_volume_ml if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Breast duration step (min) <input type="number" name="breast_duration_min" id="wheel-step-breast-duration-min" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.breast_duration_min if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Tummy time duration step (min) <input type="number" name="tummy_time_duration_min" id="wheel-step-tummy-time-duration-min" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.tummy_time_duration_min if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Reading &amp; Talking duration step (min) <input type="number" name="reading_talking_duration_min" id="wheel-step-reading-talking-duration-min" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.reading_talking_duration_min if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Sensory Play duration step (min) <input type="number" name="sensory_play_duration_min" id="wheel-step-sensory-play-duration-min" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.sensory_play_duration_min if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <label>Foreign Language duration step (min) <input type="number" name="foreign_language_duration_min" id="wheel-step-foreign-language-duration-min" min="1" inputmode="numeric"
+    value="{{ entry_defaults.wheel_steps.foreign_language_duration_min if entry_defaults and entry_defaults.wheel_steps else '' }}"></label>
+  <button type="submit">Save increments</button>
+</form>
+<p id="wheel-steps-result" class="note"></p>
+<script>
+fetch("/api/settings/wheel-steps").then((r) => r.json()).then((d) => {
+  const ids = {
+    weight: "wheel-step-weight",
+    length: "wheel-step-length",
+    head_circ: "wheel-step-head-circ",
+    temp_c: "wheel-step-temp-c",
+    bottle_volume_ml: "wheel-step-bottle-volume-ml",
+    breast_duration_min: "wheel-step-breast-duration-min",
+    tummy_time_duration_min: "wheel-step-tummy-time-duration-min",
+    reading_talking_duration_min: "wheel-step-reading-talking-duration-min",
+    sensory_play_duration_min: "wheel-step-sensory-play-duration-min",
+    foreign_language_duration_min: "wheel-step-foreign-language-duration-min",
+  };
+  for (const [key, id] of Object.entries(ids)) {
+    const el = document.getElementById(id);
+    if (el && d[key] !== undefined) el.value = d[key];
+  }
+});
+</script>
 {% endblock %}
