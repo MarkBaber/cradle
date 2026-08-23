@@ -278,6 +278,16 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "sleep_hours": list(d.sleep_hours),
                 "longest_sleep_hours": list(d.longest_sleep_hours),
                 "night_wakings": list(d.night_wakings),
+                "age_days": list(d.age_days),
+                "targets": {
+                    "feed_volume_ml": list(d.targets.feed_volume_ml),
+                    "wet_min": list(d.targets.wet_min),
+                    "wet_max": list(d.targets.wet_max),
+                    "dirty_min": list(d.targets.dirty_min),
+                    "dirty_max": list(d.targets.dirty_max),
+                    "sleep_min_hours": list(d.targets.sleep_min_hours),
+                    "sleep_max_hours": list(d.targets.sleep_max_hours),
+                },
             }
         )
 

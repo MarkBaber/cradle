@@ -103,3 +103,45 @@ def test_weight_loss_shown_on_page() -> None:
     client = _client()
     client.post("/api/growth", data={"measure": "weight", "value": 3060})
     assert "10.0% below birth weight" in client.get("/charts").text
+
+
+def test_charts_renders_four_separate_chart_containers() -> None:
+    """C6: /charts renders feeds, wet, dirty, and sleep chart containers."""
+    client = _client()
+    r = client.get("/charts")
+    assert r.status_code == 200
+    for container_id in ("feedschart", "wetchart", "dirtychart", "sleeptargetchart"):
+        assert f'id="{container_id}"' in r.text
+    assert 'id="dailychart"' not in r.text
+
+
+def test_daily_series_api_includes_age_days_and_targets() -> None:
+    """C6: GET /api/series/daily includes age_days and targets dict."""
+    client = _client()
+    r = client.get("/api/series/daily?days=7")
+    assert r.status_code == 200
+    d = r.json()
+    assert "age_days" in d
+    assert len(d["age_days"]) == 7
+    assert "targets" in d
+    targets = d["targets"]
+    for key in (
+        "feed_volume_ml",
+        "wet_min",
+        "wet_max",
+        "dirty_min",
+        "dirty_max",
+        "sleep_min_hours",
+        "sleep_max_hours",
+    ):
+        assert key in targets
+        assert len(targets[key]) == 7
+
+
+def test_none_target_entries_are_none_not_zero() -> None:
+    """C6: None target entries render as None/null in JSON contract, not misleading zero."""
+    client = _client()
+    r = client.get("/api/series/daily?days=7")
+    d = r.json()
+    # Before any weight is logged, feed_volume_ml target must be None
+    assert all(val is None for val in d["targets"]["feed_volume_ml"])

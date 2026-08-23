@@ -168,7 +168,7 @@ sup{font-size:.6em}
 .legend{display:flex;gap:14px;color:var(--dim);font-size:.72rem;flex-wrap:wrap}
 .legend span{display:flex;align-items:center;gap:5px}
 .legend i{display:inline-block;width:14px;height:10px;border-radius:2px;position:static}
-#dailychart,#sleepchart{height:260px;margin:10px 0;border:1px solid var(--line);
+#dailychart,#sleepchart,#feedschart,#wetchart,#dirtychart,#sleeptargetchart{height:260px;margin:10px 0;border:1px solid var(--line);
   border-radius:10px}
 
 /* next-event dials (task U23): nested feed/mess rings + hunger/mess bars.
