@@ -229,6 +229,21 @@ def build_pages_router(svc: Services) -> APIRouter:
             {"rows": _rows(request, svc), "focus": request.query_params.get("focus", "")},
         )
 
+    @router.get("/day-summary", response_class=HTMLResponse)
+    @router.get("/summary", response_class=HTMLResponse)
+    def day_summary(request: Request) -> Response:
+        if not svc.settings.has_profile():
+            return RedirectResponse("/settings?first_run=1", status_code=303)
+        return TEMPLATES.TemplateResponse(
+            request,
+            "day_summary.html",
+            {
+                "day_groups": _day_grouped_rows(request, svc),
+                "domains": DOMAINS,
+                "selected": _selected(request),
+            },
+        )
+
     @router.get("/charts", response_class=HTMLResponse)
     def charts(request: Request) -> Response:
         if not svc.settings.has_profile():
@@ -480,4 +495,21 @@ def _rows(request: Request, svc: Services) -> list[object]:
 
     return list(
         svc.history.rows(domains=_selected(request), since=parse("since"), until=parse("until"))
+    )
+
+
+def _day_grouped_rows(request: Request, svc: Services) -> list[object]:
+    def parse(name: str) -> datetime | None:
+        raw = request.query_params.get(name)
+        if not raw:
+            return None
+        try:
+            return to_utc(datetime.fromisoformat(raw))
+        except ValueError:
+            return None
+
+    return list(
+        svc.history.day_grouped_rows(
+            domains=_selected(request), since=parse("since"), until=parse("until")
+        )
     )

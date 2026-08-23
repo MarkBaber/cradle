@@ -1,8 +1,9 @@
 """Unified event history across domains (task U4)."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
+from cradle.models import to_local
 from cradle.repos.events_repo import EventsRepo
 
 DOMAINS = ("feed", "nappy", "sleep", "growth", "temperature", "milestone", "note")
@@ -21,6 +22,46 @@ class HistoryRow:
     duration_min: int | None = None
     stool_colour: str | None = None
     consistency: str | None = None
+
+    @property
+    def activity(self) -> str:
+        return self.table.replace("_", " ").title()
+
+    @property
+    def activity_kind(self) -> str:
+        if self.table == "feed" and self.method:
+            return self.method.replace("_", " ").title()
+        if self.table == "nappy" and self.kind:
+            return self.kind.replace("_", " ").title()
+        if self.table == "growth":
+            parts = self.detail.split(" ", 1)
+            return parts[0].title()
+        if self.table == "milestone" and ":" in self.detail:
+            return self.detail.split(":", 1)[0].strip().title()
+        return ""
+
+    @property
+    def short_detail(self) -> str:
+        if self.table == "feed":
+            bits = []
+            if self.duration_min:
+                bits.append(f"{self.duration_min} min")
+            if self.volume_ml:
+                bits.append(f"{self.volume_ml} ml")
+            return ", ".join(bits)
+        if self.table == "nappy":
+            bits = []
+            if self.stool_colour and self.stool_colour != "unset":
+                bits.append(self.stool_colour.replace("_", " "))
+            if self.consistency and self.consistency != "unset":
+                bits.append(self.consistency.replace("_", " "))
+            return ", ".join(bits)
+        if self.table == "growth":
+            parts = self.detail.split(" ", 1)
+            return parts[1] if len(parts) > 1 else ""
+        if self.table == "milestone" and ":" in self.detail:
+            return self.detail.split(":", 1)[1].strip()
+        return self.detail
 
 
 class HistoryService:
@@ -135,3 +176,23 @@ class HistoryService:
 
         out.sort(key=lambda r: r.ts, reverse=True)
         return out[:limit]
+
+    def day_grouped_rows(
+        self,
+        domains: tuple[str, ...] = DOMAINS,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int = 200,
+    ) -> list[tuple[date, list[HistoryRow]]]:
+        flat = self.rows(domains=domains, since=since, until=until, limit=limit)
+        groups: dict[date, list[HistoryRow]] = {}
+        for r in flat:
+            d = to_local(r.ts).date()
+            groups.setdefault(d, []).append(r)
+
+        result: list[tuple[date, list[HistoryRow]]] = []
+        for d in sorted(groups.keys(), reverse=True):
+            day_rows = sorted(groups[d], key=lambda r: r.ts)
+            result.append((d, day_rows))
+        return result
+
