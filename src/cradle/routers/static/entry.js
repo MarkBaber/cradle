@@ -222,6 +222,16 @@
   var BOTTLE_VOLUME_WHEEL = { values: rangeValues(5, 500, 5), unit: "ml", defaultValue: "60" };
   var BREAST_DURATION_WHEEL = { values: rangeValues(5, 120, 5), unit: "min", defaultValue: "15" };
   var TUMMY_DURATION_WHEEL = { values: rangeValues(1, 60, 1), unit: "min", defaultValue: "5" };
+  var READING_TALKING_DURATION_WHEEL = { values: rangeValues(1, 60, 1), unit: "min", defaultValue: "15" };
+  var SENSORY_PLAY_DURATION_WHEEL = { values: rangeValues(1, 60, 1), unit: "min", defaultValue: "15" };
+  var FOREIGN_LANGUAGE_DURATION_WHEEL = { values: rangeValues(1, 60, 1), unit: "min", defaultValue: "15" };
+
+  var ACTIVITY_DURATION_WHEELS = {
+    tummy_time: TUMMY_DURATION_WHEEL,
+    reading_talking: READING_TALKING_DURATION_WHEEL,
+    sensory_play: SENSORY_PLAY_DURATION_WHEEL,
+    foreign_language: FOREIGN_LANGUAGE_DURATION_WHEEL,
+  };
 
   function bindGrowthValueWheel(root) {
     if (!anyPickerAvailable()) return;
@@ -270,15 +280,20 @@
     });
   }
 
-  function bindTummyDurationWheel(root) {
+  function bindActivityDurationWheel(root) {
     if (!anyPickerAvailable()) return;
     var scope = root && root.querySelectorAll ? root : document;
-    var tummyInput = scope.querySelector("#tummy-duration");
-    if (!tummyInput || tummyInput.dataset.apBound) return;
-    tummyInput.dataset.apBound = "1";
-    bindNumericWheel(tummyInput, function () {
-      return TUMMY_DURATION_WHEEL;
+    var actInput = scope.querySelector("#activity-duration") || scope.querySelector("#tummy-duration");
+    if (!actInput || actInput.dataset.apBound) return;
+    actInput.dataset.apBound = "1";
+    bindNumericWheel(actInput, function () {
+      var cat = actInput.dataset.category || "tummy_time";
+      return ACTIVITY_DURATION_WHEELS[cat] || TUMMY_DURATION_WHEEL;
     });
+  }
+
+  function bindTummyDurationWheel(root) {
+    bindActivityDurationWheel(root);
   }
 
   function bindPickers(root) {

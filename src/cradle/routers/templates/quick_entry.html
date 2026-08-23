@@ -245,7 +245,7 @@
   <form class="stack panel" method="post" action="/api/activity"
         hx-post="/api/activity" hx-target="#toast" hx-swap="innerHTML">
     <input type="hidden" name="category" value="{{ open_category }}">
-    <label>Duration (min)<input type="number" name="duration_min" {% if open_category == 'tummy_time' %}id="tummy-duration"{% endif %} min="0" inputmode="numeric"
+    <label>Duration (min)<input type="number" name="duration_min" id="activity-duration" data-category="{{ open_category }}" min="0" inputmode="numeric"
       value="{{ entry_defaults.get(open_category + '_duration_min', '') }}"></label>
     {% if activity_targets.get(open_category) %}
     <span class="note">{{ activity_targets[open_category] }}</span>
