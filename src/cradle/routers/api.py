@@ -25,6 +25,7 @@ from cradle.models import (
     MilkStore,
     NappyKind,
     StoolColour,
+    StoolConsistency,
     UneditableFieldError,
     UnknownTableError,
     to_local,
@@ -367,11 +368,16 @@ def build_api_router(svc: Services) -> APIRouter:
         request: Request,
         kind: Annotated[str, Form()] = NappyKind.WET.value,
         stool_colour: Annotated[str, Form()] = StoolColour.UNSET.value,
+        consistency: Annotated[str, Form()] = StoolConsistency.UNSET.value,
         ts: Annotated[str | None, Form()] = None,
     ) -> Response:
         k = NappyKind(kind)
         event_id = svc.logging.log_nappy(
-            k, StoolColour(stool_colour), logged_by=who(request), ts=_panel_ts(ts)
+            k,
+            StoolColour(stool_colour),
+            StoolConsistency(consistency),
+            logged_by=who(request),
+            ts=_panel_ts(ts),
         )
         return _respond(request, "nappy", event_id, f"{k.value} nappy")
 

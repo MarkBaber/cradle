@@ -296,8 +296,10 @@ def test_each_tile_opens_a_panel_with_its_choice_preselected() -> None:
             assert f'name="kind" value="{value}"' in r.text
     dirty = client.get("/?panel=nappy&kind=dirty").text
     assert 'name="stool_colour"' in dirty
+    assert 'name="consistency"' in dirty
     wet = client.get("/?panel=nappy&kind=wet").text
     assert "stool_colour" not in wet
+    assert "consistency" not in wet
 
 
 def test_bottle_tile_now_defaults_to_expressed_not_formula() -> None:
@@ -399,7 +401,7 @@ PANEL_SAVE_WITH_BLANK_OPTIONAL_FIELDS = [
     ("/api/feed", {"method": "breast_right", "duration_min": "", "ts": ""}),
     ("/api/feed", {"method": "bottle_expressed", "volume_ml": "", "ts": ""}),
     ("/api/nappy", {"kind": "wet", "ts": ""}),
-    ("/api/nappy", {"kind": "dirty", "stool_colour": "unset", "ts": ""}),
+    ("/api/nappy", {"kind": "dirty", "stool_colour": "unset", "consistency": "unset", "ts": ""}),
     ("/api/activity", {"category": "tummy_time", "duration_min": "", "ts": ""}),
     ("/api/activity", {"category": "reading_talking", "duration_min": "", "ts": ""}),
     ("/api/activity", {"category": "sensory_play", "duration_min": "", "ts": ""}),
@@ -1577,4 +1579,77 @@ def test_u38_no_js_form_submission() -> None:
     header = csv_rows[0].split(",")
     row = csv_rows[1].split(",")
     assert row[header.index("consistency")] == "soft"
+
+
+# --------------------------------------------------------------------- U39
+
+
+def test_dirty_panel_renders_consistency_select_alongside_colour() -> None:
+    client = _client()
+    dirty = client.get("/?panel=nappy&kind=dirty").text
+    assert 'name="stool_colour"' in dirty
+    assert 'name="consistency"' in dirty
+
+    for val, text in [
+        ("unset", "-"),
+        ("sticky", "Sticky"),
+        ("seedy", "Seedy"),
+        ("soft", "Soft"),
+        ("formed", "Formed"),
+        ("runny", "Runny"),
+        ("hard", "Hard"),
+        ("mucousy", "Mucousy"),
+    ]:
+        assert f'value="{val}"' in dirty, f"missing consistency option value {val}"
+        assert text in dirty, f"missing consistency option text {text}"
+
+    wet = client.get("/?panel=nappy&kind=wet").text
+    assert "stool_colour" not in wet
+    assert "consistency" not in wet
+
+
+def test_dirty_panel_save_logs_consistency_end_to_end() -> None:
+    client = _client()
+    client.get("/?panel=nappy&kind=dirty")
+    r = client.post(
+        "/api/nappy",
+        data={"kind": "dirty", "stool_colour": "yellow", "consistency": "seedy"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    nappies = client.app.state.services.logging._repo.list_nappies(limit=1)
+    assert len(nappies) == 1
+    assert nappies[0].stool_colour.value == "yellow"
+    assert nappies[0].consistency.value == "seedy"
+    hist = client.get("/history").text
+    assert "yellow" in hist
+    assert "seedy" in hist
+
+
+def test_dirty_panel_save_with_default_consistency_persists_as_unset() -> None:
+    client = _client()
+    client.get("/?panel=nappy&kind=dirty")
+    r = client.post(
+        "/api/nappy",
+        data={"kind": "dirty", "stool_colour": "brown", "consistency": "unset"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    nappies = client.app.state.services.logging._repo.list_nappies(limit=1)
+    assert len(nappies) == 1
+    assert nappies[0].consistency.value == "unset"
+
+
+def test_dirty_panel_consistency_submits_without_js() -> None:
+    client = _client()
+    r = client.post(
+        "/api/nappy",
+        data={"kind": "dirty", "stool_colour": "green", "consistency": "soft"},
+    )
+    assert r.status_code == 303
+    nappies = client.app.state.services.logging._repo.list_nappies(limit=1)
+    assert len(nappies) == 1
+    assert nappies[0].consistency.value == "soft"
+
+
 
