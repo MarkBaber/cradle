@@ -92,6 +92,7 @@ button.del{color:var(--err);border-color:transparent;background:none;min-height:
 table#history{width:100%;border-collapse:collapse;font-size:.88rem}
 #history td{border-bottom:1px solid var(--line);padding:8px 4px;vertical-align:top}
 #history td.t{white-space:nowrap;color:var(--dim);font-variant-numeric:tabular-nums}
+#history tr.time-header td{font-weight:600;padding-top:10px}
 #history tr.focus{background:#1b2431}
 #history .empty{text-align:center;color:var(--dim);padding:24px}
 .inline{display:inline-flex;gap:4px;margin:0}

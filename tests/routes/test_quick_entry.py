@@ -1095,7 +1095,7 @@ def test_growth_temperature_milestone_save_with_ts_untouched_still_logs_at_now()
         assert r.status_code == 200, f"{url} -> {r.status_code}"
     hist = client.get("/history").text
     expected = to_local(NOW).strftime("%d %b %H:%M")
-    assert hist.count(expected) >= 3, "growth/temperature/milestone saves must log at now"
+    assert hist.count(expected) >= 1, "growth/temperature/milestone saves must log at now"
 
 
 def test_growth_temperature_milestone_save_with_picked_time_persists_that_exact_time() -> None:
@@ -1108,7 +1108,7 @@ def test_growth_temperature_milestone_save_with_picked_time_persists_that_exact_
         assert r.status_code == 200, f"{url} -> {r.status_code}"
     hist = client.get("/history").text
     today_local = to_local(datetime.now(UTC)).strftime("%d %b")
-    assert hist.count(f"{today_local} 09:30") >= 3
+    assert hist.count(f"{today_local} 09:30") >= 1
 
 
 def test_growth_temperature_milestone_time_field_round_trips_through_adjust_time() -> None:
@@ -1134,7 +1134,7 @@ def test_growth_temperature_milestone_time_field_round_trips_through_adjust_time
         assert r2.status_code == 303
 
     hist = client.get("/history").text
-    assert hist.count("10 Jul 23:15") >= 3
+    assert hist.count("10 Jul 23:15") >= 1
 
 
 def test_growth_temperature_milestone_fields_submit_correctly_with_picker_script_disabled() -> None:
@@ -1427,3 +1427,154 @@ def test_u36_converted_fields_submit_correctly_without_js() -> None:
     assert act_by_cat["reading_talking"] == 12
     assert act_by_cat["sensory_play"] == 18
     assert act_by_cat["foreign_language"] == 25
+
+
+# --------------------------------------------------------------------- U38
+
+
+def test_u38_history_wheels_and_gating() -> None:
+    """U38 exit criteria 1, 2, 3, 4:
+    - Bottle feed has 'Set ml' form prefilled with stored volume_ml, no 'Set min'.
+    - Breast feed has 'Set min' form prefilled with stored duration_min, no 'Set ml'.
+    - Dirty nappy has 'Set colour' and 'Set consistency' forms.
+    - Wet nappy has neither 'Set colour' nor 'Set consistency'.
+    - Save posts picked values through existing /api/edit-field parsing.
+    """
+    client = _client()
+    # Log a bottle feed with 60ml and a breast feed with 15min
+    client.post("/api/feed", data={"method": "bottle_expressed", "volume_ml": "60"})
+    client.post("/api/feed", data={"method": "breast_left", "duration_min": "15"})
+    client.post(
+        "/api/nappy", data={"kind": "dirty", "stool_colour": "green", "consistency": "seedy"}
+    )
+    client.post("/api/nappy", data={"kind": "wet"})
+
+    hist = client.get("/history").text
+
+    # Check JS wiring for history wheels
+    js = client.get("/static/entry.js").text
+    assert "bindHistoryNumericWheels" in js
+
+    # Feed row 1 (bottle_expressed): 'Set ml' present with value="60", 'Set min' absent
+    bottle_row_match = re.search(r'id="feed-1"[^>]*>([\s\S]*?)</tr>', hist)
+    assert bottle_row_match is not None
+    bottle_html = bottle_row_match.group(1)
+    assert 'name="field" value="volume_ml"' in bottle_html
+    assert 'value="60"' in bottle_html
+    assert 'name="field" value="duration_min"' not in bottle_html
+
+    # Feed row 2 (breast_left): 'Set min' present with value="15", 'Set ml' absent
+    breast_row_match = re.search(r'id="feed-2"[^>]*>([\s\S]*?)</tr>', hist)
+    assert breast_row_match is not None
+    breast_html = breast_row_match.group(1)
+    assert 'name="field" value="duration_min"' in breast_html
+    assert 'value="15"' in breast_html
+    assert 'name="field" value="volume_ml"' not in breast_html
+
+    # Nappy row 1 (dirty): 'Set colour' and 'Set consistency' present
+    dirty_row_match = re.search(r'id="nappy-1"[^>]*>([\s\S]*?)</tr>', hist)
+    assert dirty_row_match is not None
+    dirty_html = dirty_row_match.group(1)
+    assert 'name="field" value="stool_colour"' in dirty_html
+    assert 'name="field" value="consistency"' in dirty_html
+
+    # Nappy row 2 (wet): 'Set colour' and 'Set consistency' absent
+    wet_row_match = re.search(r'id="nappy-2"[^>]*>([\s\S]*?)</tr>', hist)
+    assert wet_row_match is not None
+    wet_html = wet_row_match.group(1)
+    assert 'name="field" value="stool_colour"' not in wet_html
+    assert 'name="field" value="consistency"' not in wet_html
+
+    # Test /api/edit-field volume_ml and duration_min update
+    r1 = client.post(
+        "/api/edit-field",
+        data={"table": "feed", "event_id": 1, "field": "volume_ml", "value": "80"},
+        headers={"HX-Request": "true"},
+    )
+    assert r1.status_code == 200
+    assert "80 ml" in client.get("/history").text
+
+    r2 = client.post(
+        "/api/edit-field",
+        data={"table": "feed", "event_id": 2, "field": "duration_min", "value": "25"},
+        headers={"HX-Request": "true"},
+    )
+    assert r2.status_code == 200
+    assert "25 min" in client.get("/history").text
+
+
+def test_u38_history_same_time_grouping() -> None:
+    """U38 exit criteria 5 & 6:
+    - Multiple entries logged at the same local date+minute render under one shared
+      date/time heading.
+    - Each entry keeps its own working edit/delete controls scoped to its table+event_id.
+    - Entries at different times remain in separate groups, newest first.
+    """
+    client = _client()
+    client.post("/api/feed", data={"method": "bottle_expressed", "volume_ml": "60", "ts": "06:20"})
+    client.post("/api/nappy", data={"kind": "wet", "ts": "06:20"})
+    client.post(
+        "/api/nappy",
+        data={"kind": "dirty", "stool_colour": "green", "consistency": "seedy", "ts": "06:20"},
+    )
+    client.post("/api/feed", data={"method": "breast_left", "duration_min": "10", "ts": "05:15"})
+
+    page = client.get("/history").text
+
+    today_str = to_local(datetime.now(UTC)).strftime("%d %b")
+    h_0620 = f"{today_str} 06:20"
+    h_0515 = f"{today_str} 05:15"
+
+    # Shared heading rendered exactly once for the three 06:20 events
+    assert page.count(h_0620) == 1
+    assert page.count(h_0515) == 1
+
+    # 06:20 group appears before 05:15 group (newest first)
+    assert page.find(h_0620) < page.find(h_0515)
+
+    # Each entry has its own id and action forms
+    assert 'id="feed-1"' in page
+    assert 'id="nappy-1"' in page
+    assert 'id="nappy-2"' in page
+    assert 'id="feed-2"' in page
+
+
+def test_u38_no_js_form_submission() -> None:
+    """U38 exit criterion 7: Every gated/seeded form submits correctly without JS."""
+    client = _client()
+    client.post("/api/feed", data={"method": "bottle_expressed", "volume_ml": "50"})
+    client.post("/api/feed", data={"method": "breast_right", "duration_min": "10"})
+    client.post("/api/nappy", data={"kind": "dirty"})
+
+    # Plain form post (no HX-Request header) to /api/edit-field
+    r1 = client.post(
+        "/api/edit-field",
+        data={"table": "feed", "event_id": 1, "field": "volume_ml", "value": "100"},
+    )
+    assert r1.status_code == 303
+    assert "100 ml" in client.get("/history").text
+
+    r2 = client.post(
+        "/api/edit-field",
+        data={"table": "feed", "event_id": 2, "field": "duration_min", "value": "20"},
+    )
+    assert r2.status_code == 303
+    assert "20 min" in client.get("/history").text
+
+    r3 = client.post(
+        "/api/edit-field",
+        data={"table": "nappy", "event_id": 1, "field": "stool_colour", "value": "yellow"},
+    )
+    assert r3.status_code == 303
+    assert "yellow" in client.get("/history").text
+
+    r4 = client.post(
+        "/api/edit-field",
+        data={"table": "nappy", "event_id": 1, "field": "consistency", "value": "soft"},
+    )
+    assert r4.status_code == 303
+    csv_rows = client.get("/export/nappy.csv").text.strip().splitlines()
+    header = csv_rows[0].split(",")
+    row = csv_rows[1].split(",")
+    assert row[header.index("consistency")] == "soft"
+
