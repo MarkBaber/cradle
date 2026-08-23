@@ -586,7 +586,8 @@ def build_api_router(svc: Services) -> APIRouter:
         svc.alerts.acknowledge(fingerprint)
         if request.headers.get("HX-Request"):
             return HTMLResponse("")
-        return RedirectResponse("/", status_code=303)
+        referer = request.headers.get("Referer")
+        return RedirectResponse(referer or "/", status_code=303)
 
     # ----------------------------------------------------------- settings
     @router.post("/api/settings/profile")

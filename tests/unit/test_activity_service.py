@@ -65,17 +65,37 @@ def test_trailing_24h_cumulative_minutes_and_session_count() -> None:
 
     # Two tummy-time sessions inside the window, one outside
     repo.insert_activity(
-        ActivityEvent(ts=NOW - timedelta(hours=1), category=ActivityCategory.TUMMY_TIME, duration_min=3, **BASE_EV)
+        ActivityEvent(
+            ts=NOW - timedelta(hours=1),
+            category=ActivityCategory.TUMMY_TIME,
+            duration_min=3,
+            **BASE_EV,
+        )
     )
     repo.insert_activity(
-        ActivityEvent(ts=NOW - timedelta(hours=5), category=ActivityCategory.TUMMY_TIME, duration_min=4, **BASE_EV)
+        ActivityEvent(
+            ts=NOW - timedelta(hours=5),
+            category=ActivityCategory.TUMMY_TIME,
+            duration_min=4,
+            **BASE_EV,
+        )
     )
     repo.insert_activity(
-        ActivityEvent(ts=NOW - timedelta(hours=25), category=ActivityCategory.TUMMY_TIME, duration_min=99, **BASE_EV)
+        ActivityEvent(
+            ts=NOW - timedelta(hours=25),
+            category=ActivityCategory.TUMMY_TIME,
+            duration_min=99,
+            **BASE_EV,
+        )
     )
     # One reading session
     repo.insert_activity(
-        ActivityEvent(ts=NOW - timedelta(hours=2), category=ActivityCategory.READING_TALKING, duration_min=10, **BASE_EV)
+        ActivityEvent(
+            ts=NOW - timedelta(hours=2),
+            category=ActivityCategory.READING_TALKING,
+            duration_min=10,
+            **BASE_EV,
+        )
     )
 
     summaries = {s.category: s for s in svc.summaries()}
@@ -134,7 +154,12 @@ def test_category_with_no_events_reports_zero_not_error() -> None:
 
     # Log only one category
     repo.insert_activity(
-        ActivityEvent(ts=NOW - timedelta(hours=1), category=ActivityCategory.SENSORY_PLAY, duration_min=2, **BASE_EV)
+        ActivityEvent(
+            ts=NOW - timedelta(hours=1),
+            category=ActivityCategory.SENSORY_PLAY,
+            duration_min=2,
+            **BASE_EV,
+        )
     )
 
     summaries = {s.category: s for s in svc.summaries()}
@@ -172,7 +197,12 @@ def test_none_duration_counts_as_zero_minutes() -> None:
     svc = ActivityService(repo, clock(), REAL_CONFIG)
 
     repo.insert_activity(
-        ActivityEvent(ts=NOW - timedelta(hours=1), category=ActivityCategory.TUMMY_TIME, duration_min=None, **BASE_EV)
+        ActivityEvent(
+            ts=NOW - timedelta(hours=1),
+            category=ActivityCategory.TUMMY_TIME,
+            duration_min=None,
+            **BASE_EV,
+        )
     )
 
     summaries = {s.category: s for s in svc.summaries()}

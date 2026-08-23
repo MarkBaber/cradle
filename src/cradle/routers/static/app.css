@@ -101,6 +101,7 @@ table#history{width:100%;border-collapse:collapse;font-size:.88rem}
   border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--dim)}
 .tag.feed{color:var(--feed)} .tag.nappy{color:var(--wet)} .tag.sleep{color:var(--sleep)}
 .tag.growth{color:var(--bottle)} .tag.temperature{color:var(--warn)}
+.tag.red{color:var(--err)} .tag.amber{color:var(--warn)} .tag.reminder,.tag.info{color:var(--dim)}
 
 /* misc */
 .note,.by{color:var(--dim);font-size:.82rem}
@@ -127,13 +128,33 @@ sup{font-size:.6em}
 
 /* alerts */
 .alert{border-radius:10px;padding:10px 12px;margin:0 0 10px;font-size:.88rem;
-  border:1px solid var(--line);background:var(--panel)}
-.alert p{margin:0 0 8px}
-.alert form{margin:0}
-.alert button{width:100%;min-height:38px}
+  border:1px solid var(--line);background:var(--panel);
+  display:flex;gap:12px;align-items:flex-start}
+.alert-time{color:var(--dim);font-size:.75rem;white-space:nowrap;margin-top:2px;min-width:70px}
+.alert-body{flex:1;min-width:0}
+.alert-body p{margin:0 0 8px}
+.alert-body form{margin:0}
+.alert-body button{width:100%;min-height:38px}
 .alert.red{border-color:var(--err);border-left-width:4px}
 .alert.amber{border-color:var(--warn);border-left-width:4px}
 .alert.reminder,.alert.info{border-left:4px solid var(--dim)}
+
+/* messages pane */
+.message-pane{margin-top:12px}
+.message-card{background:var(--panel);border:1px solid var(--line);border-left-width:4px;
+  border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;gap:12px;
+  align-items:flex-start;font-size:.88rem}
+.message-card.red{border-left-color:var(--err)}
+.message-card.amber{border-left-color:var(--warn)}
+.message-card.reminder,.message-card.info{border-left-color:var(--dim)}
+.msg-time{color:var(--dim);font-size:.75rem;white-space:nowrap;margin-top:2px;min-width:70px}
+.msg-body{flex:1;min-width:0}
+.msg-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.msg-status{font-size:.75rem;color:var(--dim)}
+.msg-status.active{color:var(--warn)}
+.msg-status.dismissed{color:var(--dim)}
+.msg-text{margin:0 0 8px}
+.message-card .dismiss-btn{min-height:32px;padding:4px 12px;font-size:.8rem}
 
 /* milestones + export */
 .timeline{list-style:none;padding:0;margin:14px 0 0}

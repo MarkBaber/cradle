@@ -5,7 +5,7 @@ from pathlib import Path
 
 from _helpers import NOW, clock, make_db, make_repo
 
-from cradle.models import AlertSeverity, FeedMethod, GrowthMeasure
+from cradle.models import AlertSeverity, FeedMethod, Finding, GrowthMeasure
 from cradle.ports.notifier import ConsoleNotifier
 from cradle.repos.alert_log_repo import AlertLogRepo
 from cradle.repos.baby_repo import BabyRepo
@@ -107,3 +107,50 @@ def test_acknowledging_does_not_resurface_on_next_sweep() -> None:
     svc.acknowledge(svc.pinned()[0].fingerprint)
     svc.sweep()
     assert svc.pinned() == []
+
+
+def test_old_findings_are_automatically_dismissed() -> None:
+    log, svc, _ = _build()
+    # Log a temperature from 7 days ago
+    seven_days_ago = NOW - timedelta(days=7)
+    log.log_temperature(39.0, ts=seven_days_ago)
+
+    # Insert a finding manually into alert_log as if raised 7 days ago
+    finding = Finding(
+        rule_id="FEVER_U3M",
+        severity=AlertSeverity.RED,
+        message="high temperature",
+        fingerprint="FEVER_U3M:old",
+        ts=seven_days_ago,
+    )
+    svc._alert_log.record_if_new(finding)
+
+    # Before auto_dismiss, alert_log has the unacknowledged row
+    # When outstanding() or pinned() or sweep() is called, it auto-dismisses the 7-day-old alert
+    assert svc.pinned() == []
+    assert svc.outstanding() == []
+
+    # But it is still present in all_messages() as dismissed
+    all_msgs = svc.all_messages()
+    assert len(all_msgs) == 1
+    assert all_msgs[0].fingerprint == "FEVER_U3M:old"
+    assert all_msgs[0].acknowledged_at is not None
+
+
+def test_all_messages_returns_both_active_and_dismissed() -> None:
+    log, svc, _ = _build()
+    log.log_temperature(39.0, ts=NOW - timedelta(minutes=5))
+    log.log_feed(FeedMethod.BREAST_LEFT, ts=NOW - timedelta(hours=9))
+    svc.sweep()
+
+    pinned = svc.pinned()
+    assert len(pinned) >= 1
+    svc.acknowledge(pinned[0].fingerprint)
+
+    all_msgs = svc.all_messages()
+    assert len(all_msgs) >= 2
+    # One is acknowledged, one is active
+    dismissed = [m for m in all_msgs if m.acknowledged_at is not None]
+    active = [m for m in all_msgs if m.acknowledged_at is None]
+    assert len(dismissed) >= 1
+    assert len(active) >= 1

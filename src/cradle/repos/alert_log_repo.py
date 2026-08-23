@@ -44,18 +44,53 @@ class AlertLogRepo:
                 message=r["message"],
                 fingerprint=r["fingerprint"],
                 ts=datetime.fromisoformat(r["ts"]),
+                acknowledged_at=datetime.fromisoformat(r["acknowledged_at"])
+                if r["acknowledged_at"]
+                else None,
             )
             for r in self._db.conn.execute(sql, params).fetchall()
         ]
 
-    def acknowledge(self, fingerprint: str) -> bool:
+    def all(self, severity: AlertSeverity | None = None) -> list[Finding]:
+        sql = "SELECT * FROM alert_log"
+        params: list[object] = []
+        if severity is not None:
+            sql += " WHERE severity = ?"
+            params.append(severity.value)
+        sql += " ORDER BY ts DESC"
+        return [
+            Finding(
+                rule_id=r["rule_id"],
+                severity=AlertSeverity(r["severity"]),
+                message=r["message"],
+                fingerprint=r["fingerprint"],
+                ts=datetime.fromisoformat(r["ts"]),
+                acknowledged_at=datetime.fromisoformat(r["acknowledged_at"])
+                if r["acknowledged_at"]
+                else None,
+            )
+            for r in self._db.conn.execute(sql, params).fetchall()
+        ]
+
+    def acknowledge(self, fingerprint: str, acknowledged_at: datetime | None = None) -> bool:
+        ack_str = (acknowledged_at or datetime.now(UTC)).isoformat()
         cur = self._db.conn.execute(
             "UPDATE alert_log SET acknowledged_at = ?"
             " WHERE fingerprint = ? AND acknowledged_at IS NULL",
-            (datetime.now(UTC).isoformat(), fingerprint),
+            (ack_str, fingerprint),
         )
         self._db.conn.commit()
         return cur.rowcount == 1
+
+    def auto_dismiss(self, older_than: datetime, as_of: datetime | None = None) -> int:
+        ack_str = (as_of or datetime.now(UTC)).isoformat()
+        cur = self._db.conn.execute(
+            "UPDATE alert_log SET acknowledged_at = ?"
+            " WHERE acknowledged_at IS NULL AND ts < ?",
+            (ack_str, older_than.isoformat()),
+        )
+        self._db.conn.commit()
+        return cur.rowcount
 
     def dump(self) -> list[dict[str, object]]:
         return [dict(r) for r in self._db.conn.execute("SELECT * FROM alert_log ORDER BY id")]
