@@ -142,6 +142,36 @@ class ActivityEvent(_EventBase):
 
 
 @dataclass(frozen=True, slots=True)
+class JournalEntry(_EventBase):
+    """A freeform story or temperament observation to look back on (task U44).
+
+    temperament is a tuple of free-text descriptor tags mirroring Note.tags's
+    shape ("giggly", "clingy", "curious") - ordinary UX copy, not a clinical
+    vocabulary.
+    """
+
+    title: str = ""
+    story: str = ""
+    temperament: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class JournalPhoto:
+    """One photo attached to a JournalEntry (task U44).
+
+    Not an event: it carries no baby_id of its own, only a reference to the
+    journal entry it illustrates.
+    """
+
+    photo_id: int | None  # None until persisted
+    journal_entry_id: int
+    ts: datetime
+    content_type: str
+    caption: str
+    image: bytes
+
+
+@dataclass(frozen=True, slots=True)
 class ZResult:
     """Output of the UK-WHO LMS engine (SPEC 5.1)."""
 

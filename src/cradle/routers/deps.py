@@ -8,6 +8,7 @@ from cradle.services import (
     ExportService,
     GrowthService,
     HistoryService,
+    JournalService,
     LoggingService,
     MilestoneService,
     MilkStockService,
@@ -31,6 +32,7 @@ class Services:
     series: SeriesService
     milk: MilkStockService
     projections: ProjectionService
+    journal: JournalService
 
 
 def device_name(cookie: str | None) -> str:

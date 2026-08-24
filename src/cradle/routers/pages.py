@@ -364,6 +364,16 @@ def build_pages_router(svc: Services) -> APIRouter:
             },
         )
 
+    @router.get("/journal", response_class=HTMLResponse)
+    def journal(request: Request) -> Response:
+        if not svc.settings.has_profile():
+            return RedirectResponse("/settings?first_run=1", status_code=303)
+        return TEMPLATES.TemplateResponse(
+            request,
+            "journal.html",
+            {"cards": svc.journal.list_entries()},
+        )
+
     @router.get("/milk", response_class=HTMLResponse)
     def milk(request: Request) -> Response:
         if not svc.settings.has_profile():

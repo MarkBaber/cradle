@@ -12,6 +12,7 @@ from cradle.models import (
     ExpressionEvent,
     FeedMethod,
     GrowthMeasure,
+    JournalEntry,
     MilkBatch,
     MilkStore,
     NappyKind,
@@ -50,6 +51,17 @@ def _seeded():
     log.log_temperature(36.9, ts=NOW)
     log.log_milestone("social", "First smile", ts=NOW)
     log.log_note("vitamin D", ("meds",), ts=NOW)
+    repo.insert_journal_entry(
+        JournalEntry(
+            event_id=None,
+            baby_id=1,
+            ts=NOW,
+            logged_by="phone",
+            title="First giggle",
+            story="She laughed at the dog.",
+            temperament=("giggly", "curious"),
+        )
+    )
     deleted = log.log_feed(FeedMethod.BREAST_LEFT, ts=NOW - timedelta(hours=6))
     log.undo("feed", deleted)
 
@@ -225,3 +237,45 @@ def test_unknown_domain_rejected() -> None:
     except UnknownTableError:
         return
     raise AssertionError("domain allow-list not enforced")
+
+
+# ------------------------------------------------------------------- journal
+
+
+def test_journal_is_in_domains_and_json_export() -> None:
+    _, _, svc = _seeded()
+    assert "journal" in DOMAINS
+    data = json.loads(svc.export_json())
+    assert len(data["events"]["journal"]) == 1
+    assert data["events"]["journal"][0]["title"] == "First giggle"
+    assert data["events"]["journal"][0]["temperament"] == "giggly,curious"
+
+
+def test_journal_csv_header_pinned() -> None:
+    _, _, svc = _seeded()
+    header = svc.export_csv("journal").splitlines()[0]
+    assert header == (
+        "id,baby_id,ts,logged_by,title,story,temperament,created_at,edited_at,deleted_at"
+    )
+
+
+def test_journal_csv_header_stable_when_empty() -> None:
+    db = make_db()
+    svc = ExportService(make_repo(db), BabyRepo(db), AlertLogRepo(db), "0.1.0")
+    header = svc.export_csv("journal").strip()
+    assert header.startswith("id,baby_id,ts,logged_by")
+    assert "title" in header and "story" in header and "temperament" in header
+
+
+def test_journal_photo_is_absent_from_domains_and_export() -> None:
+    """Image bytes must never reach the CSV/JSON export path (task U44 notes):
+    it would break this file's pinned-header and round-trip contracts."""
+    assert "journal_photo" not in DOMAINS
+    _, _, svc = _seeded()
+    data = json.loads(svc.export_json())
+    assert "journal_photo" not in data["events"]
+    try:
+        svc.export_csv("journal_photo")
+    except UnknownTableError:
+        return
+    raise AssertionError("journal_photo must not be exportable")
