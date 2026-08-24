@@ -361,7 +361,7 @@ notes = "Ribbon clips sleep spans at local midnight so a night split across two 
 id = "C5"
 phase = 4
 title = "Recommended-value reference data for Charts: feed volume/kg, nappy ranges, sleep hours"
-status = "review"
+status = "done"
 routing = "architect"
 depends = ["C1"]
 touches = ["rules_config.toml", "src/cradle/services/series_service.py", "src/cradle/app.py", "tests/unit/test_series.py", "docs/SPEC.md"]
@@ -373,7 +373,7 @@ notes = "SeriesService's constructor gains config_path: Path - a public signatur
 id = "C6"
 phase = 4
 title = "Charts: split daily totals into per-metric graphs with recommended lines and a date/age dual axis"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["C5"]
 touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/charts.html", "src/cradle/routers/static/", "tests/routes/test_charts.py"]
@@ -580,18 +580,6 @@ exit_criteria = ["volume_ml set after the fact appears in /today and in the bott
 notes = "Do not weaken the allow-list; it is the only thing standing between a form post and an arbitrary column write. Keep the quick-entry path untouched: volume is a post-hoc edit precisely so it never becomes an entry gate (SPEC 5.4, the 2-tap contract T1)."
 
 [[task]]
-id = "U11"
-phase = 1
-title = "Stool colour capture"
-status = "blocked"
-routing = "impl"
-depends = ["U10"]
-touches = ["src/cradle/routers/api.py", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/templates/_history_table.html"]
-description = "The Dirty button posts kind=dirty with the default stool_colour=unset, and no template offers a colour anywhere. STOOL_COLOUR is a RED rule covering the pale/chalky, red and post-day-5 black amber-flag colours, and it is currently unreachable: the condition it screens for cannot be entered into the app at all. Offer the colour as an optional follow-up after the Dirty tap and as an inline edit in history."
-exit_criteria = ["dirty nappy logged with a colour end to end (route test)", "STOOL_COLOUR fires from a colour entered through the UI, not just from a synthetic fixture (test)", "quick-entry stays 2 taps: colour is never required to log a nappy (route test)"]
-notes = "SUPERSEDED 2026-08-17 by U18, which delivers colour capture inside the Dirty entry panel; parked rather than dropped so the reasoning survives. Both exit criteria that matter - colour logged end to end, and STOOL_COLOUR firing from a UI-entered colour rather than a fixture - are carried over verbatim into U18. Do not implement this separately: two passes over quick_entry.html for the same field is exactly the duplicated diff the touches rule exists to prevent. Nothing depends on U11, so blocking it stalls no other work."
-
-[[task]]
 id = "U12"
 phase = 1
 title = "Device-name attribution"
@@ -602,18 +590,6 @@ touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/crad
 description = "SPEC 1 lists device-name attribution as a v1 IS, and D7 chose it over auth precisely because attribution is the thing that actually matters in a household. It is not implemented: no device_name cookie is ever set anywhere in the templates or JS, routers.deps.device_name therefore always returns an empty string, every row is written with logged_by='', and _history_table.html does not render the field even though HistoryService.rows already carries it. Prompt for a device name on first visit, persist it in the cookie, and show it in history."
 exit_criteria = ["first visit prompts for a device name and persists it (route test)", "logged_by populated on events created after the name is set (test)", "history renders who logged each row (route test)", "name editable in /settings"]
 notes = "Keep it a plain cookie with no auth semantics (D7): this labels rows, it does not protect them. Existing rows keep their empty logged_by - do not backfill. Implemented: the prompt lives on /settings, which is where the fresh-install redirect already lands, and it shows whenever the cookie is unset. A second device joining an already-configured household is not prompted until it opens /settings - forcing that needs a banner in base.html/quick_entry.html or a redirect gate on / that rewrites existing route tests, both outside these touches; raised as U15. Cookie values are latin-1 on the wire and reject control characters, so both are collapsed to a space in post_device rather than 500ing; full UTF-8 would need deps.device_name to decode (also U15). The attribution span carries class=\"by\" but app.css has no rule for it, so it renders as plain text next to the detail; app.css is outside these touches, so styling it is U15 as well."
-
-[[task]]
-id = "A10"
-phase = 3
-title = "FEED_GAP and STOOL_ABSENT must fire when nothing has ever been logged"
-status = "blocked"
-routing = "architect"
-depends = ["A8"]
-touches = ["src/cradle/alerts/rules.py", "src/cradle/alerts/messages.py", "tests/unit/test_rules_feeds.py", "tests/unit/test_rules_nappies.py"]
-description = "Both rules currently return None on an empty history: _feed_gap bails on `not facts.feeds`, and _stool_absent bails on `not dirty`. So a baby with no stool logged at all by day 4 - the exact case STOOL_ABSENT exists to catch - is silent, and the rules only ever fire once a first event gives them something to measure from. Architect decision 2026-08-04: measure the gap from date of birth when there is no prior event, so absence from the start counts."
-exit_criteria = ["day 4 with no dirty nappy ever logged fires STOOL_ABSENT (test)", "no feed ever logged past the gap threshold fires FEED_GAP (test)", "a baby younger than the threshold stays silent (test)", "new copy for the never-logged case reviewed under A8 and cited"]
-notes = "Routed to architect and gated behind A8 because it needs new strings in messages.py, which is architect-only medical copy: the existing templates interpolate a `last` timestamp that does not exist in this case. Firing from birth is a stronger claim than the current behaviour - it says something about the baby rather than about the log - so the wording must go past the clinician alongside everything else in A8. MEASUREMENT_GAP partially covers the data-entry lapse today but is INFO severity and explicitly says it is about the log, not the baby, so it is not a substitute. BLOCKED 2026-08-07, no code written. A8 is still `todo`, so exit criterion 4 ('new copy reviewed under A8 and cited') cannot be satisfied by any agent action, and the rules cannot fire without that copy: `messages.render` is `MESSAGES[id].format(**fields)` with a single call site (rules.py:85) and no bypass, and MESSAGES['FEED_GAP'] hard-requires `{last}`, which by definition does not exist in the never-logged case -- so the from-birth path KeyErrors until an architect adds the strings. Authoring them here would be exactly the medical copy CLAUDE.md reserves to the architect. Q for architect, to be answered alongside A8 so the next run lands in one pass: (1) the two new strings + SOURCES entries for the never-logged case; (2) FEED_GAP from birth reuses max_gap_hours=4.0, which fires on a 4-hour-old baby with nothing logged -- exit criterion 3 implies a separate from-birth threshold that rules_config.toml does not have, and its clinical value is architect-only; (3) fingerprint bucket for the never-logged case, since the current bucket is `last.isoformat()`; (4) `Baby.dob` is a `date` with no birth time -- confirm the existing `_birth_instant` approximation (rules.py:359, combines dob with the sweep's time-of-day, already used by _weigh_in_due) is acceptable here. Note for the implementer: two existing tests encode today's behaviour as deliberate policy and must be reversed, not just added to -- test_rules_feeds.py:29 `test_feed_gap_silent_with_no_feeds_at_all` ('An empty log is MEASUREMENT_GAP's business, not a feeding claim') and the shared fixture in test_engine.py:26, whose nappies are all WET, so STOOL_ABSENT newly fires there."
 
 [[task]]
 id = "N4"
@@ -906,7 +882,7 @@ notes = "The byte-identical criterion is the load-bearing one and the reason thi
 id = "U25"
 phase = 2
 title = "/charts readings table: show the real date next to the age-in-days count"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U5", "C3"]
 touches = ["src/cradle/services/growth_service.py", "src/cradle/routers/templates/charts.html", "tests/unit/test_growth_service.py", "tests/routes/test_charts.py"]
@@ -958,7 +934,7 @@ notes = "Pure housekeeping - no contract change, so not architect-routed: M2 alr
 id = "V4"
 phase = 6
 title = "ActivityService: log activity, cumulative minutes vs target"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["M2"]
 touches = ["src/cradle/services/logging_service.py", "src/cradle/services/activity_service.py", "src/cradle/services/__init__.py", "tests/unit/test_activity_service.py", "tests/unit/test_logging_service.py"]
@@ -970,7 +946,7 @@ notes = "Depends on M2 for ActivityEvent/ActivityCategory/EventsRepo.activity an
 id = "U27"
 phase = 6
 title = "Log page: four new activity tiles with best-practice targets"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["V4", "U22"]
 touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/cradle/routers/templates/quick_entry.html", "tests/routes/test_quick_entry.py"]
@@ -1021,7 +997,7 @@ notes = "Styling-only change over an already-authorised, already-vendored librar
 id = "U31"
 phase = 1
 title = "Scroll-wheel entry for volume_ml / duration_min fields, in fixed increments"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U22", "U27"]
 touches = ["src/cradle/routers/static/app.css", "src/cradle/routers/static/entry.js", "src/cradle/routers/templates/quick_entry.html", "scripts/vendor_assets.sh", "tests/routes/test_quick_entry.py", "tests/unit/test_weight_budget.py"]
@@ -1045,7 +1021,7 @@ notes = "Public-enum change - architect sign-off recorded here per CLAUDE.md's '
 id = "U33"
 phase = 1
 title = "Fix: quick-entry Save appears to do nothing and the panel never closes"
-status = "review"
+status = "done"
 routing = "impl"
 depends = []
 touches = ["src/cradle/routers/api.py", "tests/routes/test_quick_entry.py"]
@@ -1057,7 +1033,7 @@ notes = "2026-08-22: implemented entirely inside routers/api.py, no template cha
 id = "U34"
 phase = 1
 title = "Log page: scroll-wheel entry for growth value / temp_c, plus a Time field on growth, temperature and milestone panels"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U28", "U29"]
 touches = ["src/cradle/routers/api.py", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/static/entry.js", "src/cradle/routers/static/app.css", "tests/routes/test_quick_entry.py", "tests/unit/test_weight_budget.py"]
@@ -1069,7 +1045,7 @@ notes = "Depends on U28 (done) for the growth/temperature/milestone modal-panel 
 id = "U35"
 phase = 3
 title = "Dismiss notifications, auto-dismiss old alerts, and /messages page"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U6"]
 touches = [
@@ -1101,7 +1077,7 @@ notes = "Implemented 2026-08-23. Finding model gained optional acknowledged_at f
 id = "U36"
 phase = 1
 title = "Log page: scroll-wheel entry for the remaining activity Duration fields (Reading & Talking, Sensory Play, Foreign Language)"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U31"]
 touches = ["src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/static/entry.js", "tests/routes/test_quick_entry.py", "tests/unit/test_weight_budget.py"]
@@ -1113,7 +1089,7 @@ notes = "Implemented 2026-08-23. Replaced tummy-duration conditional with generi
 id = "U37"
 phase = 1
 title = "Settings: configurable increment/step for every AnyPicker scroll-wheel"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U31", "U34", "U36"]
 touches = ["rules_config.toml", "src/cradle/routers/api.py", "src/cradle/routers/templates/settings.html", "src/cradle/routers/templates/quick_entry.html", "src/cradle/routers/static/entry.js", "tests/routes/test_settings.py", "tests/routes/test_quick_entry.py", "tests/unit/test_weight_budget.py"]
@@ -1125,7 +1101,7 @@ notes = "Implemented 2026-08-23. Added [wheel_steps] section to rules_config.tom
 id = "U38"
 phase = 1
 title = "History page: group same-time entries, gate edit options to valid choices, and pre-fill AnyPicker wheels with the actual stored value"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U26", "U31", "U34"]
 touches = ["src/cradle/services/history_service.py", "src/cradle/routers/templates/_history_table.html", "src/cradle/routers/static/entry.js", "src/cradle/routers/static/app.css", "tests/unit/test_history.py", "tests/routes/test_quick_entry.py", "tests/unit/test_weight_budget.py"]
@@ -1137,7 +1113,7 @@ notes = "Depends on U26 (done) for the nappy colour/consistency inline-edit form
 id = "U39"
 phase = 1
 title = "Log page: add the missing Consistency field to the Dirty nappy panel"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U18"]
 touches = ["src/cradle/routers/api.py", "src/cradle/routers/templates/quick_entry.html", "tests/routes/test_quick_entry.py"]
@@ -1149,7 +1125,7 @@ notes = "Closes the exact gap U18's own notes (2026-08-21 status-review entry) a
 id = "U40"
 phase = 1
 title = "Concise day-grouped activity summary (augment /history or a new page)"
-status = "review"
+status = "done"
 routing = "impl"
 depends = ["U4"]
 touches = [
@@ -1191,7 +1167,7 @@ notes = "Filed by Mark Baber, 2026-08-23: 'a second or more to load the charts..
 id = "U42"
 phase = 1
 title = "Badges, achievements & medals: reward engagement without deadlines or pressure"
-status = "todo"
+status = "done"
 routing = "impl"
 depends = ["P1", "V1", "U1", "U2"]
 touches = [
@@ -1220,3 +1196,29 @@ description = "Raised by Mark Baber, 2026-08-23: add a badges/achievements/medal
 exit_criteria = ["a new `badge` table (migration in repos/migrations/) records one row per award with a UNIQUE(baby_id, badge_key) constraint, so the same badge can never be awarded twice to the same baby (test)", "AchievementsService evaluates a starter catalog covering at least: first use of each quick-entry category (feed/nappy/sleep/growth/temperature/activity), and a 'moment captured' badge for every new category='first' Milestone logged (covering the open-ended 'first bus ride' case) - fire and no-fire cases per badge type (test)", "logging an event through the existing quick-entry POST flow that earns a new badge returns it in the HTMX response without changing any LoggingService method's signature (route test)", "logging the same event again, or any event that does not newly qualify, awards nothing extra - repeat calls never double-award (test)", "the quick-entry page renders a distinct celebration (visually different from the U2 undo-toast) only on a genuine new unlock, never on a plain save or page load (route test)", "achievement sound defaults off and is controlled by a persisted mute/unmute toggle; once muted, no further sounds play (test)", "a new /achievements page, reachable from base.html's tabbar and following the existing first-run-with-no-profile redirect pattern, lists every earned badge with its award time (route test)", "no earned badge is ever removed, hidden, marked overdue, or styled with the alerts amber/red severity classes; any unearned badge shown renders neutrally with no deadline/countdown framing (test)", "no new alerts/rules.py rule, alerts/messages.py entry, or scheduler sweep job is added for achievements - evaluation is regression-tested as synchronous-only (test)", "quick-entry and any other changed static payloads are re-measured against the Q1 weight-budget test; lazy-loading the animation/sound assets should leave the existing budget unmoved, but if it still grows the test is amended in the same diff with the new total recorded (test)", "scripts/test.sh, scripts/lint.sh, and scripts/check_layers.sh green"]
 notes = "Filed by Mark Baber, 2026-08-23: 'add badges, achievements and medals... encourage the user to enter data, look after their baby effectively and go beyond by enriching and teaching them... should be seen as a reward, not a chore... should look special, with animations and sounds... able to look at their past achievements... also achievements for moments, like first bus ride'. Deliberately scoped as plumbing + a modest starter catalog (roughly half a dozen parent badges plus the open-ended moment badge) rather than a large content catalog - the badge-definition list is meant to be easy to extend later (same 'data-driven, not a pile of copy-pasted branches' latitude given to U31/U34/U36's wheel catalogs), and growing it further is a natural, non-blocking follow-up rather than in-scope here. Deliberately does NOT reuse alerts/ (rules.py/engine.py/messages.py) even though the alerts engine's fact-in/finding-out determinism and alert_log's fingerprint dedup are the direct inspiration for this feature's own dedup - alerts is architect-owned clinical-copy territory (CLAUDE.md) and a positive-reinforcement badge is not a health signal, so keeping this entirely inside services/repos/routers avoids any risk of gamification copy drifting into medical-adjacent territory and avoids touching check_layers.sh's layering contract at all. No architect sign-off recorded because: (a) the Services dataclass gains an additive field only, no existing signature changes; (b) badge copy is reward/UX text, not a clinical claim or threshold, so it sits outside CLAUDE.md's alerts/messages.py + rules_config.toml carve-out the same way [entry_defaults]/[projections]/[wheel_steps] already do for their own reasons (U37's notes give the same style of reasoning). Sound defaulting off (rather than on) is a deliberate safety-first choice given the app's real usage pattern (logging at night beside a sleeping baby) - flagged here in case Mark Baber would rather default it on with a very quiet/short cue instead."
 
+[[task]]
+id = "U43"
+phase = 1
+title = "Merge /history and /summary into one History page: orange per-row Edit/Clone/Delete + a green per-day Add button"
+status = "todo"
+routing = "impl"
+depends = ["U4", "U38", "U40"]
+touches = [
+    "src/cradle/routers/pages.py",
+    "src/cradle/routers/api.py",
+    "src/cradle/routers/templates/history.html",
+    "src/cradle/routers/templates/day_summary.html",
+    "src/cradle/routers/templates/_history_table.html",
+    "src/cradle/routers/templates/base.html",
+    "src/cradle/routers/templates/quick_entry.html",
+    "src/cradle/routers/static/app.css",
+    "src/cradle/routers/static/entry.js",
+    "src/cradle/services/history_service.py",
+    "tests/unit/test_history.py",
+    "tests/routes/test_history_summary.py",
+    "tests/routes/test_quick_entry.py",
+    "tests/unit/test_weight_budget.py",
+]
+description = "Raised by Mark Baber, 2026-08-23: the app currently ships /history (U4/U38: history.html + _history_table.html, a flat filterable table, one row per event, with existing inline edit-field/adjust-time forms and an unconfirmed Delete button) and /summary aka /day-summary (U40: day_summary.html, day_grouped_rows() in history_service.py, a read-only per-day-heading compact time/activity/kind/detail view with no edit affordances at all) as two separate tabbar entries (base.html). Merge them into a single 'History' page: keep the /history route and the History tabbar entry, retire the separate Summary tabbar entry, and make /summary and /day-summary redirect to /history for back-compat. Take the Summary page's day-grouped compact layout (one heading per calendar day, each event a compact time/activity/kind/detail row - day_summary.html, HistoryService.day_grouped_rows()) as the primary design, replacing /history's current flat one-row-per-event table. Onto that layout add: (1) three orange buttons to the right of every row - a pencil 'Edit', a copy-icon 'Clone', and a cross 'Delete' - styled distinctly from app.css's existing alerts amber/red severity classes (A7/U42) so they read as row actions, never as a health signal, despite the similar hue family. (2) Edit opens the same panel the Log page already opens for that row's datatype today (quick_entry.html's `#panel`/`.overlay` component, today fetched via `hx-get=\"/?panel=...&method=...\" hx-select=\"#panel\" hx-target=\"#panel\" hx-swap=\"outerHTML\"` from quick_entry.html's tiles) - the closest existing thing in this app to what Mark Baber calls a 'modal window' - but pre-filled with that row's actual stored values (ts plus whichever fields EventsRepo.EDITABLE lists for that table: feed's method/duration_min/volume_ml/note, nappy's kind/stool_colour/consistency, sleep's ts_end/location, growth's measure/value/source, temperature's temp_c/site, milestone's category/title/note, note's text/tags) instead of the panel's fresh-entry defaults. Saving from Edit updates the existing event_id in place via EventsRepo.edit_event's existing per-table allow-list (P2, already covers every field the panel could show including ts - no repo/model change needed), never creates a new row. Per Mark Baber's own note: since ts is itself editable, changing the date or time on an Edit can legitimately move that row into a different day-group/time-heading on the very next render - this is correct behaviour for the day-grouped view reflecting a corrected timestamp, not a bug, and must not leave a stale duplicate under the row's old heading. (3) Clone opens the identical pre-filled panel as Edit, but Saving (whether or not any field was changed) always creates a brand-new event through the same per-domain creation endpoint the Log page's own panel already posts to (e.g. POST /api/feed) - the source row is left untouched and both rows exist afterward - so a parent can, for example, copy one day's 6:20 bottle entry and change only the date to replicate it onto another day, per Mark Baber's own example. (4) Delete keeps the existing POST /api/delete soft-delete plumbing (P2/U4) but must no longer fire immediately on click - gate it behind a confirmation step in a popup modal, since today's Delete has no confirmation at all; there is no existing confirm-before-destructive-action pattern anywhere else in the app to reuse, so the exact mechanism (a native <dialog>, or a second small overlay following #panel's existing convention) is implementer's judgement. (5) A big green '+' button next to each day's date heading opens the same per-datatype entry choice the Log page offers, with that day's date pre-filled and the time defaulted to 09:00 rather than 'now' - api.py's existing `_panel_ts` helper only ever combines a bare 'HH:MM' with `today = to_local(datetime.now(UTC)).date()`, hardcoded to today, so it needs generalizing to accept an explicit date so it can be seeded from the day-group's own date (which will not be today for every group) instead. None of this changes LoggingService's log_* signatures (V1) or EventsRepo's edit_event/soft_delete contracts (P2) - Edit/Clone/Add reuse the exact create/update entry points the Log page's own panel already calls; this task is routers/templates/static plumbing plus the day-grouping/field-exposure HistoryService already does (U38/U40), not a services/repos redesign."
+exit_criteria = ["/history renders the day-grouped, per-day-heading compact time/activity/kind/detail layout day_summary.html established (U40) as its only view, and /summary and /day-summary redirect to /history; base.html's tabbar has a single History entry, no separate Summary entry (route test)", "every row has three orange action controls - Edit, Clone, Delete - styled distinctly from app.css's existing alerts amber/red severity classes (inspection/test)", "clicking Edit opens the same per-datatype panel the Log page uses for that row's table, pre-filled with the row's actual stored field values including its timestamp - covering feed, nappy, sleep, growth, temperature, milestone, and note (route test per domain)", "saving an Edit updates the existing event (same event_id) rather than creating a new one; changing ts moves the row to the correct day-group/heading on the next render with no duplicate left behind (route test)", "clicking Clone opens the same pre-filled panel as Edit, but saving - with or without changes - always creates a new event; the original row is unchanged and both rows exist afterward (route test)", "clicking Delete opens a confirmation popup before the existing soft-delete (POST /api/delete) fires; dismissing the confirmation deletes nothing (route test)", "each day-group heading has a green '+' that opens the entry panel with that day's own date pre-filled and time defaulted to 09:00, correct for a non-today day-group, not just for today's (route test)", "every new/changed control still submits successfully with the picker script disabled or unloaded, via plain native inputs, carrying the app's established no-JS contract (U19/U22/U29/U31) forward onto the merged page (route test)", "history and summary static payloads are re-measured against the Q1 weight-budget test with any changed entry.js/app.css bytes, and either stay inside budget or the test is amended in the same diff with the new total recorded (test)", "scripts/test.sh, scripts/lint.sh, and scripts/check_layers.sh green"]
+notes = "Filed by Mark Baber, 2026-08-23: 'merge the History and Summary pages to a single History page... take the primary design from the current Summary page but add orange buttons... Edit, Clone... Delete... If you click edit, it will bring up the same model[sic] window you see when you enter the same datatype in the Log page, however the data is prepopulated... clone button brings up a modal, with the same populated data... Delete... asks for confirmation in a popup modal... if the date or time is changed the data for that row may now be in another row... big green plus button next to each date... default the date to the date of the section... and the time to 9:00'. Depends on U4 (original /history), U38 (history-page field gating/seeding/grouping - status=review as of filing) and U40 (day-grouped /summary view - status=review as of filing); if U38/U40 are still not done when this is picked up, treat their current tree state (day_summary.html's day-grouped layout, _history_table.html's per-kind field gating) as the contract to build on, same latitude other in-review-dependency tasks in this queue already carry. 'Modal window' in Mark Baber's own request is read here as the Log page's existing `#panel`/`.overlay` component (quick_entry.html) - it already renders as an overlay today, and is the closest existing thing to a modal in this app; reuse it rather than inventing a second entry-form convention, mirroring the same reuse discipline U31/U34/U38 already established for AnyPicker/bindNumericWheel."
