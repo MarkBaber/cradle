@@ -3,8 +3,15 @@
    so a sync/conflict layer would be cost without benefit. Anything that is not
    a same-origin GET of a static asset goes straight to the network, so a log
    entry can never be silently served from cache. */
-var CACHE = "cradle-static-v1";
-var ASSETS = ["/static/app.css", "/static/manifest.json", "/static/icon.svg"];
+var CACHE = "cradle-static-v2";
+var ASSETS = [
+  "/static/app.css",
+  "/static/manifest.json",
+  "/static/icon.svg",
+  "/static/vendor/plotly.min.js",
+  "/static/chart.js",
+  "/static/series.js",
+];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS); }));

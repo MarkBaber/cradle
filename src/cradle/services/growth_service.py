@@ -65,6 +65,11 @@ class ChartSeries:
     unavailable_reason: str | None
 
 
+ChartCacheKey = tuple[
+    int, str, date, date, tuple[tuple[int | None, datetime, int], ...]
+]
+
+
 class GrowthService:
     def __init__(
         self,
@@ -77,6 +82,13 @@ class GrowthService:
         self._baby_repo = baby_repo
         self._table = table
         self._table_error = table_error
+        # centile_chart_series (task U41) re-runs the LMS interpolation loop
+        # (~9 centiles x up to 120 ages) on every call unless memoised here.
+        # Keyed on everything that can change the result cheaply: the baby's
+        # identity/sex/dob/due_date and, per event, (id, ts, value) - so a new
+        # event, an edited value, an undo, or a profile change all miss the
+        # cache, while an unchanged history hits it.
+        self._chart_cache: dict[GrowthMeasure, tuple[ChartCacheKey, ChartSeries]] = {}
 
     # ------------------------------------------------------------- internals
     def _age(self, baby: Baby, on: date) -> tuple[int, int]:
@@ -155,6 +167,18 @@ class GrowthService:
             return None
 
         events: list[GrowthEvent] = sorted(self._repo.list_growth(measure), key=lambda e: e.ts)
+
+        cache_key: ChartCacheKey = (
+            baby.baby_id,
+            baby.sex.value,
+            baby.dob,
+            baby.due_date,
+            tuple((e.event_id, e.ts, e.value) for e in events),
+        )
+        cached = self._chart_cache.get(measure)
+        if cached is not None and cached[0] == cache_key:
+            return cached[1]
+
         # Pre-formatted (not a date/datetime): the tuple is also JSON-serialised
         # verbatim by the /api/charts/{measure} route, whose plain json.dumps
         # can't encode date objects.
@@ -164,7 +188,7 @@ class GrowthService:
         )
 
         if self._table is None:
-            return ChartSeries(
+            series = ChartSeries(
                 measure=measure,
                 unit=UNITS[measure],
                 ages=(),
@@ -173,11 +197,13 @@ class GrowthService:
                 frames=tuple(range(1, len(trajectory) + 1)),
                 unavailable_reason=self._table_error or "reference data not installed",
             )
+            self._chart_cache[measure] = (cache_key, series)
+            return series
 
         try:
             lo, hi = self._table.age_range(measure, baby.sex)
         except ReferenceDataMissingError as exc:
-            return ChartSeries(
+            series = ChartSeries(
                 measure=measure,
                 unit=UNITS[measure],
                 ages=(),
@@ -186,6 +212,8 @@ class GrowthService:
                 frames=tuple(range(1, len(trajectory) + 1)),
                 unavailable_reason=str(exc),
             )
+            self._chart_cache[measure] = (cache_key, series)
+            return series
 
         # Cover the plotted range, extended to include every logged point.
         if trajectory:
@@ -204,7 +232,7 @@ class GrowthService:
             except (LookupError, ValueError):
                 continue
 
-        return ChartSeries(
+        series = ChartSeries(
             measure=measure,
             unit=UNITS[measure],
             ages=ages,
@@ -213,3 +241,5 @@ class GrowthService:
             frames=tuple(range(1, len(trajectory) + 1)),
             unavailable_reason=None,
         )
+        self._chart_cache[measure] = (cache_key, series)
+        return series

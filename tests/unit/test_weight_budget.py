@@ -80,3 +80,30 @@ def test_service_worker_caches_static_only() -> None:
     sw = (STATIC / "sw.js").read_text(encoding="utf-8")
     assert 'e.request.method !== "GET"' in sw, "writes must never be served from cache"
     assert '"/static/"' in sw
+
+
+def test_service_worker_precaches_chart_assets() -> None:
+    """U41: repeat /charts visits must get plotly/chart.js/series.js from the SW cache."""
+    sw = (STATIC / "sw.js").read_text(encoding="utf-8")
+    assert '"/static/vendor/plotly.min.js"' in sw
+    assert '"/static/chart.js"' in sw
+    assert '"/static/series.js"' in sw
+    assert "cradle-static-v1" not in sw, "CACHE must be bumped so the new assets get precached"
+
+
+# task U41: the full Plotly bundle vendored before this task was ~4.5MB on
+# disk even minified - this app only ever draws cartesian traces (bar,
+# scatter, dual y-axis, fill "tonexty", addFrames/animate - see chart.js and
+# series.js), so scripts/vendor_assets.sh now pins a cartesian-only partial
+# bundle instead. This guards against silently drifting back to the full one.
+PLOTLY_FULL_BUNDLE_BYTES = 4 * 1024 * 1024
+
+
+def test_vendored_plotly_is_the_smaller_cartesian_bundle() -> None:
+    path = STATIC / "vendor" / "plotly.min.js"
+    if not path.exists():
+        return  # not vendored in this environment (no network) - nothing to check
+    assert path.stat().st_size < PLOTLY_FULL_BUNDLE_BYTES, (
+        "vendored plotly.min.js is as large as the old full bundle - "
+        "check scripts/vendor_assets.sh still points at the cartesian build"
+    )
