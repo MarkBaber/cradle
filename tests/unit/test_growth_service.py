@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from _helpers import NOW, clock, make_db, make_repo
 
-from cradle.models import GrowthMeasure
+from cradle.models import Baby, GrowthMeasure, Sex
 from cradle.reference.lms import LmsRow, LmsTable
 from cradle.repos.baby_repo import BabyRepo
 from cradle.services.growth_service import CENTILES, GrowthService
@@ -12,6 +12,19 @@ from cradle.services.logging_service import LoggingService
 
 W = GrowthMeasure.WEIGHT
 DOB = date(2026, 7, 1)
+
+
+def _spy_value_at_centile(table: LmsTable) -> list[int]:
+    """Count calls to the LMS interpolation entry point, without touching lms.py."""
+    calls: list[int] = []
+    original = table.value_at_centile
+
+    def counting(*args: object, **kwargs: object) -> float:
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    table.value_at_centile = counting  # type: ignore[method-assign]
+    return calls
 
 
 def _table() -> LmsTable:
@@ -164,3 +177,72 @@ def test_chart_series_without_reference_still_plots_trajectory() -> None:
     assert s.curves == {}
     assert s.unavailable_reason
     assert len(s.trajectory) == 1, "logged data is still the parent's to see"
+
+
+def test_centile_chart_series_is_memoized() -> None:
+    """U41: a second call for the same measure/baby/events must not redo the LMS loop."""
+    table = _table()
+    log, growth = _build(table)
+    log.log_growth(W, 3400, ts=NOW - timedelta(days=13))
+    log.log_growth(W, 3900, ts=NOW)
+    calls = _spy_value_at_centile(table)
+
+    s1 = growth.centile_chart_series(W)
+    assert s1 is not None
+    n1 = len(calls)
+    assert n1 > 0, "first call must run the LMS interpolation loop"
+
+    s2 = growth.centile_chart_series(W)
+    assert s2 is s1, "memoized result should be the same object"
+    assert len(calls) == n1, "second call must not redo the interpolation loop"
+
+
+def test_centile_chart_series_invalidates_on_new_growth_event() -> None:
+    """U41: logging a new growth event must invalidate the cache."""
+    table = _table()
+    log, growth = _build(table)
+    log.log_growth(W, 3400, ts=NOW - timedelta(days=13))
+    calls = _spy_value_at_centile(table)
+
+    s1 = growth.centile_chart_series(W)
+    assert s1 is not None
+    n1 = len(calls)
+
+    log.log_growth(W, 3900, ts=NOW)
+    s2 = growth.centile_chart_series(W)
+    assert s2 is not None
+    assert len(calls) > n1, "a newly logged growth event must invalidate the cache"
+    assert s2.trajectory != s1.trajectory
+    assert s2.trajectory[-1] == (14, 3900.0, "15 Jul 2026")
+
+
+def test_centile_chart_series_invalidates_on_profile_change() -> None:
+    """U41: changing the baby profile must invalidate the cache."""
+    db = make_db(dob=DOB, due=DOB)
+    baby_repo = BabyRepo(db)
+    repo = make_repo(db)
+    table = _table()
+    growth = GrowthService(repo, baby_repo, table)
+    log = LoggingService(repo, clock())
+    log.log_growth(W, 3400, ts=NOW - timedelta(days=13))
+    log.log_growth(W, 3900, ts=NOW)
+    calls = _spy_value_at_centile(table)
+
+    s1 = growth.centile_chart_series(W)
+    assert s1 is not None
+    n1 = len(calls)
+
+    preterm_due = DOB + timedelta(weeks=8)
+    baby_repo.upsert(
+        Baby(
+            baby_id=1,
+            name="Test",
+            sex=Sex.FEMALE,
+            dob=DOB,
+            due_date=preterm_due,
+            birth_weight_g=3400,
+        )
+    )
+    s2 = growth.centile_chart_series(W)
+    assert s2 is not None
+    assert len(calls) > n1, "a baby profile change must invalidate the cache"
