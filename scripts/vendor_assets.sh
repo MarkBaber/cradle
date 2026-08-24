@@ -19,9 +19,20 @@ else
   sha256sum "$DEST/htmx.min.js"
 fi
 
+# task U41: this app only ever draws cartesian traces - bar, scatter,
+# lines+markers, a dual y-axis (yaxis2 overlaying), fill:"tonexty", and
+# Plotly.addFrames/animate for the growth-chart centile playback (chart.js,
+# series.js) - never 3d/geo/gl/mapbox/finance. Plotly publishes a
+# cartesian-only partial bundle built from the same source as the full
+# bundle at this same cdn.plot.ly path pattern, which is why this is not a
+# new/different dependency (SPEC §6, ADR 0009 - still Plotly.js, still
+# vendored, still checksum-pinned below) - just a smaller one (~1.4MB vs
+# ~4.5MB for the full build). Verified against the actual downloaded file
+# (not Plotly's docs) that Plotly.Plots.register/registry-derived trace list
+# includes bar/scatter and that Plotly.addFrames/Plotly.animate are present.
 PLOTLY_VERSION=2.35.2
-PLOTLY_URL="https://cdn.plot.ly/plotly-${PLOTLY_VERSION}.min.js"
-PLOTLY_SHA256="6d21266ce1bd7d9e5ab4e115989c70c20de0382fd973a8f26ab58619eba4d603"
+PLOTLY_URL="https://cdn.plot.ly/plotly-cartesian-${PLOTLY_VERSION}.min.js"
+PLOTLY_SHA256="72409fd95b505d17772f2dd9bb81a8672ce6d5b61dcf61ba1fd8442c9ea3e180"
 
 curl -fsSL "$PLOTLY_URL" -o "$DEST/plotly.min.js"
 if [ -n "$PLOTLY_SHA256" ]; then
