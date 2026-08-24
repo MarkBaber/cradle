@@ -141,7 +141,112 @@
   <div class="modal">
     <a class="modal-close" href="/" aria-label="Close"
        hx-get="/" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&times;</a>
-{% if open_panel == "feed" and open_method in ("breast_left", "breast_right", "breast_both") %}
+{% if open_panel == "add" %}
+  <div class="stack panel add-chooser">
+    <p class="note">Add an entry for {{ open_date }}</p>
+    <h2>Feed</h2>
+    <section class="grid">
+      <a class="big feed" href="/?panel=feed&amp;method=breast_left&amp;date={{ open_date }}"
+         hx-get="/?panel=feed&amp;method=breast_left&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>🤱</i><span>Breast</span>
+      </a>
+      <a class="big bottle" href="/?panel=feed&amp;method=bottle_expressed&amp;date={{ open_date }}"
+         hx-get="/?panel=feed&amp;method=bottle_expressed&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>🍼</i><span>Bottle</span>
+      </a>
+    </section>
+    <h2>Mess</h2>
+    <section class="grid">
+      <a class="big wet" href="/?panel=nappy&amp;kind=wet&amp;date={{ open_date }}"
+         hx-get="/?panel=nappy&amp;kind=wet&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>💧</i><span>Wet</span>
+      </a>
+      <a class="big dirty" href="/?panel=nappy&amp;kind=dirty&amp;date={{ open_date }}"
+         hx-get="/?panel=nappy&amp;kind=dirty&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>💩</i><span>Dirty</span>
+      </a>
+    </section>
+    <h2>Activity</h2>
+    <section class="grid">
+      <a class="big activity" href="/?panel=activity&amp;category=tummy_time&amp;date={{ open_date }}"
+         hx-get="/?panel=activity&amp;category=tummy_time&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>🐢</i><span>Tummy Time</span>
+      </a>
+      <a class="big activity" href="/?panel=activity&amp;category=reading_talking&amp;date={{ open_date }}"
+         hx-get="/?panel=activity&amp;category=reading_talking&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>📚</i><span>Reading &amp; Talking</span>
+      </a>
+      <a class="big activity" href="/?panel=activity&amp;category=sensory_play&amp;date={{ open_date }}"
+         hx-get="/?panel=activity&amp;category=sensory_play&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>🎨</i><span>Sensory Play</span>
+      </a>
+      <a class="big activity" href="/?panel=activity&amp;category=foreign_language&amp;date={{ open_date }}"
+         hx-get="/?panel=activity&amp;category=foreign_language&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>🌐</i><span>Foreign Language</span>
+      </a>
+    </section>
+    <h2>More</h2>
+    <section class="grid">
+      <a class="big" href="/?panel=growth&amp;date={{ open_date }}"
+         hx-get="/?panel=growth&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>⚖️</i><span>Growth</span>
+      </a>
+      <a class="big" href="/?panel=temperature&amp;date={{ open_date }}"
+         hx-get="/?panel=temperature&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>🌡️</i><span>Temp</span>
+      </a>
+      <a class="big" href="/?panel=milestone&amp;date={{ open_date }}"
+         hx-get="/?panel=milestone&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>🏅</i><span>Milestone</span>
+      </a>
+      <a class="big" href="/?panel=note&amp;date={{ open_date }}"
+         hx-get="/?panel=note&amp;date={{ open_date }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+        <i>📝</i><span>Note</span>
+      </a>
+    </section>
+  </div>
+{% elif open_panel == "delete" %}
+  <div class="stack panel confirm-delete">
+    <p>Delete this {{ open_row.activity }} entry from {{ (open_row.ts | local).strftime('%d %b %H:%M') }}?</p>
+    {% if open_row.short_detail %}<p class="note">{{ open_row.short_detail }}</p>{% endif %}
+    <form method="post" action="/api/delete" hx-post="/api/delete"
+          hx-target="#toast" hx-swap="innerHTML">
+      <input type="hidden" name="table" value="{{ open_table }}">
+      <input type="hidden" name="event_id" value="{{ open_event_id }}">
+      <button class="del primary" type="submit">Delete</button>
+    </form>
+    <a class="modal-cancel" href="/" hx-get="/" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">Cancel</a>
+  </div>
+{% elif open_panel == "feed" and open_mode in ("edit", "clone") %}
+  <form class="stack panel" method="post"
+        action="{{ '/api/edit-event' if open_mode == 'edit' else '/api/feed' }}"
+        hx-post="{{ '/api/edit-event' if open_mode == 'edit' else '/api/feed' }}"
+        hx-target="#toast" hx-swap="innerHTML">
+    {% if open_mode == "edit" %}
+    <input type="hidden" name="table" value="feed">
+    <input type="hidden" name="event_id" value="{{ open_event_id }}">
+    {% endif %}
+    <label>Method
+      <select name="method">
+        <option value="breast_left" {{ "selected" if open_row.method == "breast_left" else "" }}>Breast (L)</option>
+        <option value="breast_right" {{ "selected" if open_row.method == "breast_right" else "" }}>Breast (R)</option>
+        <option value="breast_both" {{ "selected" if open_row.method == "breast_both" else "" }}>Breast (both)</option>
+        <option value="bottle_expressed" {{ "selected" if open_row.method == "bottle_expressed" else "" }}>Bottle (expressed)</option>
+        <option value="bottle_formula" {{ "selected" if open_row.method == "bottle_formula" else "" }}>Bottle (formula)</option>
+      </select>
+    </label>
+    <label>Duration (min)<input type="number" name="duration_min" id="breast-duration" min="0" inputmode="numeric"
+      {% if open_row.duration_min is not none %}value="{{ open_row.duration_min }}"{% endif %}
+      data-step="{{ entry_defaults.wheel_steps.breast_duration_min if entry_defaults and entry_defaults.wheel_steps else 5 }}"></label>
+    <label>Volume (ml)<input type="number" name="volume_ml" id="bottle-volume" min="0" inputmode="numeric"
+      {% if open_row.volume_ml is not none %}value="{{ open_row.volume_ml }}"{% endif %}
+      data-step="{{ entry_defaults.wheel_steps.bottle_volume_ml if entry_defaults and entry_defaults.wheel_steps else 5 }}"></label>
+    <label>Note<input type="text" name="note" value="{{ open_row.note or '' }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
+    <button class="primary" type="submit">{{ "Save" if open_mode == "edit" else "Clone" }}</button>
+  </form>
+{% elif open_panel == "feed" and open_method in ("breast_left", "breast_right", "breast_both") %}
   <form class="stack panel" method="post" action="/api/feed"
         hx-post="/api/feed" hx-target="#toast" hx-swap="innerHTML">
     <span>Side</span>
@@ -155,7 +260,8 @@
     </div>
     <label>Duration (min)<input type="number" name="duration_min" id="breast-duration" min="0" inputmode="numeric"
       value="{{ entry_defaults.breast_duration_min }}" data-step="{{ entry_defaults.wheel_steps.breast_duration_min if entry_defaults and entry_defaults.wheel_steps else 5 }}"></label>
-    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
 {% elif open_panel == "feed" and open_method in ("bottle_expressed", "bottle_formula") %}
@@ -169,14 +275,60 @@
     </label>
     <label>Volume (ml)<input type="number" name="volume_ml" id="bottle-volume" min="0" inputmode="numeric"
       value="{{ entry_defaults.bottle_volume_ml }}" data-step="{{ entry_defaults.wheel_steps.bottle_volume_ml if entry_defaults and entry_defaults.wheel_steps else 5 }}"></label>
-    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
     <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "nappy" and open_mode in ("edit", "clone") %}
+  <form class="stack panel" method="post"
+        action="{{ '/api/edit-event' if open_mode == 'edit' else '/api/nappy' }}"
+        hx-post="{{ '/api/edit-event' if open_mode == 'edit' else '/api/nappy' }}"
+        hx-target="#toast" hx-swap="innerHTML">
+    {% if open_mode == "edit" %}
+    <input type="hidden" name="table" value="nappy">
+    <input type="hidden" name="event_id" value="{{ open_event_id }}">
+    {% endif %}
+    <label>Kind
+      <select name="kind">
+        <option value="wet" {{ "selected" if open_row.kind == "wet" else "" }}>Wet</option>
+        <option value="dirty" {{ "selected" if open_row.kind == "dirty" else "" }}>Dirty</option>
+        <option value="mixed" {{ "selected" if open_row.kind == "mixed" else "" }}>Mixed</option>
+      </select>
+    </label>
+    <label>Colour
+      <select name="stool_colour">
+        <option value="unset" {{ "selected" if not open_row.stool_colour or open_row.stool_colour == "unset" else "" }}>-</option>
+        <option value="yellow" {{ "selected" if open_row.stool_colour == "yellow" else "" }}>Yellow</option>
+        <option value="green" {{ "selected" if open_row.stool_colour == "green" else "" }}>Green</option>
+        <option value="brown" {{ "selected" if open_row.stool_colour == "brown" else "" }}>Brown</option>
+        <option value="meconium" {{ "selected" if open_row.stool_colour == "meconium" else "" }}>Meconium</option>
+        <option value="pale_chalky" {{ "selected" if open_row.stool_colour == "pale_chalky" else "" }}>Pale / chalky</option>
+        <option value="red" {{ "selected" if open_row.stool_colour == "red" else "" }}>Red</option>
+        <option value="black" {{ "selected" if open_row.stool_colour == "black" else "" }}>Black</option>
+      </select>
+    </label>
+    <label>Consistency
+      <select name="consistency">
+        <option value="unset" {{ "selected" if not open_row.consistency or open_row.consistency == "unset" else "" }}>-</option>
+        <option value="sticky" {{ "selected" if open_row.consistency == "sticky" else "" }}>Sticky</option>
+        <option value="seedy" {{ "selected" if open_row.consistency == "seedy" else "" }}>Seedy</option>
+        <option value="soft" {{ "selected" if open_row.consistency == "soft" else "" }}>Soft</option>
+        <option value="formed" {{ "selected" if open_row.consistency == "formed" else "" }}>Formed</option>
+        <option value="runny" {{ "selected" if open_row.consistency == "runny" else "" }}>Runny</option>
+        <option value="hard" {{ "selected" if open_row.consistency == "hard" else "" }}>Hard</option>
+        <option value="mucousy" {{ "selected" if open_row.consistency == "mucousy" else "" }}>Mucousy</option>
+      </select>
+    </label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
+    <button class="primary" type="submit">{{ "Save" if open_mode == "edit" else "Clone" }}</button>
   </form>
 {% elif open_panel == "nappy" and open_kind == "wet" %}
   <form class="stack panel" method="post" action="/api/nappy"
         hx-post="/api/nappy" hx-target="#toast" hx-swap="innerHTML">
     <input type="hidden" name="kind" value="wet">
-    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
 {% elif open_panel == "nappy" and open_kind == "dirty" %}
@@ -207,8 +359,59 @@
         <option value="mucousy">Mucousy</option>
       </select>
     </label>
-    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
     <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "sleep" and open_mode == "edit" %}
+  <form class="stack panel" method="post" action="/api/edit-event"
+        hx-post="/api/edit-event" hx-target="#toast" hx-swap="innerHTML">
+    <input type="hidden" name="table" value="sleep">
+    <input type="hidden" name="event_id" value="{{ open_event_id }}">
+    <label>Start<input type="datetime-local" name="ts"
+      value="{{ (open_row.ts | local).strftime('%Y-%m-%dT%H:%M') }}"></label>
+    <label>End<input type="datetime-local" name="ts_end"
+      value="{{ (open_row.ts_end | local).strftime('%Y-%m-%dT%H:%M') if open_row.ts_end else '' }}"></label>
+    <label>Location
+      <select name="location">
+        <option value="cot" {{ "selected" if open_row.location == "cot" else "" }}>Cot</option>
+        <option value="pram" {{ "selected" if open_row.location == "pram" else "" }}>Pram</option>
+        <option value="arms" {{ "selected" if open_row.location == "arms" else "" }}>Arms</option>
+        <option value="other" {{ "selected" if open_row.location == "other" else "" }}>Other</option>
+      </select>
+    </label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "growth" and open_mode in ("edit", "clone") %}
+  <form class="stack panel" method="post"
+        action="{{ '/api/edit-event' if open_mode == 'edit' else '/api/growth' }}"
+        hx-post="{{ '/api/edit-event' if open_mode == 'edit' else '/api/growth' }}"
+        hx-target="#toast" hx-swap="innerHTML">
+    {% if open_mode == "edit" %}
+    <input type="hidden" name="table" value="growth">
+    <input type="hidden" name="event_id" value="{{ open_event_id }}">
+    {% endif %}
+    <label>Measure
+      <select name="measure" id="growth-measure">
+        <option value="weight" {{ "selected" if open_row.measure == "weight" else "" }}>Weight (g)</option>
+        <option value="length" {{ "selected" if open_row.measure == "length" else "" }}>Length (mm)</option>
+        <option value="head_circ" {{ "selected" if open_row.measure == "head_circ" else "" }}>Head circ (mm)</option>
+      </select>
+    </label>
+    <label>Value<input type="number" name="value" id="growth-value" inputmode="numeric" required
+      value="{{ open_row.value }}"
+      data-step-weight="{{ entry_defaults.wheel_steps.weight if entry_defaults and entry_defaults.wheel_steps else 25 }}"
+      data-step-length="{{ entry_defaults.wheel_steps.length if entry_defaults and entry_defaults.wheel_steps else 5 }}"
+      data-step-head-circ="{{ entry_defaults.wheel_steps.head_circ if entry_defaults and entry_defaults.wheel_steps else 5 }}"></label>
+    <label>Source
+      <select name="source">
+        <option value="home" {{ "selected" if open_row.source == "home" else "" }}>home</option>
+        <option value="midwife" {{ "selected" if open_row.source == "midwife" else "" }}>midwife</option>
+      </select>
+    </label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
+    <button class="primary" type="submit">{{ "Save" if open_mode == "edit" else "Clone" }}</button>
   </form>
 {% elif open_panel == "growth" %}
   <form class="stack panel" method="post" action="/api/growth"
@@ -227,16 +430,58 @@
     <label>Source
       <select name="source"><option value="home">home</option><option value="midwife">midwife</option></select>
     </label>
-    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
     <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "temperature" and open_mode in ("edit", "clone") %}
+  <form class="stack panel" method="post"
+        action="{{ '/api/edit-event' if open_mode == 'edit' else '/api/temperature' }}"
+        hx-post="{{ '/api/edit-event' if open_mode == 'edit' else '/api/temperature' }}"
+        hx-target="#toast" hx-swap="innerHTML">
+    {% if open_mode == "edit" %}
+    <input type="hidden" name="table" value="temperature">
+    <input type="hidden" name="event_id" value="{{ open_event_id }}">
+    {% endif %}
+    <label>Temperature (°C)<input type="number" step="0.1" name="temp_c" id="temp-c" inputmode="decimal" required
+      value="{{ open_row.temp_c }}"
+      data-step="{{ entry_defaults.wheel_steps.temp_c if entry_defaults and entry_defaults.wheel_steps else 0.1 }}"></label>
+    <label>Site<input type="text" name="site" value="{{ open_row.site or '' }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
+    <button class="primary" type="submit">{{ "Save" if open_mode == "edit" else "Clone" }}</button>
   </form>
 {% elif open_panel == "temperature" %}
   <form class="stack panel" method="post" action="/api/temperature"
         hx-post="/api/temperature" hx-target="#toast" hx-swap="innerHTML">
     <label>Temperature (°C)<input type="number" step="0.1" name="temp_c" id="temp-c" inputmode="decimal" placeholder="°C" required
       data-step="{{ entry_defaults.wheel_steps.temp_c if entry_defaults and entry_defaults.wheel_steps else 0.1 }}"></label>
-    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
     <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "milestone" and open_mode in ("edit", "clone") %}
+  <form class="stack panel" method="post"
+        action="{{ '/api/edit-event' if open_mode == 'edit' else '/api/milestone' }}"
+        hx-post="{{ '/api/edit-event' if open_mode == 'edit' else '/api/milestone' }}"
+        hx-target="#toast" hx-swap="innerHTML">
+    {% if open_mode == "edit" %}
+    <input type="hidden" name="table" value="milestone">
+    <input type="hidden" name="event_id" value="{{ open_event_id }}">
+    {% endif %}
+    <label>Category
+      <select name="category">
+        <option value="first" {{ "selected" if open_row.category == "first" else "" }}>first</option>
+        <option value="motor" {{ "selected" if open_row.category == "motor" else "" }}>motor</option>
+        <option value="social" {{ "selected" if open_row.category == "social" else "" }}>social</option>
+        <option value="communication" {{ "selected" if open_row.category == "communication" else "" }}>communication</option>
+      </select>
+    </label>
+    <label>Title<input type="text" name="title" required value="{{ open_row.title or '' }}"></label>
+    <label>Note<input type="text" name="note" value="{{ open_row.note or '' }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
+    <button class="primary" type="submit">{{ "Save" if open_mode == "edit" else "Clone" }}</button>
   </form>
 {% elif open_panel == "milestone" %}
   <form class="stack panel" method="post" action="/api/milestone"
@@ -248,13 +493,33 @@
       </select>
     </label>
     <label>Title<input type="text" name="title" placeholder="First smile…" required></label>
-    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
     <button class="primary" type="submit">Save</button>
+  </form>
+{% elif open_panel == "note" and open_mode in ("edit", "clone") %}
+  <form class="stack panel" method="post"
+        action="{{ '/api/edit-event' if open_mode == 'edit' else '/api/note' }}"
+        hx-post="{{ '/api/edit-event' if open_mode == 'edit' else '/api/note' }}"
+        hx-target="#toast" hx-swap="innerHTML">
+    {% if open_mode == "edit" %}
+    <input type="hidden" name="table" value="note">
+    <input type="hidden" name="event_id" value="{{ open_event_id }}">
+    {% endif %}
+    <label>Note<input type="text" name="text" required value="{{ open_row.text or '' }}"></label>
+    <label>Tags<input type="text" name="tags" value="{{ open_row.tags | join(', ') if open_row.tags else '' }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
+    <button class="primary" type="submit">{{ "Save" if open_mode == "edit" else "Clone" }}</button>
   </form>
 {% elif open_panel == "note" %}
   <form class="stack panel" method="post" action="/api/note"
         hx-post="/api/note" hx-target="#toast" hx-swap="innerHTML">
     <label>Note<input type="text" name="text" placeholder="Note…" required></label>
+    {% if open_seeded %}
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
+    {% endif %}
     <button class="primary" type="submit">Save</button>
   </form>
 {% elif open_panel == "activity" %}
@@ -268,7 +533,8 @@
     <span class="note">{{ activity_targets[open_category] }}</span>
     {% endif %}
     <label>Note<input type="text" name="note" placeholder="Note…"></label>
-    <label>Time<input type="time" name="ts" value="{{ now_time }}"></label>
+    <input type="hidden" name="date" value="{{ open_date }}">
+    <label>Time<input type="time" name="ts" value="{{ panel_time }}"></label>
     <button class="primary" type="submit">Save</button>
   </form>
 {% endif %}

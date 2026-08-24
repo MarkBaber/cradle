@@ -3,6 +3,11 @@
   --bg:#0d1117; --panel:#161b22; --line:#26303d; --fg:#e6edf3; --dim:#8b949e;
   --feed:#5aa9e6; --bottle:#7fd1b9; --wet:#6ea8fe; --dirty:#c99a5b;
   --sleep:#9b8cf0; --warn:#e3a008; --err:#f85149; --ok:#3fb950;
+  /* history row actions (task U43): a true orange, deliberately more
+     saturated than --warn's golden amber, and only ever used on small
+     bordered icon buttons at a row's trailing edge - never on a full-width
+     alert card - so it reads as a row control, not a severity signal. */
+  --action:#ff7f2a;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -262,13 +267,36 @@ sup{font-size:.6em}
 .ap-theme-ios #ap-button-cancel{background:var(--panel);color:var(--dim)}
 .ap-theme-ios #ap-button-set{background:var(--panel);color:var(--feed)}
 
-/* day summary (task U40) */
+/* day summary (task U40), merged into /history with row actions + a
+   per-day add button (task U43) */
 .day-group{margin-bottom:1.2rem}
-.day-group h2{font-size:1rem;margin:.8rem 0 .4rem;color:var(--dim);border-bottom:1px solid var(--line);padding-bottom:4px}
+.day-group h2{font-size:1rem;margin:.8rem 0 .4rem;color:var(--dim);border-bottom:1px solid var(--line);
+  padding-bottom:4px;display:flex;align-items:center;gap:8px}
 table.summary-table{width:100%;border-collapse:collapse;font-size:.88rem}
 table.summary-table td{padding:6px 4px;vertical-align:top;border-bottom:1px solid var(--line)}
 table.summary-table td.time{width:54px;white-space:nowrap;color:var(--dim);font-variant-numeric:tabular-nums}
 table.summary-table td.activity{width:90px}
 table.summary-table td.kind{font-weight:500}
 table.summary-table td.detail{color:var(--dim)}
+table.summary-table tr.focus{background:#1b2431}
+table.summary-table td.row-actions{width:100px;white-space:nowrap;text-align:right}
+
+/* Row actions: small bordered icon links, deliberately shaped like row
+   controls (square, trailing-edge, icon-only) rather than the full-width
+   left-bordered .alert/.message-card cards A7/U42 use for amber/red
+   severity - context and shape carry the distinction as much as --action's
+   hue does. */
+.row-actions{display:inline-flex;gap:4px}
+.row-action{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+  border:1px solid var(--action);border-radius:6px;color:var(--action);text-decoration:none;
+  font-size:.8rem;line-height:1}
+.row-action:active{background:var(--action);color:#2a1300}
+
+/* Per-day-group "+" (task U43): green, round, unambiguously an add action -
+   never confusable with the orange row actions or the amber/red alerts. */
+.day-add{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;
+  margin-left:auto;border-radius:50%;background:var(--ok);color:#03210d;font-weight:700;
+  text-decoration:none;font-size:1rem;line-height:1}
+
+.confirm-delete p{margin:0 0 8px}
 

@@ -9,7 +9,7 @@ JavaScript disabled or htmx unvendored.
 import re
 import statistics
 import tomllib
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from html import escape
 from pathlib import Path
 from typing import Annotated, Any
@@ -320,13 +320,17 @@ def _coerce_field_value(field: str, raw: str) -> object:
     return raw
 
 
-def _panel_ts(raw: str | None) -> datetime | None:
-    """Parse the quick-entry panel's <input type=time> value (U18).
+def _panel_ts(raw: str | None, ref_date: date | None = None) -> datetime | None:
+    """Parse the quick-entry panel's <input type=time> value (U18, U43).
 
-    It carries no date, so a provided "HH:MM" is combined with today's date in
-    the *configured* display zone (models/timefmt, task U9) - not the server's
-    OS zone, which would risk the wrong calendar day near local midnight. Blank
-    or unparseable input means "use the clock's now", same as ts=None.
+    It carries no date of its own, so a provided "HH:MM" is combined with a
+    reference date in the *configured* display zone (models/timefmt, task
+    U9) - not the server's OS zone, which would risk the wrong calendar day
+    near local midnight. *ref_date* defaults to today so ordinary quick-entry
+    keeps working unchanged; the history page's day-group "+" (U43) passes
+    that day's own date instead, so a bottle logged from a past day's group
+    lands under that day, not today's. Blank or unparseable input means "use
+    the clock's now", same as ts=None.
     """
     if not raw:
         return None
@@ -334,8 +338,18 @@ def _panel_ts(raw: str | None) -> datetime | None:
         hour, minute = (int(p) for p in raw.split(":"))
     except ValueError:
         return None
-    today = to_local(datetime.now(UTC)).date()
-    return to_utc(datetime(today.year, today.month, today.day, hour, minute))
+    day = ref_date or to_local(datetime.now(UTC)).date()
+    return to_utc(datetime(day.year, day.month, day.day, hour, minute))
+
+
+def _parse_panel_date(raw: str | None) -> date | None:
+    """Parse the panel's hidden "date" field (U43): blank/invalid means "today"."""
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
 
 
 _PANEL_CLOSE_OOB = '<div id="panel" class="overlay" hx-swap-oob="true"></div>'
@@ -413,6 +427,7 @@ def build_api_router(svc: Services) -> APIRouter:
         duration_min: Annotated[int | None, Form()] = None,
         volume_ml: Annotated[int | None, Form()] = None,
         ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
     ) -> Response:
         if side_left is not None or side_right is not None:
             if side_left is not None and side_right is not None:
@@ -426,7 +441,7 @@ def build_api_router(svc: Services) -> APIRouter:
         event_id = svc.logging.log_feed(
             m,
             logged_by=who(request),
-            ts=_panel_ts(ts),
+            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
             duration_min=duration_min,
             volume_ml=volume_ml,
         )
@@ -439,6 +454,7 @@ def build_api_router(svc: Services) -> APIRouter:
         stool_colour: Annotated[str, Form()] = StoolColour.UNSET.value,
         consistency: Annotated[str, Form()] = StoolConsistency.UNSET.value,
         ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
     ) -> Response:
         k = NappyKind(kind)
         event_id = svc.logging.log_nappy(
@@ -446,7 +462,7 @@ def build_api_router(svc: Services) -> APIRouter:
             StoolColour(stool_colour),
             StoolConsistency(consistency),
             logged_by=who(request),
-            ts=_panel_ts(ts),
+            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
         )
         return _respond(request, "nappy", event_id, f"{k.value} nappy")
 
@@ -457,6 +473,7 @@ def build_api_router(svc: Services) -> APIRouter:
         duration_min: Annotated[str | None, Form()] = None,
         note: Annotated[str, Form()] = "",
         ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
     ) -> Response:
         cat = ActivityCategory(category)
         dur: int | None = None
@@ -470,7 +487,7 @@ def build_api_router(svc: Services) -> APIRouter:
             duration_min=dur,
             note=note,
             logged_by=who(request),
-            ts=_panel_ts(ts),
+            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
         )
         return _respond(request, "activity", event_id, cat.value.replace("_", " "))
 
@@ -546,9 +563,14 @@ def build_api_router(svc: Services) -> APIRouter:
         value: Annotated[int, Form()],
         source: Annotated[str, Form()] = "home",
         ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
     ) -> Response:
         event_id = svc.logging.log_growth(
-            GrowthMeasure(measure), value, source, logged_by=who(request), ts=_panel_ts(ts)
+            GrowthMeasure(measure),
+            value,
+            source,
+            logged_by=who(request),
+            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
         )
         return _respond(request, "growth", event_id, measure)
 
@@ -558,9 +580,10 @@ def build_api_router(svc: Services) -> APIRouter:
         temp_c: Annotated[float, Form()],
         site: Annotated[str, Form()] = "axilla",
         ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
     ) -> Response:
         event_id = svc.logging.log_temperature(
-            temp_c, site, logged_by=who(request), ts=_panel_ts(ts)
+            temp_c, site, logged_by=who(request), ts=_panel_ts(ts, ref_date=_parse_panel_date(date))
         )
         return _respond(request, "temperature", event_id, f"{temp_c:.1f} C")
 
@@ -571,9 +594,14 @@ def build_api_router(svc: Services) -> APIRouter:
         category: Annotated[str, Form()] = "first",
         note: Annotated[str, Form()] = "",
         ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
     ) -> Response:
         event_id = svc.logging.log_milestone(
-            category, title, note, logged_by=who(request), ts=_panel_ts(ts)
+            category,
+            title,
+            note,
+            logged_by=who(request),
+            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
         )
         return _respond(request, "milestone", event_id, "milestone")
 
@@ -582,9 +610,13 @@ def build_api_router(svc: Services) -> APIRouter:
         request: Request,
         text: Annotated[str, Form()],
         tags: Annotated[str, Form()] = "",
+        ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
     ) -> Response:
         parsed = tuple(t.strip() for t in tags.split(",") if t.strip())
-        event_id = svc.logging.log_note(text, parsed, logged_by=who(request))
+        event_id = svc.logging.log_note(
+            text, parsed, logged_by=who(request), ts=_panel_ts(ts, ref_date=_parse_panel_date(date))
+        )
         return _respond(request, "note", event_id, "note")
 
     # ------------------------------------------------------- undo / adjust
@@ -638,6 +670,89 @@ def build_api_router(svc: Services) -> APIRouter:
             return HTMLResponse('<div class="toast">Updated</div>')
         return RedirectResponse("/history", status_code=303)
 
+    @router.post("/api/edit-event")
+    def post_edit_event(
+        request: Request,
+        table: Annotated[str, Form()],
+        event_id: Annotated[int, Form()],
+        ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
+        ts_end: Annotated[str | None, Form()] = None,
+        method: Annotated[str | None, Form()] = None,
+        duration_min: Annotated[str | None, Form()] = None,
+        volume_ml: Annotated[str | None, Form()] = None,
+        note: Annotated[str | None, Form()] = None,
+        kind: Annotated[str | None, Form()] = None,
+        stool_colour: Annotated[str | None, Form()] = None,
+        consistency: Annotated[str | None, Form()] = None,
+        location: Annotated[str | None, Form()] = None,
+        measure: Annotated[str | None, Form()] = None,
+        value: Annotated[str | None, Form()] = None,
+        source: Annotated[str | None, Form()] = None,
+        temp_c: Annotated[str | None, Form()] = None,
+        site: Annotated[str | None, Form()] = None,
+        category: Annotated[str | None, Form()] = None,
+        title: Annotated[str | None, Form()] = None,
+        text: Annotated[str | None, Form()] = None,
+        tags: Annotated[str | None, Form()] = None,
+    ) -> Response:
+        """History Edit-panel save (task U43): the many-fields-at-once sibling
+        of /api/edit-field. EventsRepo.edit_event enforces the per-table
+        column allow-list same as that endpoint; a field outside it - or a
+        bad value - raises the same errors caught below. Only fields the
+        panel actually submitted are included, so a table's irrelevant
+        fields (e.g. a nappy edit never sends "measure") never reach
+        edit_event and can't collide with another table's columns.
+        """
+        raw_fields: dict[str, str] = {}
+        for name, val in (
+            ("method", method),
+            ("duration_min", duration_min),
+            ("volume_ml", volume_ml),
+            ("note", note),
+            ("kind", kind),
+            ("stool_colour", stool_colour),
+            ("consistency", consistency),
+            ("location", location),
+            ("measure", measure),
+            ("value", value),
+            ("source", source),
+            ("temp_c", temp_c),
+            ("site", site),
+            ("category", category),
+            ("title", title),
+            ("text", text),
+        ):
+            if val is not None and val != "":
+                raw_fields[name] = val
+        if tags is not None:
+            raw_fields["tags"] = ",".join(t.strip() for t in tags.split(",") if t.strip())
+
+        try:
+            fields: dict[str, object] = {
+                k: _coerce_field_value(k, v) for k, v in raw_fields.items()
+            }
+            if ts is not None and ts.strip():
+                combined = (
+                    to_utc(datetime.fromisoformat(ts))
+                    if "T" in ts
+                    else _panel_ts(ts, ref_date=_parse_panel_date(date))
+                )
+                if combined is not None:
+                    fields["ts"] = combined
+            if ts_end is not None and ts_end.strip():
+                fields["ts_end"] = to_utc(datetime.fromisoformat(ts_end))
+        except ValueError:
+            return HTMLResponse('<div class="toast err">Bad value</div>', status_code=400)
+
+        try:
+            svc.logging.edit(table, event_id, fields)
+        except (UnknownTableError, UneditableFieldError, ValueError):
+            return HTMLResponse('<div class="toast err">Bad value</div>', status_code=400)
+        if request.headers.get("HX-Request"):
+            return HTMLResponse('<div class="toast">Updated</div>' + _PANEL_CLOSE_OOB)
+        return RedirectResponse("/history", status_code=303)
+
     @router.post("/api/delete")
     def post_delete(
         request: Request,
@@ -649,7 +764,12 @@ def build_api_router(svc: Services) -> APIRouter:
         except UnknownTableError:
             return HTMLResponse("Unknown record", status_code=400)
         if request.headers.get("HX-Request"):
-            return HTMLResponse("")
+            # The confirm-delete step (U43) posts from inside #panel, so the
+            # response both removes the row (matched by id, wherever the
+            # underlying page put it) and closes the panel, same as any other
+            # panel save.
+            row_removed = f'<tr id="{table}-{event_id}" hx-swap-oob="delete"></tr>'
+            return HTMLResponse('<div class="toast">Deleted</div>' + row_removed + _PANEL_CLOSE_OOB)
         return RedirectResponse("/history", status_code=303)
 
     # -------------------------------------------------------------- alerts

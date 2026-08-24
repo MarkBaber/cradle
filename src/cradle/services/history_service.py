@@ -22,6 +22,23 @@ class HistoryRow:
     duration_min: int | None = None
     stool_colour: str | None = None
     consistency: str | None = None
+    # Everything below carries the rest of EventsRepo.EDITABLE's per-table
+    # allow-list, so the history page's Edit/Clone panel (task U43) can
+    # pre-fill from a HistoryRow alone - no by-id repo lookup was added
+    # (events_repo.py is outside this task's touches); these values are
+    # already sitting on the domain objects rows() iterates below.
+    note: str | None = None
+    ts_end: datetime | None = None
+    location: str | None = None
+    measure: str | None = None
+    value: int | None = None
+    source: str | None = None
+    temp_c: float | None = None
+    site: str | None = None
+    category: str | None = None
+    title: str | None = None
+    text: str | None = None
+    tags: tuple[str, ...] | None = None
 
     @property
     def activity(self) -> str:
@@ -90,6 +107,18 @@ class HistoryService:
             duration_min: int | None = None,
             stool_colour: str | None = None,
             consistency: str | None = None,
+            note: str | None = None,
+            ts_end: datetime | None = None,
+            location: str | None = None,
+            measure: str | None = None,
+            value: int | None = None,
+            source: str | None = None,
+            temp_c: float | None = None,
+            site: str | None = None,
+            category: str | None = None,
+            title: str | None = None,
+            text: str | None = None,
+            tags: tuple[str, ...] | None = None,
         ) -> None:
             if event_id is not None:
                 out.append(
@@ -105,6 +134,18 @@ class HistoryService:
                         duration_min=duration_min,
                         stool_colour=stool_colour,
                         consistency=consistency,
+                        note=note,
+                        ts_end=ts_end,
+                        location=location,
+                        measure=measure,
+                        value=value,
+                        source=source,
+                        temp_c=temp_c,
+                        site=site,
+                        category=category,
+                        title=title,
+                        text=text,
+                        tags=tags,
                     )
                 )
 
@@ -124,6 +165,7 @@ class HistoryService:
                     method=e.method.value,
                     volume_ml=e.volume_ml,
                     duration_min=e.duration_min,
+                    note=e.note,
                 )
         if "nappy" in wanted:
             for n in self._repo.list_nappies(limit, since, until):
@@ -147,7 +189,15 @@ class HistoryService:
                 else:
                     mins = int((s.ts_end - s.ts).total_seconds() // 60)
                     detail = f"slept {mins} min in {s.location}"
-                add("sleep", s.event_id, s.ts, detail, s.logged_by)
+                add(
+                    "sleep",
+                    s.event_id,
+                    s.ts,
+                    detail,
+                    s.logged_by,
+                    ts_end=s.ts_end,
+                    location=s.location,
+                )
         if "growth" in wanted:
             for g in self._repo.list_growth(limit=limit):
                 unit = "g" if g.measure.value == "weight" else "mm"
@@ -157,16 +207,44 @@ class HistoryService:
                     g.ts,
                     f"{g.measure.value} {g.value}{unit} ({g.source})",
                     g.logged_by,
+                    measure=g.measure.value,
+                    value=g.value,
+                    source=g.source,
                 )
         if "temperature" in wanted:
             for t in self._repo.list_temperatures(limit, since, until):
-                add("temperature", t.event_id, t.ts, f"{t.temp_c:.1f} C ({t.site})", t.logged_by)
+                add(
+                    "temperature",
+                    t.event_id,
+                    t.ts,
+                    f"{t.temp_c:.1f} C ({t.site})",
+                    t.logged_by,
+                    temp_c=t.temp_c,
+                    site=t.site,
+                )
         if "milestone" in wanted:
             for m in self._repo.list_milestones(limit):
-                add("milestone", m.event_id, m.ts, f"{m.category}: {m.title}", m.logged_by)
+                add(
+                    "milestone",
+                    m.event_id,
+                    m.ts,
+                    f"{m.category}: {m.title}",
+                    m.logged_by,
+                    category=m.category,
+                    title=m.title,
+                    note=m.note,
+                )
         if "note" in wanted:
             for nt in self._repo.list_notes(limit):
-                add("note", nt.event_id, nt.ts, nt.text[:80], nt.logged_by)
+                add(
+                    "note",
+                    nt.event_id,
+                    nt.ts,
+                    nt.text[:80],
+                    nt.logged_by,
+                    text=nt.text,
+                    tags=nt.tags,
+                )
 
         # Domain repos apply since/until only where indexed; enforce uniformly here.
         if since is not None:
@@ -176,6 +254,23 @@ class HistoryService:
 
         out.sort(key=lambda r: r.ts, reverse=True)
         return out[:limit]
+
+    def get_row(self, table: str, event_id: int) -> HistoryRow | None:
+        """One event's full row, for the history page's Edit/Clone pre-fill (U43).
+
+        Not indexed by id - a plain scan of that table's rows with a high
+        limit, which is fine at this app's single-baby/Pi scale and avoids a
+        new repo lookup method (events_repo.py is outside this task's
+        touches). Soft-deleted rows never appear in rows(), so a deleted
+        event's stale Edit/Clone link degrades to "not found" rather than
+        resurrecting it.
+        """
+        if table not in DOMAINS:
+            return None
+        for r in self.rows(domains=(table,), limit=100_000):
+            if r.event_id == event_id:
+                return r
+        return None
 
     def day_grouped_rows(
         self,

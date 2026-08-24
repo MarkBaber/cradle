@@ -1,29 +1,43 @@
-{% extends "base.html" %}
-{% set nav = 'summary' %}
-{% block title %}Day Summary · CRADLE{% endblock %}
-{% block content %}
-<h1>Day Summary</h1>
-<form method="get" action="/day-summary" class="filters">
-  {% for d in domains %}
-  <label><input type="checkbox" name="domain" value="{{ d }}"
-    {{ 'checked' if d in selected }}> {{ d }}</label>
-  {% endfor %}
-  <input type="date" name="since" value="{{ request.query_params.get('since','') }}">
-  <button type="submit">Filter</button>
-</form>
-<div class="day-summary">
+{# Day-grouped compact history rows (task U40), now the merged /history page's
+   only view (task U43). A bare fragment - no {% extends %} - included by
+   history.html and also served standalone at /history/fragment, same dual
+   role _history_table.html carried for the old flat table. #}
+<div class="day-summary" id="history">
   {% for day_date, rows in day_groups %}
   <section class="day-group">
-    <h2>{{ day_date.strftime('%d %b %Y') }}</h2>
+    <h2>{{ day_date.strftime('%d %b %Y') }}
+      <a class="day-add" href="/?panel=add&amp;date={{ day_date.isoformat() }}"
+         hx-get="/?panel=add&amp;date={{ day_date.isoformat() }}"
+         hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"
+         aria-label="Add entry for {{ day_date.strftime('%d %b %Y') }}">+</a>
+    </h2>
     <table class="summary-table">
       <tbody>
         {% for r in rows %}
         {% set local_ts = r.ts | local %}
-        <tr>
+        <tr id="{{ r.table }}-{{ r.event_id }}"
+            class="{{ 'focus' if focus == r.table ~ ':' ~ r.event_id|string }}">
           <td class="time">{{ local_ts.strftime('%H:%M') }}</td>
           <td class="activity"><span class="tag {{ r.table }}">{{ r.activity }}</span></td>
           <td class="kind">{{ r.activity_kind }}</td>
-          <td class="detail">{{ r.short_detail }}</td>
+          <td class="detail">{{ r.short_detail }}
+            {%- if r.logged_by %} <span class="by">by {{ r.logged_by }}</span>{% endif %}</td>
+          <td class="row-actions">
+            <a class="row-action edit" aria-label="Edit"
+               href="/?panel=edit&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
+               hx-get="/?panel=edit&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
+               hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&#9998;</a>
+            {% if r.table != "sleep" %}
+            <a class="row-action clone" aria-label="Clone"
+               href="/?panel=clone&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
+               hx-get="/?panel=clone&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
+               hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&#10697;</a>
+            {% endif %}
+            <a class="row-action del" aria-label="Delete"
+               href="/?panel=delete&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
+               hx-get="/?panel=delete&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
+               hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&#10005;</a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -33,4 +47,3 @@
   <p class="empty">Nothing logged yet.</p>
   {% endfor %}
 </div>
-{% endblock %}
