@@ -1,7 +1,7 @@
 """Page routes (tasks U1, U3, U4, U7). Templates in routers/templates/."""
 
 import math
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -166,8 +166,9 @@ def build_pages_router(svc: Services) -> APIRouter:
     def quick_entry(request: Request) -> Response:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
-        panel, method, kind, category = _open_panel(request)
         summary = svc.today.summary()
+        now_local = to_local(summary.as_of) if summary else to_local(datetime.now(UTC))
+        panel_ctx = _open_panel(request, svc, now_local)
         return TEMPLATES.TemplateResponse(
             request,
             "quick_entry.html",
@@ -176,11 +177,7 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "pinned": svc.alerts.pinned(),
                 "outstanding": svc.alerts.outstanding(),
                 "logged": request.query_params.get("logged", ""),
-                "open_panel": panel,
-                "open_method": method,
-                "open_kind": kind,
-                "open_category": category,
-                "now_time": to_local(summary.as_of).strftime("%H:%M") if summary else "",
+                **panel_ctx,
                 "entry_defaults": api_module.entry_defaults(api_module.CONFIG_PATH),
                 "activity_targets": api_module.activity_targets(api_module.CONFIG_PATH),
                 "feed_echo": _feed_echo(svc.projections.projections()),
@@ -210,11 +207,13 @@ def build_pages_router(svc: Services) -> APIRouter:
 
     @router.get("/history", response_class=HTMLResponse)
     def history(request: Request) -> Response:
+        if not svc.settings.has_profile():
+            return RedirectResponse("/settings?first_run=1", status_code=303)
         return TEMPLATES.TemplateResponse(
             request,
             "history.html",
             {
-                "rows": _rows(request, svc),
+                "day_groups": _day_grouped_rows(request, svc),
                 "domains": DOMAINS,
                 "selected": _selected(request),
                 "focus": request.query_params.get("focus", ""),
@@ -225,24 +224,20 @@ def build_pages_router(svc: Services) -> APIRouter:
     def history_fragment(request: Request) -> Response:
         return TEMPLATES.TemplateResponse(
             request,
-            "_history_table.html",
-            {"rows": _rows(request, svc), "focus": request.query_params.get("focus", "")},
-        )
-
-    @router.get("/day-summary", response_class=HTMLResponse)
-    @router.get("/summary", response_class=HTMLResponse)
-    def day_summary(request: Request) -> Response:
-        if not svc.settings.has_profile():
-            return RedirectResponse("/settings?first_run=1", status_code=303)
-        return TEMPLATES.TemplateResponse(
-            request,
             "day_summary.html",
             {
                 "day_groups": _day_grouped_rows(request, svc),
-                "domains": DOMAINS,
-                "selected": _selected(request),
+                "focus": request.query_params.get("focus", ""),
             },
         )
+
+    @router.get("/day-summary")
+    @router.get("/summary")
+    def day_summary_redirect(request: Request) -> Response:
+        """U43: /history absorbed the day-grouped summary view; these two
+        routes stay only as back-compat redirects for old links/bookmarks."""
+        qs = request.url.query
+        return RedirectResponse(f"/history?{qs}" if qs else "/history", status_code=303)
 
     @router.get("/charts", response_class=HTMLResponse)
     def charts(request: Request) -> Response:
@@ -442,27 +437,152 @@ _ACTIVITY_CATEGORIES = {c.value for c in ActivityCategory}
 _MORE_PANELS = {"growth", "temperature", "milestone", "note"}
 
 
-def _open_panel(request: Request) -> tuple[str, str, str, str]:
-    """Which quick-entry panel (if any) a tile tap asked to open (U18/U27).
+def _parse_date_param(raw: str | None) -> date | None:
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
 
-    A bad/unknown method, kind or category collapses back to no panel rather than 4xx-ing -
-    the panel is a GET, so there is nothing to reject, only nothing to show.
+
+def _int_or_none(raw: str | None) -> int | None:
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _open_panel(request: Request, svc: Services, now_local: datetime) -> dict[str, object]:
+    """Which quick-entry panel (if any) to render, and with what pre-fill (U18/U27/U43).
+
+    Returns everything quick_entry.html needs as one dict of template
+    context, so build_pages_router's / route can just splat it in. A bad or
+    unknown combination - stale table+event_id, an unrecognised panel value -
+    collapses back to the closed panel rather than 4xx-ing: the panel is a
+    GET, so there is nothing to reject, only nothing to show.
+
+    Three panel "modes" share this one function:
+    - create (mode=""): the Log page's own tiles - open_panel is a domain
+      name, pre-fill is whatever entry_defaults say, date/time default to
+      *now_local* unless a day-group's "+" (mode "add") seeded a date.
+    - edit/clone (mode="edit"/"clone"): a history-row action button - looks
+      the row up via HistoryService.get_row and pre-fills every EDITABLE
+      field from it; Edit's form posts to /api/edit-event, Clone's posts to
+      the same per-domain create endpoint the Log page uses. Sleep has no
+      create endpoint that takes explicit fields (toggle_sleep is a stateful
+      now-only start/stop, not a general insert - V1 froze its signature),
+      so Sleep Clone is deliberately not offered; Sleep Edit still works via
+      /api/edit-event like every other domain.
+    - add (panel="add"): a day-group's green "+" - opens the same per-
+      datatype tile choice as the Log page, each tile carrying the group's
+      date forward so whichever create panel opens next seeds date=that day
+      and time=09:00 instead of today/now.
     """
     panel = request.query_params.get("panel", "")
     method = request.query_params.get("method", "")
     kind = request.query_params.get("kind", "")
     category = request.query_params.get("category", "")
-    if panel == "feed" and method in _FEED_METHODS:
-        return "feed", method, "", ""
-    if panel == "nappy" and kind in _NAPPY_KINDS:
-        return "nappy", "", kind, ""
-    if panel == "activity" and category in _ACTIVITY_CATEGORIES:
-        return "activity", "", "", category
+    table = request.query_params.get("table", "")
+    event_id = _int_or_none(request.query_params.get("event_id"))
+    seeded_date = _parse_date_param(request.query_params.get("date"))
+
+    closed: dict[str, object] = {
+        "open_panel": "",
+        "open_method": "",
+        "open_kind": "",
+        "open_category": "",
+        "open_mode": "",
+        "open_row": None,
+        "open_table": "",
+        "open_event_id": None,
+        "open_date": now_local.date().isoformat(),
+        "panel_time": now_local.strftime("%H:%M"),
+        "open_seeded": False,
+    }
+
+    if panel == "delete":
+        if not table or event_id is None:
+            return closed
+        row = svc.history.get_row(table, event_id)
+        if row is None:
+            return closed
+        return {
+            **closed,
+            "open_panel": "delete",
+            "open_table": table,
+            "open_event_id": event_id,
+            "open_row": row,
+        }
+
+    if panel in ("edit", "clone"):
+        if not table or event_id is None:
+            return closed
+        row = svc.history.get_row(table, event_id)
+        if row is None:
+            return closed
+        if table == "sleep" and panel == "clone":
+            return closed
+        if table == "feed":
+            method = row.method or ""
+        elif table == "nappy":
+            kind = row.kind or ""
+        row_local = to_local(row.ts)
+        return {
+            "open_panel": table,
+            "open_method": method,
+            "open_kind": kind,
+            "open_category": "",
+            "open_mode": panel,
+            "open_row": row,
+            "open_table": table,
+            "open_event_id": event_id,
+            "open_date": row_local.date().isoformat(),
+            "panel_time": row_local.strftime("%H:%M"),
+            "open_seeded": True,
+        }
+
+    if panel == "add":
+        if seeded_date is None:
+            return closed
+        return {
+            **closed,
+            "open_panel": "add",
+            "open_date": seeded_date.isoformat(),
+            "panel_time": "09:00",
+        }
+
+    panel_date = seeded_date or now_local.date()
+    panel_time = "09:00" if seeded_date is not None else now_local.strftime("%H:%M")
+
     if panel in _ACTIVITY_CATEGORIES:
-        return "activity", "", "", panel
-    if panel in _MORE_PANELS:
-        return panel, "", "", ""
-    return "", "", "", ""
+        category = panel
+        panel = "activity"
+
+    valid = (
+        (panel == "feed" and method in _FEED_METHODS)
+        or (panel == "nappy" and kind in _NAPPY_KINDS)
+        or (panel == "activity" and category in _ACTIVITY_CATEGORIES)
+        or panel in _MORE_PANELS
+    )
+    if not valid:
+        return closed
+
+    return {
+        "open_panel": panel,
+        "open_method": method,
+        "open_kind": kind,
+        "open_category": category,
+        "open_mode": "",
+        "open_row": None,
+        "open_table": panel,
+        "open_event_id": None,
+        "open_date": panel_date.isoformat(),
+        "panel_time": panel_time,
+        "open_seeded": seeded_date is not None,
+    }
 
 
 def _int_param(
@@ -481,21 +601,6 @@ def _int_param(
 def _selected(request: Request) -> tuple[str, ...]:
     raw = request.query_params.getlist("domain")
     return tuple(d for d in raw if d in DOMAINS) or DOMAINS
-
-
-def _rows(request: Request, svc: Services) -> list[object]:
-    def parse(name: str) -> datetime | None:
-        raw = request.query_params.get(name)
-        if not raw:
-            return None
-        try:
-            return to_utc(datetime.fromisoformat(raw))
-        except ValueError:
-            return None
-
-    return list(
-        svc.history.rows(domains=_selected(request), since=parse("since"), until=parse("until"))
-    )
 
 
 def _day_grouped_rows(request: Request, svc: Services) -> list[object]:

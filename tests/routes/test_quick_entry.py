@@ -110,7 +110,7 @@ def test_quick_entry_page_renders_after_profile() -> None:
 def test_undo_removes_the_event() -> None:
     client = _client()
     client.post("/api/feed", data={"method": "breast_left"})
-    assert "breast left" in client.get("/history").text
+    assert "Breast Left" in client.get("/history").text
     client.post("/api/undo", data={"table": "feed", "event_id": 1})
     assert "Nothing logged yet" in client.get("/history").text
 
@@ -160,8 +160,8 @@ def test_history_domain_filter() -> None:
     client.post("/api/feed", data={"method": "breast_left"})
     client.post("/api/nappy", data={"kind": "wet"})
     only_nappy = client.get("/history?domain=nappy").text
-    assert "breast left" not in only_nappy, "filter leaked a feed row"
-    assert "wet" in only_nappy
+    assert "Breast Left" not in only_nappy, "filter leaked a feed row"
+    assert "Wet" in only_nappy
 
 
 def test_naive_adjust_time_does_not_corrupt_history_ordering() -> None:
@@ -321,7 +321,7 @@ def test_breast_panel_save_logs_side_and_duration_end_to_end() -> None:
     )
     assert r.status_code == 200
     hist = client.get("/history").text
-    assert "breast right" in hist
+    assert "Breast Right" in hist
     assert "14 min" in hist
 
 
@@ -335,7 +335,7 @@ def test_bottle_panel_save_logs_volume_ml_end_to_end() -> None:
     )
     assert r.status_code == 200
     hist = client.get("/history").text
-    assert "bottle expressed" in hist
+    assert "Bottle Expressed" in hist
     assert "80 ml" in hist
 
 
@@ -356,7 +356,8 @@ def test_dirty_panel_save_logs_stool_colour_end_to_end() -> None:
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    assert "dirty (green)" in client.get("/history").text
+    hist = client.get("/history").text
+    assert "Dirty" in hist and "green" in hist
 
 
 def test_dirty_panel_save_closes_the_panel_and_the_toast_is_visible() -> None:
@@ -543,19 +544,23 @@ def test_panel_save_can_persist_a_picked_date_other_than_today() -> None:
 
 
 def test_history_edit_field_uses_the_vendored_combined_picker() -> None:
-    """/history's inline-edit timestamp field uses the same picker the panel
-    does. history.html/base.html have no touchable head-block for it, so
-    _history_table.html loads the vendor scripts itself (still functions
-    without a <head>: defer only cares about DOM-parse completion, not
-    document position)."""
+    """/history loads the same picker the panel does (task U29, carried
+    forward by the U43 merge onto the day-grouped page's #panel). history.html/
+    base.html have no touchable head-block for it, so _history_table.html
+    loads the vendor scripts itself (still functions without a <head>: defer
+    only cares about DOM-parse completion, not document position). The
+    Edit-panel's own datetime-local field (sleep's Start/End, task U43)
+    proves the picker still has something to bind on this merged page."""
     client = _client()
-    client.post("/api/feed", data={"method": "breast_left"})
+    client.post("/api/sleep/toggle")
     page = client.get("/history").text
     assert '<script src="/static/vendor/jquery.min.js" defer></script>' in page
     assert '<script src="/static/vendor/anypicker.min.js" defer></script>' in page
     assert '<script src="/static/entry.js" defer></script>' in page
     assert '<link rel="stylesheet" href="/static/vendor/anypicker-all.min.css">' in page
-    assert '<input type="datetime-local" name="ts"' in page
+
+    edit = client.get("/?panel=edit&table=sleep&event_id=1").text
+    assert '<input type="datetime-local" name="ts"' in edit
 
 
 def test_history_edit_corrects_both_date_and_time() -> None:
@@ -570,7 +575,9 @@ def test_history_edit_corrects_both_date_and_time() -> None:
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    assert "10 Jul 06:45" in client.get("/history").text
+    page = client.get("/history").text
+    assert "10 Jul 2026" in page
+    assert "06:45" in page
 
 
 def test_panel_and_history_submit_correct_timestamps_with_picker_script_disabled() -> None:
@@ -590,7 +597,9 @@ def test_panel_and_history_submit_correct_timestamps_with_picker_script_disabled
         data={"table": "feed", "event_id": 1, "ts": "2026-07-14T21:00"},
     )
     assert r2.status_code == 303
-    assert "14 Jul 21:00" in client.get("/history").text
+    page = client.get("/history").text
+    assert "14 Jul 2026" in page
+    assert "21:00" in page
 
 
 def test_breast_panel_single_side_preselects_exactly_that_side() -> None:
@@ -622,7 +631,7 @@ def test_breast_panel_single_side_preselects_exactly_that_side() -> None:
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    assert "breast right" in client.get("/history").text
+    assert "Breast Right" in client.get("/history").text
 
 
 # --------------------------------------------------------------------- U32
@@ -653,7 +662,7 @@ def test_breast_panel_save_with_both_sides_checked_logs_one_breast_both_row() ->
     )
     assert r.status_code == 200
     hist = client.get("/history").text
-    assert "breast both" in hist
+    assert "Breast Both" in hist
     assert "16 min" in hist
 
     feeds = client.app.state.services.logging.recent_feeds(10)
@@ -674,7 +683,7 @@ def test_breast_panel_save_with_only_side_left_checked_logs_breast_left() -> Non
     )
     assert r.status_code == 200
     hist = client.get("/history").text
-    assert "breast left" in hist
+    assert "Breast Left" in hist
     assert "9 min" in hist
 
     feeds = client.app.state.services.logging.recent_feeds(10)
@@ -735,9 +744,9 @@ def test_each_more_panel_save_persists_via_its_existing_endpoint_end_to_end() ->
         r = client.post(url, data=payload, headers={"HX-Request": "true"})  # tap 2: save
         assert r.status_code == 200, f"{panel} save -> {r.status_code}"
     hist = client.get("/history").text
-    assert "weight 3600g (home)" in hist
+    assert "Weight" in hist and "3600g (home)" in hist
     assert "36.9 C (axilla)" in hist
-    assert "first: First smile" in hist
+    assert "First" in hist and "First smile" in hist
     assert "Slept well tonight" in hist
 
 
@@ -949,8 +958,8 @@ def test_growth_length_and_head_circ_entered_through_the_panel_controls() -> Non
     )
     assert r2.status_code == 200
     hist = client.get("/history").text
-    assert "length 520mm (home)" in hist
-    assert "head_circ 350mm (home)" in hist
+    assert "Length" in hist and "520mm (home)" in hist
+    assert "Head_Circ" in hist and "350mm (home)" in hist
 
 
 # --------------------------------------------------------------------- U26
@@ -965,7 +974,8 @@ def test_history_edit_field_sets_nappy_stool_colour() -> None:
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    assert "dirty (green)" in client.get("/history").text
+    hist = client.get("/history").text
+    assert "Dirty" in hist and "green" in hist
 
 
 def test_history_edit_field_sets_nappy_consistency() -> None:
@@ -994,7 +1004,8 @@ def test_history_edit_field_nappy_no_js_path_updates_and_redirects() -> None:
     )
     assert r.status_code == 303
     assert r.headers["location"] == "/history"
-    assert "dirty (black)" in client.get("/history").text
+    hist = client.get("/history").text
+    assert "Dirty" in hist and "black" in hist
 
 
 def test_history_edit_field_rejects_nappy_column_outside_allow_list() -> None:
@@ -1067,7 +1078,7 @@ def test_growth_and_temperature_saves_post_the_picked_value_through_unchanged_pa
     )
     assert r2.status_code == 200
     hist = client.get("/history").text
-    assert "weight 4120g (home)" in hist
+    assert "Weight" in hist and "4120g (home)" in hist
     assert "38.4 C (axilla)" in hist
 
 
@@ -1097,8 +1108,10 @@ def test_growth_temperature_milestone_save_with_ts_untouched_still_logs_at_now()
         r = client.post(url, data=payload, headers={"HX-Request": "true"})
         assert r.status_code == 200, f"{url} -> {r.status_code}"
     hist = client.get("/history").text
-    expected = to_local(NOW).strftime("%d %b %H:%M")
-    assert hist.count(expected) >= 1, "growth/temperature/milestone saves must log at now"
+    expected_day = to_local(NOW).strftime("%d %b %Y")
+    expected_time = to_local(NOW).strftime("%H:%M")
+    assert expected_day in hist, "growth/temperature/milestone saves must land under today"
+    assert hist.count(expected_time) >= 3, "all three rows must log at the same now"
 
 
 def test_growth_temperature_milestone_save_with_picked_time_persists_that_exact_time() -> None:
@@ -1110,8 +1123,9 @@ def test_growth_temperature_milestone_save_with_picked_time_persists_that_exact_
         r = client.post(url, data={**payload, "ts": "09:30"}, headers={"HX-Request": "true"})
         assert r.status_code == 200, f"{url} -> {r.status_code}"
     hist = client.get("/history").text
-    today_local = to_local(datetime.now(UTC)).strftime("%d %b")
-    assert hist.count(f"{today_local} 09:30") >= 1
+    today_local = to_local(datetime.now(UTC)).strftime("%d %b %Y")
+    assert today_local in hist
+    assert hist.count("09:30") >= 3
 
 
 def test_growth_temperature_milestone_time_field_round_trips_through_adjust_time() -> None:
@@ -1137,7 +1151,8 @@ def test_growth_temperature_milestone_time_field_round_trips_through_adjust_time
         assert r2.status_code == 303
 
     hist = client.get("/history").text
-    assert hist.count("10 Jul 23:15") >= 1
+    assert "10 Jul 2026" in hist
+    assert hist.count("23:15") >= 3
 
 
 def test_growth_temperature_milestone_fields_submit_correctly_with_picker_script_disabled() -> None:
@@ -1435,16 +1450,12 @@ def test_u36_converted_fields_submit_correctly_without_js() -> None:
 # --------------------------------------------------------------------- U38
 
 
-def test_u38_history_wheels_and_gating() -> None:
-    """U38 exit criteria 1, 2, 3, 4:
-    - Bottle feed has 'Set ml' form prefilled with stored volume_ml, no 'Set min'.
-    - Breast feed has 'Set min' form prefilled with stored duration_min, no 'Set ml'.
-    - Dirty nappy has 'Set colour' and 'Set consistency' forms.
-    - Wet nappy has neither 'Set colour' nor 'Set consistency'.
-    - Save posts picked values through existing /api/edit-field parsing.
-    """
+def test_history_edit_panel_prefills_feed_and_nappy_from_stored_values() -> None:
+    """U43: the day-grouped merge replaces U38's old per-row inline 'Set ml'/
+    'Set colour' forms with the shared #panel, opened via Edit and pre-filled
+    from the row's actual stored values. Save posts the many-fields-at-once
+    /api/edit-event, updating the existing event_id in place."""
     client = _client()
-    # Log a bottle feed with 60ml and a breast feed with 15min
     client.post("/api/feed", data={"method": "bottle_expressed", "volume_ml": "60"})
     client.post("/api/feed", data={"method": "breast_left", "duration_min": "15"})
     client.post(
@@ -1452,67 +1463,48 @@ def test_u38_history_wheels_and_gating() -> None:
     )
     client.post("/api/nappy", data={"kind": "wet"})
 
-    hist = client.get("/history").text
+    bottle_edit = client.get("/?panel=edit&table=feed&event_id=1").text
+    assert 'value="bottle_expressed" selected' in bottle_edit
+    assert 'value="60"' in bottle_edit
 
-    # Check JS wiring for history wheels
-    js = client.get("/static/entry.js").text
-    assert "bindHistoryNumericWheels" in js
+    breast_edit = client.get("/?panel=edit&table=feed&event_id=2").text
+    assert 'value="breast_left" selected' in breast_edit
+    assert 'value="15"' in breast_edit
 
-    # Feed row 1 (bottle_expressed): 'Set ml' present with value="60", 'Set min' absent
-    bottle_row_match = re.search(r'id="feed-1"[^>]*>([\s\S]*?)</tr>', hist)
-    assert bottle_row_match is not None
-    bottle_html = bottle_row_match.group(1)
-    assert 'name="field" value="volume_ml"' in bottle_html
-    assert 'value="60"' in bottle_html
-    assert 'name="field" value="duration_min"' not in bottle_html
+    dirty_edit = client.get("/?panel=edit&table=nappy&event_id=1").text
+    assert 'value="dirty" selected' in dirty_edit
+    assert 'value="green" selected' in dirty_edit
+    assert 'value="seedy" selected' in dirty_edit
 
-    # Feed row 2 (breast_left): 'Set min' present with value="15", 'Set ml' absent
-    breast_row_match = re.search(r'id="feed-2"[^>]*>([\s\S]*?)</tr>', hist)
-    assert breast_row_match is not None
-    breast_html = breast_row_match.group(1)
-    assert 'name="field" value="duration_min"' in breast_html
-    assert 'value="15"' in breast_html
-    assert 'name="field" value="volume_ml"' not in breast_html
+    wet_edit = client.get("/?panel=edit&table=nappy&event_id=2").text
+    assert 'value="wet" selected' in wet_edit
+    assert 'value="dirty" selected' not in wet_edit
 
-    # Nappy row 1 (dirty): 'Set colour' and 'Set consistency' present
-    dirty_row_match = re.search(r'id="nappy-1"[^>]*>([\s\S]*?)</tr>', hist)
-    assert dirty_row_match is not None
-    dirty_html = dirty_row_match.group(1)
-    assert 'name="field" value="stool_colour"' in dirty_html
-    assert 'name="field" value="consistency"' in dirty_html
-
-    # Nappy row 2 (wet): 'Set colour' and 'Set consistency' absent
-    wet_row_match = re.search(r'id="nappy-2"[^>]*>([\s\S]*?)</tr>', hist)
-    assert wet_row_match is not None
-    wet_html = wet_row_match.group(1)
-    assert 'name="field" value="stool_colour"' not in wet_html
-    assert 'name="field" value="consistency"' not in wet_html
-
-    # Test /api/edit-field volume_ml and duration_min update
     r1 = client.post(
-        "/api/edit-field",
-        data={"table": "feed", "event_id": 1, "field": "volume_ml", "value": "80"},
+        "/api/edit-event",
+        data={"table": "feed", "event_id": "1", "method": "bottle_expressed", "volume_ml": "80"},
         headers={"HX-Request": "true"},
     )
     assert r1.status_code == 200
     assert "80 ml" in client.get("/history").text
 
     r2 = client.post(
-        "/api/edit-field",
-        data={"table": "feed", "event_id": 2, "field": "duration_min", "value": "25"},
+        "/api/edit-event",
+        data={"table": "feed", "event_id": "2", "method": "breast_left", "duration_min": "25"},
         headers={"HX-Request": "true"},
     )
     assert r2.status_code == 200
     assert "25 min" in client.get("/history").text
 
+    # Still the same two feed events - editing never creates a third.
+    feeds = client.app.state.services.logging.recent_feeds(10)
+    assert len(feeds) == 2
 
-def test_u38_history_same_time_grouping() -> None:
-    """U38 exit criteria 5 & 6:
-    - Multiple entries logged at the same local date+minute render under one shared
-      date/time heading.
-    - Each entry keeps its own working edit/delete controls scoped to its table+event_id.
-    - Entries at different times remain in separate groups, newest first.
-    """
+
+def test_history_multiple_same_time_rows_keep_independent_row_ids() -> None:
+    """U40's day-grouped layout replaced U38's shared same-time heading with
+    one compact row per event under a single day heading; each row still
+    carries its own id and its own Edit/Clone/Delete action links."""
     client = _client()
     client.post("/api/feed", data={"method": "bottle_expressed", "volume_ml": "60", "ts": "06:20"})
     client.post("/api/nappy", data={"kind": "wet", "ts": "06:20"})
@@ -1524,22 +1516,16 @@ def test_u38_history_same_time_grouping() -> None:
 
     page = client.get("/history").text
 
-    today_str = to_local(datetime.now(UTC)).strftime("%d %b")
-    h_0620 = f"{today_str} 06:20"
-    h_0515 = f"{today_str} 05:15"
+    # One shared day-group section for all four (today's) events - the day's
+    # date also appears a second time in the "+" button's aria-label.
+    assert page.count('<section class="day-group">') == 1
+    assert page.count("06:20") == 3
+    assert page.count("05:15") == 1
 
-    # Shared heading rendered exactly once for the three 06:20 events
-    assert page.count(h_0620) == 1
-    assert page.count(h_0515) == 1
-
-    # 06:20 group appears before 05:15 group (newest first)
-    assert page.find(h_0620) < page.find(h_0515)
-
-    # Each entry has its own id and action forms
-    assert 'id="feed-1"' in page
-    assert 'id="nappy-1"' in page
-    assert 'id="nappy-2"' in page
-    assert 'id="feed-2"' in page
+    for table, event_id in (("feed", 1), ("nappy", 1), ("nappy", 2), ("feed", 2)):
+        assert f'id="{table}-{event_id}"' in page
+        assert f"panel=edit&amp;table={table}&amp;event_id={event_id}" in page
+        assert f"panel=delete&amp;table={table}&amp;event_id={event_id}" in page
 
 
 def test_u38_no_js_form_submission() -> None:
@@ -1730,6 +1716,279 @@ def test_wheel_step_change_preserves_valid_defaults_and_submission(tmp_path: Pat
         feeds = client.app.state.services.logging._repo.list_feeds(limit=1)
         assert len(feeds) == 1
         assert feeds[0].volume_ml == 60
+
+
+# --------------------------------------------------------------------- U43
+
+
+def test_history_edit_panel_prefills_sleep_growth_temperature_milestone_note() -> None:
+    """U43 exit criterion: Edit opens the per-datatype panel pre-filled with
+    the row's actual stored values, across every remaining domain (feed and
+    nappy are covered by test_history_edit_panel_prefills_feed_and_nappy_
+    from_stored_values above)."""
+    client = _client()
+    client.post("/api/sleep/toggle")
+    client.post(
+        "/api/adjust-time", data={"table": "sleep", "event_id": 1, "ts": "2026-07-15T20:00"}
+    )
+    client.post(
+        "/api/edit-field",
+        data={"table": "sleep", "event_id": 1, "field": "ts_end", "value": "2026-07-15T21:30"},
+    )
+    client.post("/api/growth", data={"measure": "weight", "value": "3600", "source": "midwife"})
+    client.post("/api/temperature", data={"temp_c": "37.2", "site": "ear"})
+    client.post(
+        "/api/milestone",
+        data={"category": "motor", "title": "Rolled over", "note": "so proud"},
+    )
+    client.post("/api/note", data={"text": "hello world", "tags": "a, b"})
+
+    sleep_edit = client.get("/?panel=edit&table=sleep&event_id=1").text
+    assert 'value="2026-07-15T20:00"' in sleep_edit
+    assert 'value="2026-07-15T21:30"' in sleep_edit
+    assert 'value="cot" selected' in sleep_edit
+
+    growth_edit = client.get("/?panel=edit&table=growth&event_id=1").text
+    assert 'value="weight" selected' in growth_edit
+    assert 'value="3600"' in growth_edit
+    assert 'value="midwife" selected' in growth_edit
+
+    temp_edit = client.get("/?panel=edit&table=temperature&event_id=1").text
+    assert 'value="37.2"' in temp_edit
+    assert 'name="site" value="ear"' in temp_edit
+
+    milestone_edit = client.get("/?panel=edit&table=milestone&event_id=1").text
+    assert 'value="motor" selected' in milestone_edit
+    assert 'value="Rolled over"' in milestone_edit
+    assert 'value="so proud"' in milestone_edit
+
+    note_edit = client.get("/?panel=edit&table=note&event_id=1").text
+    assert 'value="hello world"' in note_edit
+    assert 'value="a, b"' in note_edit
+
+
+def test_history_edit_saving_updates_the_same_event_and_moving_ts_relocates_the_row() -> None:
+    """U43 exit criterion: saving an Edit updates the existing event_id, not
+    a new one; when the edit also moves the row's ts to a different day, the
+    next render shows it under the new day only - no stale duplicate is left
+    under the old one."""
+    client = _client()
+    client.post(
+        "/api/feed",
+        data={"method": "breast_left", "duration_min": "10", "date": "2026-07-15", "ts": "09:00"},
+    )
+
+    r = client.post(
+        "/api/edit-event",
+        data={
+            "table": "feed",
+            "event_id": "1",
+            "method": "breast_left",
+            "duration_min": "10",
+            "date": "2026-07-10",
+            "ts": "08:00",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+
+    feeds = client.app.state.services.logging.recent_feeds(10)
+    assert len(feeds) == 1, "editing must update the row in place, never insert a new one"
+    assert feeds[0].event_id == 1
+    moved = to_local(feeds[0].ts)
+    assert (moved.year, moved.month, moved.day) == (2026, 7, 10)
+    assert (moved.hour, moved.minute) == (8, 0)
+
+    page = client.get("/history").text
+    assert "10 Jul 2026" in page
+    assert "15 Jul 2026" not in page, "no stale duplicate left under the row's old day"
+    assert page.count('id="feed-1"') == 1
+
+
+def test_history_clone_always_creates_a_new_event_leaving_the_source_untouched() -> None:
+    """U43 exit criterion, Mark Baber's own example: Clone opens the same
+    pre-filled panel as Edit, but saving - changed or not - always creates a
+    new event via the normal per-domain create endpoint; both rows exist
+    afterward and the source is untouched. Here only the date changes, same
+    as copying a day's 6:20 bottle onto another day."""
+    client = _client()
+    client.post(
+        "/api/feed",
+        data={"method": "bottle_formula", "volume_ml": "150", "date": "2026-07-15", "ts": "06:20"},
+    )
+    original_before = client.app.state.services.logging.recent_feeds(10)[0]
+
+    clone_panel = client.get("/?panel=clone&table=feed&event_id=1").text
+    assert 'action="/api/feed"' in clone_panel
+    assert 'value="150"' in clone_panel
+    assert 'value="bottle_formula" selected' in clone_panel
+
+    r = client.post(
+        "/api/feed",
+        data={
+            "method": "bottle_formula",
+            "volume_ml": "150",
+            "date": "2026-07-16",
+            "ts": "06:20",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+
+    feeds = client.app.state.services.logging.recent_feeds(10)
+    assert len(feeds) == 2, "clone must add a new row, leaving the original in place"
+    by_id = {f.event_id: f for f in feeds}
+    cloned_day = to_local(by_id[2].ts)
+    assert (cloned_day.year, cloned_day.month, cloned_day.day) == (2026, 7, 16)
+    assert by_id[1].ts == original_before.ts, "the source row's timestamp is unchanged"
+    assert by_id[1].volume_ml == 150, "the source row is unchanged"
+
+    page = client.get("/history").text
+    assert "15 Jul 2026" in page and "16 Jul 2026" in page
+    assert page.count('id="feed-1"') == 1
+    assert page.count('id="feed-2"') == 1
+
+
+def test_history_clone_is_not_offered_for_sleep() -> None:
+    """Sleep has no create endpoint that accepts explicit ts/ts_end/location
+    (toggle_sleep is a stateful now-only start/stop, and LoggingService's
+    log_* signatures are frozen by V1) - reusing it for Clone would either
+    silently end a real running sleep or ignore the pre-filled data
+    entirely. Edit still covers sleep correction; Clone is deliberately not
+    offered for this one domain, and the row itself carries only two orange
+    actions, not three."""
+    client = _client()
+    client.post("/api/sleep/toggle")
+
+    row = client.get("/history").text
+    assert 'panel=edit&amp;table=sleep&amp;event_id=1' in row
+    assert 'panel=delete&amp;table=sleep&amp;event_id=1' in row
+    assert 'panel=clone&amp;table=sleep&amp;event_id=1' not in row
+
+    clone_attempt = client.get("/?panel=clone&table=sleep&event_id=1").text
+    assert '<div id="panel" class="overlay open">' not in clone_attempt
+
+
+def test_history_delete_confirmation_dismiss_deletes_nothing() -> None:
+    """U43 exit criterion: dismissing the confirmation (the Cancel link, or
+    the modal's backdrop/close, both of which reuse #panel's existing close
+    convention) must not fire the delete - only actually confirming does."""
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left"})
+
+    confirm = client.get("/?panel=delete&table=feed&event_id=1").text
+    assert "Delete this Feed entry" in confirm
+    cancel = re.search(r'<a class="modal-cancel"[^>]*href="([^"]+)"', confirm)
+    assert cancel is not None and cancel.group(1) == "/"
+
+    # Opening (and implicitly dismissing, by simply navigating away) the
+    # confirmation must not itself have deleted anything.
+    still_there = client.get("/history").text
+    assert 'id="feed-1"' in still_there
+
+    # Confirming is the only thing that deletes.
+    r = client.post("/api/delete", data={"table": "feed", "event_id": "1"})
+    assert r.status_code == 303
+    gone = client.get("/history").text
+    assert 'id="feed-1"' not in gone
+
+
+def test_history_day_add_button_seeds_that_days_own_date_and_nine_am() -> None:
+    """U43 exit criterion: each day-group's green '+' opens the entry choice
+    with that day's own date pre-filled and time defaulted to 09:00 - not
+    today's date, not 'now' - correct for a day-group that isn't today."""
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left", "ts": "08:00"})
+    r = client.post(
+        "/api/adjust-time",
+        data={"table": "feed", "event_id": 1, "ts": "2026-07-10T08:00"},
+    )
+    assert r.status_code == 303
+
+    page = client.get("/history").text
+    assert 'panel=add&amp;date=2026-07-10' in page
+
+    chooser = client.get("/?panel=add&date=2026-07-10").text
+    assert "2026-07-10" in chooser
+    assert 'panel=feed&amp;method=bottle_expressed&amp;date=2026-07-10' in chooser
+
+    feed_panel = client.get("/?panel=feed&method=bottle_expressed&date=2026-07-10").text
+    assert 'name="date" value="2026-07-10"' in feed_panel
+    assert 'name="ts" value="09:00"' in feed_panel
+
+    r2 = client.post(
+        "/api/feed",
+        data={"method": "bottle_expressed", "volume_ml": "70", "date": "2026-07-10", "ts": "09:00"},
+        headers={"HX-Request": "true"},
+    )
+    assert r2.status_code == 200
+    saved = client.app.state.services.logging.recent_feeds(10)
+    new_row = next(f for f in saved if f.event_id == 2)
+    local = to_local(new_row.ts)
+    assert (local.year, local.month, local.day) == (2026, 7, 10)
+    assert (local.hour, local.minute) == (9, 0)
+
+
+def test_history_row_and_day_add_links_have_plain_href_fallbacks() -> None:
+    """U43 no-JS criterion, syntactic half: every Edit/Clone/Delete/Add link
+    is a real <a href> pointing at the identical URL its hx-get carries, not
+    an href-less JS-only control - so a browser with htmx unloaded still
+    navigates to the right panel on a plain click."""
+    client = _client()
+    today = to_local(NOW).date().isoformat()
+    client.post("/api/feed", data={"method": "breast_left", "date": today, "ts": "09:00"})
+    page = client.get("/history").text
+
+    for target in (
+        "panel=edit&amp;table=feed&amp;event_id=1",
+        "panel=clone&amp;table=feed&amp;event_id=1",
+        "panel=delete&amp;table=feed&amp;event_id=1",
+    ):
+        assert f'href="/?{target}"' in page
+        assert f'hx-get="/?{target}"' in page
+
+    assert f'href="/?panel=add&amp;date={today}"' in page
+    assert f'hx-get="/?panel=add&amp;date={today}"' in page
+
+    chooser = client.get(f"/?panel=add&date={today}").text
+    assert f'href="/?panel=feed&amp;method=breast_left&amp;date={today}"' in chooser
+    assert f'hx-get="/?panel=feed&amp;method=breast_left&amp;date={today}"' in chooser
+
+
+def test_history_new_controls_submit_without_js() -> None:
+    """U43 exit criterion: every new/changed control (Edit save, the day-
+    group Add flow, the Delete confirm form) still works as a plain native
+    form/link with the picker script disabled or unloaded - TestClient never
+    executes JS, so every request in this file already proves this, but this
+    test targets the specific new U43 endpoints directly with no HX-Request
+    header, exactly as a no-JS browser would submit them."""
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left", "duration_min": "10"})
+
+    # Edit save, plain form POST.
+    r = client.post(
+        "/api/edit-event",
+        data={"table": "feed", "event_id": "1", "method": "breast_left", "duration_min": "20"},
+    )
+    assert r.status_code == 303
+    assert r.headers["location"] == "/history"
+    assert "20 min" in client.get("/history").text
+
+    # Add-seeded create, plain form POST.
+    r2 = client.post(
+        "/api/nappy",
+        data={"kind": "wet", "date": "2026-07-10", "ts": "09:00"},
+    )
+    assert r2.status_code == 303
+    nappies = client.app.state.services.logging._repo.list_nappies(limit=10)
+    local = to_local(nappies[0].ts)
+    assert (local.year, local.month, local.day) == (2026, 7, 10)
+
+    # Delete confirm save, plain form POST.
+    r3 = client.post("/api/delete", data={"table": "feed", "event_id": "1"})
+    assert r3.status_code == 303
+    assert r3.headers["location"] == "/history"
+    assert 'id="feed-1"' not in client.get("/history").text
 
 
 

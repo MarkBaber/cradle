@@ -12,5 +12,7 @@
   <button type="submit">Filter</button>
 </form>
 <div id="toast" class="toastwrap" aria-live="polite"></div>
+{% include "day_summary.html" %}
+<div id="panel" class="overlay"></div>
 {% include "_history_table.html" %}
 {% endblock %}

@@ -1,4 +1,11 @@
-"""Route tests for task U40: day-grouped concise activity summary page."""
+"""Route tests for task U43: History and Summary merged into one page.
+
+U40's day-grouped layout is now /history's only view; /summary and
+/day-summary are thin back-compat redirects to it. Covers the redirects, the
+single tabbar entry, day-grouping order, and the day-grouped rows rendering
+across every domain. Edit/Clone/Delete/Add panel behaviour lives in
+test_quick_entry.py alongside the rest of the #panel system it reuses.
+"""
 
 import sys
 import tempfile
@@ -32,7 +39,7 @@ def _table() -> LmsTable:
 
 def _client() -> TestClient:
     app = create_app(
-        db_path=Path(tempfile.mkdtemp()) / "u40.db",
+        db_path=Path(tempfile.mkdtemp()) / "u43.db",
         clock=FixedClock(NOW),
         config_path=ROOT / "rules_config.toml",
         reference=(_table(), None),
@@ -43,7 +50,7 @@ def _client() -> TestClient:
     return client
 
 
-def test_day_summary_redirects_when_no_profile() -> None:
+def test_history_redirects_when_no_profile() -> None:
     app = create_app(
         db_path=Path(tempfile.mkdtemp()) / "no_profile.db",
         clock=FixedClock(NOW),
@@ -52,20 +59,35 @@ def test_day_summary_redirects_when_no_profile() -> None:
         start_scheduler=False,
     )
     client = TestClient(app, follow_redirects=False)
-    res = client.get("/day-summary")
+    res = client.get("/history")
     assert res.status_code == 303
     assert res.headers["location"] == "/settings?first_run=1"
 
 
-def test_day_summary_in_tabbar() -> None:
+def test_day_summary_and_summary_redirect_to_history() -> None:
     client = _client()
-    res = client.get("/day-summary")
-    assert res.status_code == 200
-    assert 'href="/day-summary"' in res.text
-    assert "Summary" in res.text
+    for path in ("/day-summary", "/summary"):
+        res = client.get(path)
+        assert res.status_code == 303
+        assert res.headers["location"] == "/history"
 
 
-def test_day_summary_grouped_by_day_newest_first() -> None:
+def test_day_summary_redirect_preserves_query_string() -> None:
+    client = _client()
+    res = client.get("/day-summary?domain=feed")
+    assert res.status_code == 303
+    assert res.headers["location"] == "/history?domain=feed"
+
+
+def test_history_tabbar_has_only_one_entry() -> None:
+    client = _client()
+    page = client.get("/history").text
+    assert page.count('href="/history"') == 1
+    assert "Summary" not in page
+    assert 'href="/day-summary"' not in page
+
+
+def test_history_grouped_by_day_newest_first() -> None:
     client = _client()
 
     # Log feed today
@@ -80,14 +102,14 @@ def test_day_summary_grouped_by_day_newest_first() -> None:
         data={"table": "feed", "event_id": 2, "ts": yesterday.strftime("%Y-%m-%dT%H:%M")},
     )
 
-    page = client.get("/day-summary").text
+    page = client.get("/history").text
     pos_today = page.find("15 Jul")
     pos_yesterday = page.find("14 Jul")
     assert pos_today != -1 and pos_yesterday != -1
     assert pos_today < pos_yesterday, "Most recent day must come first"
 
 
-def test_day_summary_chronological_within_day() -> None:
+def test_history_chronological_within_day() -> None:
     client = _client()
 
     # Log feed 1 at 14:00 (ID 1)
@@ -114,7 +136,7 @@ def test_day_summary_chronological_within_day() -> None:
         data={"table": "feed", "event_id": 3, "ts": t3.strftime("%Y-%m-%dT%H:%M")},
     )
 
-    page = client.get("/day-summary").text
+    page = client.get("/history").text
     p2 = page.find("06:20")
     p1 = page.find("14:00")
     p3 = page.find("20:30")
@@ -122,7 +144,7 @@ def test_day_summary_chronological_within_day() -> None:
     assert p2 < p1 < p3, "Events within a day must be ordered chronologically"
 
 
-def test_day_summary_compact_rows_all_domains() -> None:
+def test_history_compact_rows_all_domains() -> None:
     client = _client()
 
     # 1. feed
@@ -140,7 +162,7 @@ def test_day_summary_compact_rows_all_domains() -> None:
     # 7. note
     client.post("/api/note", data={"text": "Good day overall"})
 
-    page = client.get("/day-summary").text
+    page = client.get("/history").text
     assert "Feed" in page and "Bottle Expressed" in page and "60 ml" in page
     assert "Nappy" in page and "Dirty" in page and "yellow" in page
     assert "Sleep" in page and "asleep" in page
@@ -150,11 +172,38 @@ def test_day_summary_compact_rows_all_domains() -> None:
     assert "Note" in page and "Good day overall" in page
 
 
-def test_history_page_inline_edit_regression() -> None:
+def test_history_row_actions_are_orange_and_distinct_from_alert_severity() -> None:
+    """Exit criterion: every row has three orange action controls, styled
+    distinctly from app.css's amber/red alert severity classes (A7/U42)."""
     client = _client()
     client.post("/api/feed", data={"method": "bottle_expressed", "volume_ml": "60"})
 
     page = client.get("/history").text
-    assert "action=\"/api/adjust-time\"" in page
-    assert "action=\"/api/edit-field\"" in page
-    assert "action=\"/api/delete\"" in page
+    assert 'class="row-action edit"' in page
+    assert 'class="row-action clone"' in page
+    assert 'class="row-action del"' in page
+
+    css = client.get("/static/app.css").text
+    assert ".row-action{" in css
+    assert "--action" in css
+    # The row-action colour token must be a distinct variable from the
+    # existing amber/red severity tokens, not a re-skin of one of them.
+    assert "var(--action)" in css
+    assert ".row-action{" in css and "var(--warn)" not in css.split(".row-action{")[1][:200]
+
+
+def test_history_page_has_delete_confirmation_not_immediate_delete() -> None:
+    """U43 exit criterion: Delete opens a confirmation, it never posts
+    directly from the row - unlike U4/U38's old inline delete form."""
+    client = _client()
+    client.post("/api/feed", data={"method": "bottle_expressed", "volume_ml": "60"})
+
+    page = client.get("/history").text
+    # No row-level <form action="/api/delete"> firing on click any more...
+    assert '<form method="post" action="/api/delete"' not in page
+    # ...instead a link opens the confirm panel.
+    assert 'panel=delete&amp;table=feed&amp;event_id=1' in page
+
+    confirm = client.get("/?panel=delete&table=feed&event_id=1").text
+    assert 'action="/api/delete"' in confirm
+    assert "Delete this" in confirm

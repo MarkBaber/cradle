@@ -65,9 +65,21 @@
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
   }
 
-  function combinedFromTime(timeValue) {
+  function combinedFromTime(timeValue, seedDate) {
     var hm = /^([0-1]?\d|2[0-3]):([0-5]\d)$/.test(timeValue || "") ? timeValue : "00:00";
-    return todayStr() + " " + hm;
+    return (seedDate || todayStr()) + " " + hm;
+  }
+
+  // Edit/Clone and a day-group's "+" (task U43) seed the panel's hidden
+  // <input name=date> with the row's/day's own date - server-side _panel_ts
+  // already combines the native time input with that date, not with
+  // "today". The picker widget must start from the same date, or an edit to
+  // a past day would visibly show today's date despite the save itself
+  // still landing correctly.
+  function formSeedDate(form) {
+    var dateInput = form && form.querySelector('input[name="date"]');
+    var v = dateInput && dateInput.value;
+    return /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : todayStr();
   }
 
   function anyPickerAvailable() {
@@ -97,7 +109,7 @@
       nativeInput.dataset.apBound = "1";
 
       var form = nativeInput.closest("form");
-      var initial = combinedFromTime(nativeInput.value);
+      var initial = combinedFromTime(nativeInput.value, formSeedDate(form));
       if (form) form.dataset.tsCombined = initial;
 
       var picker = makePickerInput(initial);
@@ -435,11 +447,13 @@
 
   // Exactly one panel form can be open at a time (quick_entry.html's
   // open_panel Jinja conditional). If Save was submitted with a picked date
-  // other than today, correct it via the same /api/adjust-time route
-  // /history already uses, unchanged, once we know the new event's id from
-  // the toast response (data-table/data-event-id, per api.py's _toast()).
-  // Consumed exactly once per submit so an unrelated later toast (Undo,
-  // Sleep, Express) can never replay a stale correction.
+  // other than the form's own seed date (today for a fresh entry; the row's
+  // or day-group's own date for Edit/Clone/a day's "+", task U43), correct
+  // it via the same /api/adjust-time route /history already uses, unchanged,
+  // once we know the new event's id from the toast response (data-table/
+  // data-event-id, per api.py's _toast()). Consumed exactly once per submit
+  // so an unrelated later toast (Undo, Sleep, Express) can never replay a
+  // stale correction.
   var pendingCorrection = null;
 
   document.body &&
@@ -449,7 +463,8 @@
         var form = evt.target;
         if (!(form instanceof HTMLFormElement) || !form.closest("#panel")) return;
         var combined = form.dataset.tsCombined;
-        pendingCorrection = combined && combined.slice(0, 10) !== todayStr() ? combined : null;
+        var seedDate = formSeedDate(form);
+        pendingCorrection = combined && combined.slice(0, 10) !== seedDate ? combined : null;
       },
       true
     );
