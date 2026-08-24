@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from fastapi.testclient import TestClient  # noqa: E402
+from test_settings import _config_copy, _entry_defaults_config_path  # noqa: E402
 
 from cradle.app import create_app  # noqa: E402
 from cradle.models import to_local  # noqa: E402
@@ -1653,9 +1654,6 @@ def test_dirty_panel_consistency_submits_without_js() -> None:
 
 
 # --------------------------------------------------------------------- U37
-
-
-from test_settings import _config_copy, _entry_defaults_config_path
 
 
 def test_wheel_step_change_updates_data_step_attributes_on_rendered_page(tmp_path: Path) -> None:
