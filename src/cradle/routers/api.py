@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from cradle.models import (
@@ -34,6 +34,11 @@ from cradle.models import (
 from cradle.models.enums import ActivityCategory
 from cradle.routers.deps import Services, device_name
 from cradle.services import InvalidBatchTransitionError, UnknownBatchError
+from cradle.services.journal_service import (
+    PhotoTooLargeError,
+    UnknownJournalEntryError,
+    UnsupportedPhotoTypeError,
+)
 from cradle.services.projection_service import (
     FETCH_LIMIT,
     MIN_SAMPLES,
@@ -618,6 +623,68 @@ def build_api_router(svc: Services) -> APIRouter:
             text, parsed, logged_by=who(request), ts=_panel_ts(ts, ref_date=_parse_panel_date(date))
         )
         return _respond(request, "note", event_id, "note")
+
+    # ---------------------------------------------------------------- journal
+    @router.post("/api/journal")
+    def post_journal_entry(
+        request: Request,
+        title: Annotated[str, Form()],
+        story: Annotated[str, Form()] = "",
+        temperament: Annotated[str, Form()] = "",
+        ts: Annotated[str | None, Form()] = None,
+        date: Annotated[str | None, Form()] = None,
+    ) -> Response:
+        parsed = tuple(t.strip() for t in temperament.split(",") if t.strip())
+        entry_id = svc.journal.create_entry(
+            title,
+            story,
+            parsed,
+            logged_by=who(request),
+            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
+        )
+        return RedirectResponse(f"/journal?logged=journal:{entry_id}", status_code=303)
+
+    @router.post("/api/journal/photo")
+    async def post_journal_photo(
+        entry_id: Annotated[int, Form()],
+        photo: Annotated[UploadFile, File()],
+        caption: Annotated[str, Form()] = "",
+    ) -> Response:
+        content_type = photo.content_type or "application/octet-stream"
+        data = await photo.read()
+        try:
+            svc.journal.add_photo(entry_id, content_type, data, caption)
+        except UnsupportedPhotoTypeError:
+            return HTMLResponse(
+                '<p class="err">Only image files can be attached.</p>', status_code=400
+            )
+        except PhotoTooLargeError:
+            return HTMLResponse('<p class="err">That photo is too large.</p>', status_code=400)
+        except UnknownJournalEntryError:
+            return HTMLResponse('<p class="err">Unknown journal entry.</p>', status_code=400)
+        return RedirectResponse("/journal", status_code=303)
+
+    @router.get("/api/journal/photo/{photo_id}")
+    def get_journal_photo(photo_id: int) -> Response:
+        found = svc.journal.get_photo_bytes(photo_id)
+        if found is None:
+            return Response(status_code=404)
+        data, content_type = found
+        return Response(content=data, media_type=content_type)
+
+    @router.post("/api/journal/book")
+    async def post_journal_book(request: Request) -> Response:
+        form = await request.form()
+        entry_ids: list[int] = []
+        for v in form.getlist("entry_id"):
+            if isinstance(v, str) and v.strip().isdigit():
+                entry_ids.append(int(v))
+        html = svc.journal.render_book(entry_ids)
+        return Response(
+            html,
+            media_type="text/html",
+            headers={"Content-Disposition": 'attachment; filename="journal-book.html"'},
+        )
 
     # ------------------------------------------------------- undo / adjust
     @router.post("/api/undo")

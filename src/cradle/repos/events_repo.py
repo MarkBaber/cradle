@@ -27,6 +27,8 @@ from cradle.models import (
     FeedMethod,
     GrowthEvent,
     GrowthMeasure,
+    JournalEntry,
+    JournalPhoto,
     Milestone,
     MilkBatch,
     MilkStore,
@@ -69,6 +71,7 @@ EDITABLE: dict[str, frozenset[str]] = {
         }
     ),
     "activity": frozenset({"ts", "category", "duration_min", "note"}),
+    "journal": frozenset({"ts", "title", "story", "temperament"}),
 }
 
 # The timestamp a transition stamps on the batch. DISCARDED stamps none: the
@@ -478,6 +481,93 @@ class EventsRepo:
             )
             for r in self._rows("activity", limit, since, until)
         ]
+
+    # --------------------------------------------------------------- journal
+    def insert_journal_entry(self, ev: JournalEntry) -> int:
+        return self._insert(
+            "journal",
+            ("baby_id", "ts", "logged_by", "title", "story", "temperament"),
+            (
+                ev.baby_id,
+                ev.ts.isoformat(),
+                ev.logged_by,
+                ev.title,
+                ev.story,
+                ",".join(ev.temperament),
+            ),
+        )
+
+    def list_journal_entries(self, limit: int = 200) -> list[JournalEntry]:
+        return [self._journal_entry_of(r) for r in self._rows("journal", limit)]
+
+    def get_journal_entry(self, entry_id: int) -> JournalEntry | None:
+        r = self._db.conn.execute(
+            "SELECT * FROM journal WHERE id = ? AND deleted_at IS NULL", (entry_id,)
+        ).fetchone()
+        return None if r is None else self._journal_entry_of(r)
+
+    @staticmethod
+    def _journal_entry_of(r: Row) -> JournalEntry:
+        return JournalEntry(
+            event_id=r["id"],
+            baby_id=r["baby_id"],
+            ts=_require_dt(r["ts"]),
+            logged_by=r["logged_by"],
+            title=r["title"],
+            story=r["story"],
+            temperament=tuple(t for t in r["temperament"].split(",") if t),
+        )
+
+    # ------------------------------------------------------- journal photo
+    def insert_journal_photo(self, photo: JournalPhoto) -> int:
+        cur = self._db.conn.execute(
+            "INSERT INTO journal_photo"
+            " (journal_entry_id, ts, content_type, caption, image, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                photo.journal_entry_id,
+                photo.ts.isoformat(),
+                photo.content_type,
+                photo.caption,
+                photo.image,
+                _now_iso(),
+            ),
+        )
+        self._db.conn.commit()
+        return int(cur.lastrowid or 0)
+
+    def list_journal_photos(self, entry_id: int) -> list[JournalPhoto]:
+        rows = self._db.conn.execute(
+            "SELECT * FROM journal_photo WHERE journal_entry_id = ? ORDER BY id", (entry_id,)
+        ).fetchall()
+        return [self._journal_photo_of(r) for r in rows]
+
+    def list_journal_photo_refs(self, entry_id: int) -> list[tuple[int, str]]:
+        """(photo_id, caption) pairs only, for a listing page's thumbnails -
+        avoids pulling every photo's full image bytes into memory just to
+        render a page of `<img src="/api/journal/photo/{id}">` tags."""
+        rows = self._db.conn.execute(
+            "SELECT id, caption FROM journal_photo WHERE journal_entry_id = ? ORDER BY id",
+            (entry_id,),
+        ).fetchall()
+        return [(r["id"], r["caption"]) for r in rows]
+
+    def get_journal_photo(self, photo_id: int) -> JournalPhoto | None:
+        r = self._db.conn.execute(
+            "SELECT * FROM journal_photo WHERE id = ?", (photo_id,)
+        ).fetchone()
+        return None if r is None else self._journal_photo_of(r)
+
+    @staticmethod
+    def _journal_photo_of(r: Row) -> JournalPhoto:
+        return JournalPhoto(
+            photo_id=r["id"],
+            journal_entry_id=r["journal_entry_id"],
+            ts=_require_dt(r["ts"]),
+            content_type=r["content_type"],
+            caption=r["caption"],
+            image=r["image"],
+        )
 
     # ------------------------------------------------------- export support
     def dump(self, table: str, include_deleted: bool = True) -> list[dict[str, object]]:

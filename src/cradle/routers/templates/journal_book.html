@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Baby Journal</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; max-width: 720px; margin: 2rem auto;
+    padding: 0 1rem; color: #222; background: #fdfaf5; }
+  h1 { text-align: center; }
+  .meta { text-align: center; color: #888; font-size: 0.85rem; margin-bottom: 2rem; }
+  .entry { margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid #ddd; }
+  .entry h2 { margin-bottom: 0.2rem; }
+  .entry .when { color: #888; font-size: 0.9rem; }
+  .tags { margin: 0.5rem 0; }
+  .tags span { display: inline-block; background: #eee; border-radius: 999px;
+    padding: 0.1rem 0.6rem; margin-right: 0.3rem; font-size: 0.8rem; }
+  .story { white-space: pre-wrap; line-height: 1.5; }
+  .photos { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+  .photos figure { margin: 0; max-width: 240px; }
+  .photos img { max-width: 100%; border-radius: 4px; display: block; }
+  .photos figcaption { font-size: 0.8rem; color: #666; }
+</style>
+</head>
+<body>
+<h1>Baby Journal</h1>
+<p class="meta">Generated {{ generated_at }}</p>
+{% for e in entries %}
+<article class="entry">
+  <h2>{{ e.title }}</h2>
+  <p class="when">{{ e.ts_display }}</p>
+  {% if e.temperament %}
+  <p class="tags">{% for t in e.temperament %}<span>{{ t }}</span>{% endfor %}</p>
+  {% endif %}
+  {% if e.story %}<p class="story">{{ e.story }}</p>{% endif %}
+  {% if e.photos %}
+  <div class="photos">
+    {% for p in e.photos %}
+    <figure>
+      <img src="{{ p.data_uri }}" alt="{{ p.caption }}">
+      {% if p.caption %}<figcaption>{{ p.caption }}</figcaption>{% endif %}
+    </figure>
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>
+{% else %}
+<p>No entries selected.</p>
+{% endfor %}
+</body>
+</html>

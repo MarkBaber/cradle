@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% set nav = 'journal' %}
+{% block title %}Journal · CRADLE{% endblock %}
+{% block head %}
+<style>
+  .journal-thumbs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
+  .journal-thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; }
+  .journal-tags span { display: inline-block; background: var(--panel, #1c2128);
+    border-radius: 999px; padding: 0.1rem 0.6rem; margin: 0 0.3rem 0.3rem 0; font-size: 0.8rem; }
+</style>
+{% endblock %}
+{% block content %}
+<h1>Journal</h1>
+<p class="note">Stories and moments to look back on later - not a log, just what your baby is like right now.</p>
+
+<form method="post" action="/api/journal" class="stack">
+  <input type="text" name="title" placeholder="Title…" required>
+  <textarea name="story" placeholder="What happened, what they're like right now…" rows="4"></textarea>
+  <input type="text" name="temperament" placeholder="Temperament tags, comma separated: giggly, clingy, curious…">
+  <button type="submit" class="primary">Save entry</button>
+</form>
+
+<form id="journal-book-form" method="post" action="/api/journal/book"></form>
+
+<ol class="timeline">
+{% for c in cards %}
+  <li class="card">
+    <label><input type="checkbox" name="entry_id" value="{{ c.event_id }}" form="journal-book-form">
+      <b>{{ c.title }}</b></label>
+    <span class="when">{{ (c.ts | local).strftime('%d %b %Y') }}</span>
+    {% if c.temperament %}
+    <p class="journal-tags">{% for t in c.temperament %}<span>{{ t }}</span>{% endfor %}</p>
+    {% endif %}
+    {% if c.story %}<p class="note">{{ c.story }}</p>{% endif %}
+    {% if c.photos %}
+    <div class="journal-thumbs">
+      {% for p in c.photos %}
+      <img src="/api/journal/photo/{{ p.photo_id }}" alt="{{ p.caption }}">
+      {% endfor %}
+    </div>
+    {% endif %}
+    <details>
+      <summary>Add photo</summary>
+      <form method="post" action="/api/journal/photo" enctype="multipart/form-data" class="row">
+        <input type="hidden" name="entry_id" value="{{ c.event_id }}">
+        <input type="file" name="photo" accept="image/*" required>
+        <input type="text" name="caption" placeholder="Caption (optional)">
+        <button type="submit">Upload</button>
+      </form>
+    </details>
+  </li>
+{% else %}
+  <li class="empty">No journal entries yet. Write about today above.</li>
+{% endfor %}
+</ol>
+
+{% if cards %}
+<button type="submit" form="journal-book-form" class="primary">Generate book</button>
+{% endif %}
+{% endblock %}

@@ -99,6 +99,30 @@ def test_service_worker_precaches_chart_assets() -> None:
 PLOTLY_FULL_BUNDLE_BYTES = 4 * 1024 * 1024
 
 
+def test_journal_page_adds_no_new_static_assets() -> None:
+    """U44: /journal reuses base.html's already-budgeted app.css/pwa.js
+    (styling is inline in the template's own {% block head %}) and pulls in
+    no new committed static file of its own, so BUDGET_BYTES above is
+    unaffected by this task - nothing to amend."""
+    journal = (
+        ROOT / "src" / "cradle" / "routers" / "templates" / "journal.html"
+    ).read_text(encoding="utf-8")
+    assert "<script src=" not in journal
+    assert '<link rel="stylesheet"' not in journal
+
+
+def test_journal_book_is_self_contained_with_no_external_references() -> None:
+    """The exported book (task U44) must open standalone with no server: no
+    /static asset, no external stylesheet or script, no http(s) reference."""
+    book = (
+        ROOT / "src" / "cradle" / "routers" / "templates" / "journal_book.html"
+    ).read_text(encoding="utf-8")
+    assert "/static/" not in book
+    assert "<script" not in book
+    assert "http://" not in book
+    assert "https://" not in book
+
+
 def test_vendored_plotly_is_the_smaller_cartesian_bundle() -> None:
     path = STATIC / "vendor" / "plotly.min.js"
     if not path.exists():

@@ -9,6 +9,7 @@ from cradle.services.growth_service import (
     GrowthService,
 )
 from cradle.services.history_service import HistoryRow, HistoryService
+from cradle.services.journal_service import JournalCard, JournalPhotoRef, JournalService
 from cradle.services.logging_service import LoggingService
 from cradle.services.milestone_service import MilestoneCard, MilestoneService
 from cradle.services.milk_service import (
@@ -37,6 +38,9 @@ __all__ = [
     "ExportService",
     "HistoryService",
     "InvalidBatchTransitionError",
+    "JournalCard",
+    "JournalPhotoRef",
+    "JournalService",
     "LoggingService",
     "MilestoneCard",
     "DailySeries",

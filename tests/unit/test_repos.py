@@ -13,6 +13,8 @@ from cradle.models import (
     FeedMethod,
     GrowthEvent,
     GrowthMeasure,
+    JournalEntry,
+    JournalPhoto,
     Milestone,
     NappyEvent,
     NappyKind,
@@ -183,3 +185,72 @@ def test_since_until_window() -> None:
     recent = repo.list_feeds(since=NOW - timedelta(hours=24))
     assert len(recent) == 1
     assert recent[0].method is FeedMethod.BREAST_RIGHT
+
+
+# ------------------------------------------------------------------- journal
+
+
+def test_migration_0006_creates_journal_and_journal_photo_tables() -> None:
+    db = make_db()
+    versions = {r["version"] for r in db.conn.execute("SELECT version FROM schema_version")}
+    assert "0006_journal.sql" in versions
+
+    journal_cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(journal)")}
+    assert {"ts", "title", "story", "temperament"} <= journal_cols
+
+    photo_cols = {r["name"] for r in db.conn.execute("PRAGMA table_info(journal_photo)")}
+    assert {"journal_entry_id", "ts", "content_type", "caption", "image"} <= photo_cols
+
+
+def test_journal_entry_roundtrip_with_multiple_temperament_tags() -> None:
+    repo = make_repo(make_db())
+    eid = repo.insert_journal_entry(
+        JournalEntry(
+            ts=NOW,
+            title="First giggle",
+            story="She laughed at the dog.",
+            temperament=("giggly", "curious"),
+            **BASE,
+        )
+    )
+    (e,) = repo.list_journal_entries()
+    assert e.event_id == eid
+    assert e.title == "First giggle"
+    assert e.story == "She laughed at the dog."
+    assert e.temperament == ("giggly", "curious")
+
+
+def test_journal_entry_roundtrip_with_empty_temperament() -> None:
+    repo = make_repo(make_db())
+    repo.insert_journal_entry(
+        JournalEntry(ts=NOW, title="Quiet day", story="Napped a lot.", temperament=(), **BASE)
+    )
+    (e,) = repo.list_journal_entries()
+    assert e.temperament == ()
+
+
+def test_journal_photo_roundtrip_bytes_and_content_type() -> None:
+    repo = make_repo(make_db())
+    entry_id = repo.insert_journal_entry(
+        JournalEntry(ts=NOW, title="Bath time", story="", temperament=(), **BASE)
+    )
+    image = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    photo_id = repo.insert_journal_photo(
+        JournalPhoto(
+            photo_id=None,
+            journal_entry_id=entry_id,
+            ts=NOW,
+            content_type="image/png",
+            caption="splashing",
+            image=image,
+        )
+    )
+    stored = repo.get_journal_photo(photo_id)
+    assert stored is not None
+    assert stored.image == image
+    assert stored.content_type == "image/png"
+    assert stored.caption == "splashing"
+
+    [(pid, caption)] = repo.list_journal_photo_refs(entry_id)
+    assert pid == photo_id
+    assert caption == "splashing"
