@@ -1655,7 +1655,7 @@ def test_dirty_panel_consistency_submits_without_js() -> None:
 # --------------------------------------------------------------------- U37
 
 
-from test_settings import _config_copy, _entry_defaults_config_path
+from test_settings import _config_copy, _entry_defaults_config_path  # noqa: E402
 
 
 def test_wheel_step_change_updates_data_step_attributes_on_rendered_page(tmp_path: Path) -> None:
