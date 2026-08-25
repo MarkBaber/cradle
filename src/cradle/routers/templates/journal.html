@@ -2,6 +2,10 @@
 {% set nav = 'journal' %}
 {% block title %}Journal · CRADLE{% endblock %}
 {% block head %}
+<link rel="stylesheet" href="/static/vendor/anypicker-all.min.css">
+<script src="/static/vendor/jquery.min.js" defer></script>
+<script src="/static/vendor/anypicker.min.js" defer></script>
+<script src="/static/entry.js" defer></script>
 <style>
   .journal-thumbs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
   .journal-thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; }
@@ -17,6 +21,8 @@
   <input type="text" name="title" placeholder="Title…" required>
   <textarea name="story" placeholder="What happened, what they're like right now…" rows="4"></textarea>
   <input type="text" name="temperament" placeholder="Temperament tags, comma separated: giggly, clingy, curious…">
+  <input type="hidden" name="date" value="">
+  <label>When<input type="time" name="ts"></label>
   <button type="submit" class="primary">Save entry</button>
 </form>
 

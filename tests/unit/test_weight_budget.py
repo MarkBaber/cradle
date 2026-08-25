@@ -99,16 +99,22 @@ def test_service_worker_precaches_chart_assets() -> None:
 PLOTLY_FULL_BUNDLE_BYTES = 4 * 1024 * 1024
 
 
-def test_journal_page_adds_no_new_static_assets() -> None:
-    """U44: /journal reuses base.html's already-budgeted app.css/pwa.js
-    (styling is inline in the template's own {% block head %}) and pulls in
-    no new committed static file of its own, so BUDGET_BYTES above is
-    unaffected by this task - nothing to amend."""
+def test_journal_page_reuses_the_existing_picker_assets_only() -> None:
+    """U45: /journal's create-entry ts field is wired to the same AnyPicker
+    bundle + entry.js as quick-entry/history (U29's bindPanelPickers), not a
+    new integration - so every asset it pulls in is already priced above
+    (entry.js, in QUICK_ENTRY_ASSETS) or already exempted
+    (PICKER_ASSETS_EXEMPT_FROM_BUDGET). Neither entry.js nor app.css itself
+    changed size for this task, so BUDGET_BYTES is unaffected - nothing to
+    re-measure."""
     journal = (
         ROOT / "src" / "cradle" / "routers" / "templates" / "journal.html"
     ).read_text(encoding="utf-8")
-    assert "<script src=" not in journal
-    assert '<link rel="stylesheet"' not in journal
+    assert '/static/vendor/jquery.min.js' in journal
+    assert '/static/vendor/anypicker.min.js' in journal
+    assert '/static/vendor/anypicker-all.min.css' in journal
+    assert '/static/entry.js' in journal
+    assert "plotly" not in journal.lower()
 
 
 def test_journal_book_is_self_contained_with_no_external_references() -> None:

@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from fastapi.testclient import TestClient  # noqa: E402
 
 from cradle.app import create_app  # noqa: E402
+from cradle.models.timefmt import to_local  # noqa: E402
 from cradle.ports.clock import FixedClock  # noqa: E402
 
 NOW = datetime(2026, 7, 15, 12, 0, tzinfo=UTC)
@@ -109,6 +110,36 @@ def test_create_entry_round_trips_title_story_and_temperament() -> None:
     assert card.title == "First giggle"
     assert card.story == "She laughed."
     assert card.temperament == ("giggly", "curious")
+
+
+# --------------------------------------------------------------------- U45
+
+
+def test_journal_entry_form_uses_the_vendored_combined_picker() -> None:
+    """U45: /journal's create-entry ts field is wired to the same AnyPicker
+    bundle + entry.js as quick-entry/history (U29's bindPanelPickers), not a
+    bare native date/time input with no picker."""
+    client = _client()
+    page = client.get("/journal").text
+    assert '<script src="/static/vendor/jquery.min.js" defer></script>' in page
+    assert '<script src="/static/vendor/anypicker.min.js" defer></script>' in page
+    assert '<script src="/static/entry.js" defer></script>' in page
+    assert '<link rel="stylesheet" href="/static/vendor/anypicker-all.min.css">' in page
+    assert '<input type="hidden" name="date" value="">' in page
+    assert '<input type="time" name="ts">' in page
+
+
+def test_journal_entry_ts_field_still_submits_with_the_picker_script_unloaded() -> None:
+    """With the picker script unloaded - true of this client, which never
+    executes JS - the plain native date/time inputs alone must still post a
+    value /api/journal already accepts (the no-JS contract of U19/U22/U29/U31)."""
+    client = _client()
+    entry_id = _create_entry(client, "Backdated story", date="2026-07-10")
+    cards = client.app.state.services.journal.list_entries()
+    card = next(c for c in cards if c.event_id == entry_id)
+    local = to_local(card.ts)
+    assert local.date().isoformat() == "2026-07-10"
+    assert (local.hour, local.minute) == (9, 0)
 
 
 # -------------------------------------------------------------------- photo
