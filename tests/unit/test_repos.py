@@ -167,6 +167,39 @@ def test_growth_filter_by_measure() -> None:
     assert w.value == 3600
 
 
+def test_growth_measure_filter_not_truncated_by_limit() -> None:
+    """P3: list_growth(measure, limit=n) must filter by measure in SQL, not
+    after the LIMIT is applied - otherwise interleaved rows of a different
+    measure can crowd matching rows out of the LIMIT window entirely."""
+    repo = make_repo(make_db())
+    n = 5
+    # Non-matching rows get the *newest* timestamps so a naive
+    # "LIMIT n, then filter in Python" would pick these n rows and none of
+    # the WEIGHT rows below.
+    for i in range(n):
+        repo.insert_growth(
+            GrowthEvent(
+                ts=NOW + timedelta(minutes=i),
+                measure=GrowthMeasure.LENGTH,
+                value=500 + i,
+                **BASE,
+            )
+        )
+    for i in range(n):
+        repo.insert_growth(
+            GrowthEvent(
+                ts=NOW - timedelta(days=i + 1),
+                measure=GrowthMeasure.WEIGHT,
+                value=3600 + i,
+                **BASE,
+            )
+        )
+
+    result = repo.list_growth(GrowthMeasure.WEIGHT, limit=n)
+    assert len(result) == n, "matching rows should not be dropped by a pre-filter LIMIT"
+    assert all(e.measure is GrowthMeasure.WEIGHT for e in result)
+
+
 def test_temperature_milestone_note_roundtrip() -> None:
     repo = make_repo(make_db())
     repo.insert_temperature(TemperatureEvent(ts=NOW, temp_c=37.4, **BASE))
@@ -254,3 +287,48 @@ def test_journal_photo_roundtrip_bytes_and_content_type() -> None:
     [(pid, caption)] = repo.list_journal_photo_refs(entry_id)
     assert pid == photo_id
     assert caption == "splashing"
+
+
+# ------------------------------------------------------------ P3 repo fixes
+
+
+def test_migration_0002_adds_ts_indexes_for_temperature_milestone_note() -> None:
+    """P3: temperature/milestone/note had no ts index, unlike feed/nappy/
+    sleep/growth. A 0002_*.sql migration must add idx_<table>_ts for each."""
+    db = make_db()
+    versions = {r["version"] for r in db.conn.execute("SELECT version FROM schema_version")}
+    assert any(v.startswith("0002_") for v in versions), "expected a 0002_*.sql migration"
+
+    for table in ("temperature", "milestone", "note"):
+        indexes = {
+            r["name"]
+            for r in db.conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name = ?",
+                (table,),
+            )
+        }
+        assert f"idx_{table}_ts" in indexes, f"missing idx_{table}_ts index"
+
+
+def test_restore_into_nonempty_table_raises_and_writes_nothing() -> None:
+    """P3: restore() docs say the target table must be empty, but nothing
+    enforces it. Restoring entirely non-colliding rows into a table that
+    already has data must raise before writing anything - a PK collision
+    is not required to trigger the precondition failure."""
+    db = make_db()
+    repo = make_repo(db)
+    repo.insert_growth(GrowthEvent(ts=NOW, measure=GrowthMeasure.WEIGHT, value=3600, **BASE))
+
+    template = repo.dump("growth")[0]
+    new_row = dict(template)
+    new_row["id"] = 999999  # deliberately non-colliding with the existing row
+
+    try:
+        repo.restore("growth", [new_row])
+    except Exception:
+        pass
+    else:
+        raise AssertionError("restore into a non-empty table must raise")
+
+    (count,) = db.conn.execute("SELECT COUNT(*) FROM growth").fetchone()
+    assert count == 1, "restore must not write anything when the target table is non-empty"

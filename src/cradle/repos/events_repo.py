@@ -74,6 +74,10 @@ EDITABLE: dict[str, frozenset[str]] = {
     "journal": frozenset({"ts", "title", "story", "temperament"}),
 }
 
+class RestoreTargetNotEmptyError(ValueError):
+    """restore() was called against a table that already has rows."""
+
+
 # The timestamp a transition stamps on the batch. DISCARDED stamps none: the
 # bottle is gone, and why it went is a note, not a clock reading.
 _BATCH_STAMP: dict[BatchState, str] = {
@@ -115,9 +119,14 @@ class EventsRepo:
         limit: int = 200,
         since: datetime | None = None,
         until: datetime | None = None,
+        eq: tuple[str, object] | None = None,
     ) -> list[Row]:
         sql = f"SELECT * FROM {table} WHERE deleted_at IS NULL"
         params: list[object] = []
+        if eq is not None:
+            col, val = eq
+            sql += f" AND {col} = ?"
+            params.append(val)
         if since is not None:
             sql += " AND ts >= ?"
             params.append(since.isoformat())
@@ -247,7 +256,8 @@ class EventsRepo:
     def list_growth(
         self, measure: GrowthMeasure | None = None, limit: int = 200
     ) -> list[GrowthEvent]:
-        out = [
+        eq = ("measure", measure.value) if measure is not None else None
+        return [
             GrowthEvent(
                 event_id=r["id"],
                 baby_id=r["baby_id"],
@@ -257,9 +267,8 @@ class EventsRepo:
                 value=r["value"],
                 source=r["source"],
             )
-            for r in self._rows("growth", limit)
+            for r in self._rows("growth", limit, eq=eq)
         ]
-        return [e for e in out if measure is None or e.measure is measure]
 
     # ----------------------------------------------------------- temperature
     def insert_temperature(self, ev: TemperatureEvent) -> int:
@@ -585,12 +594,19 @@ class EventsRepo:
             raise UnknownTableError(table)
         if not rows:
             return 0
+        (count,) = self._db.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
+        if count:
+            raise RestoreTargetNotEmptyError(table)
         cols = [c for c in rows[0]]
         placeholders = ",".join("?" * len(cols))
-        self._db.conn.executemany(
-            f"INSERT INTO {table} ({','.join(cols)}) VALUES ({placeholders})",
-            [tuple(r[c] for c in cols) for r in rows],
-        )
+        try:
+            self._db.conn.executemany(
+                f"INSERT INTO {table} ({','.join(cols)}) VALUES ({placeholders})",
+                [tuple(r[c] for c in cols) for r in rows],
+            )
+        except Exception:
+            self._db.conn.rollback()
+            raise
         self._db.conn.commit()
         return len(rows)
 
