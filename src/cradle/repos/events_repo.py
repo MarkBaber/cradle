@@ -7,11 +7,6 @@ milk_batch (0003) is the exception: one row per physical bottle, keyed on a
 lifecycle of timestamps rather than a single ts.
 
 Reads exclude soft-deleted rows. Timestamps are stored as UTC ISO-8601 text.
-
-ActivityCategory and ActivityEvent (0005) come from cradle.models.enums and
-cradle.models.events rather than the cradle.models package root, unlike every
-other model here: re-exporting them was outside M2's touches. Task M3 folds
-them back in.
 """
 
 from collections.abc import Collection, Sequence
@@ -19,6 +14,8 @@ from datetime import UTC, datetime
 from sqlite3 import Row
 
 from cradle.models import (
+    ActivityCategory,
+    ActivityEvent,
     BatchState,
     BottleColour,
     BreastSide,
@@ -42,8 +39,6 @@ from cradle.models import (
     UneditableFieldError,
     UnknownTableError,
 )
-from cradle.models.enums import ActivityCategory
-from cradle.models.events import ActivityEvent
 from cradle.repos.db import Db
 
 # Tables an editor/deleter may target, and the columns they may set (P2 allow-list).

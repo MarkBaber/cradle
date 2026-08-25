@@ -922,13 +922,13 @@ notes = "Architect-routed for the same two reasons as M1: it adds a public datac
 id = "M3"
 phase = 6
 title = "Re-export ActivityCategory and ActivityEvent from cradle.models"
-status = "todo"
+status = "review"
 routing = "impl"
 depends = ["M2"]
 touches = ["src/cradle/models/__init__.py", "src/cradle/repos/events_repo.py"]
 description = "Housekeeping fallout from M2. Every other enum and event dataclass is re-exported from models/__init__.py and imported as `from cradle.models import X`; M2's ActivityCategory and ActivityEvent are not, because models/__init__.py was outside M2's touches list and CLAUDE.md says to append a task rather than grow the diff. So events_repo.py imports them from cradle.models.enums and cradle.models.events directly, unlike every other model it uses. Add both names to the imports and to __all__ in models/__init__.py, keeping the existing alphabetical order, then collapse the two submodule imports in events_repo.py back into the single `from cradle.models import (...)` block and drop the comment that explains the exception. Exactly the same situation U17 left behind for StoolConsistency and U21 cleared up - see ADR 0012's Consequences section for the precedent. No behaviour change, no new test."
 exit_criteria = ["ActivityCategory and ActivityEvent importable as `from cradle.models import ActivityCategory, ActivityEvent`", "both present in models/__init__.py __all__", "events_repo.py no longer imports from cradle.models.enums or cradle.models.events", "scripts/test and scripts/lint green"]
-notes = "Pure housekeeping - no contract change, so not architect-routed: M2 already took the sign-off for the dataclass and the enum themselves. Keep it a two-file diff."
+notes = "Pure housekeeping - no contract change, so not architect-routed: M2 already took the sign-off for the dataclass and the enum themselves. Keep it a two-file diff. IMPLEMENTATION 2026-08-25, status review: both names added to models/__init__.py imports and __all__ in alphabetical order; events_repo.py's two submodule imports collapsed into the single cradle.models import block and the exception-explaining docstring paragraph dropped. scripts/test.sh (554 tests), scripts/lint.sh, scripts/check_layers.sh, and backlog.py all green. Diff scoped to exactly the two touches files."
 
 [[task]]
 id = "V4"

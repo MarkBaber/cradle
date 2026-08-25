@@ -2,6 +2,7 @@
 
 from cradle.models.enums import (
     LIVE_BATCH_STATES,
+    ActivityCategory,
     AlertSeverity,
     BatchState,
     BottleColour,
@@ -21,6 +22,7 @@ from cradle.models.errors import (
     UnknownTableError,
 )
 from cradle.models.events import (
+    ActivityEvent,
     Baby,
     ExpressionEvent,
     FeedEvent,
@@ -40,6 +42,8 @@ from cradle.models.timefmt import to_local, to_utc
 
 __all__ = [
     "LIVE_BATCH_STATES",
+    "ActivityCategory",
+    "ActivityEvent",
     "AlertSeverity",
     "Baby",
     "BatchState",
