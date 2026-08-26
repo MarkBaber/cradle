@@ -1,5 +1,15 @@
 """Domain models: frozen dataclasses and enums. Imports stdlib only."""
 
+from cradle.models.achievements import (
+    AchievementAward,
+    AchievementDef,
+    Rarity,
+    RuleType,
+    UnlockEvent,
+)
+from cradle.models.achievements import (
+    Source as AchievementSource,
+)
 from cradle.models.enums import (
     LIVE_BATCH_STATES,
     ActivityCategory,
@@ -44,6 +54,9 @@ __all__ = [
     "LIVE_BATCH_STATES",
     "ActivityCategory",
     "ActivityEvent",
+    "AchievementAward",
+    "AchievementDef",
+    "AchievementSource",
     "AlertSeverity",
     "Baby",
     "BatchState",
@@ -64,6 +77,8 @@ __all__ = [
     "NappyEvent",
     "NappyKind",
     "Note",
+    "Rarity",
+    "RuleType",
     "Sex",
     "SleepEvent",
     "SleepLocation",
@@ -72,6 +87,7 @@ __all__ = [
     "TemperatureEvent",
     "UneditableFieldError",
     "UnknownTableError",
+    "UnlockEvent",
     "ZResult",
     "to_local",
     "to_utc",

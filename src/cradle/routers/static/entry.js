@@ -434,6 +434,83 @@
     });
   }
 
+  // Achievement celebration (task U42): the on-page animation and optional
+  // sound stay out of the initial quick-entry payload by never being a
+  // separate fetched asset at all - the sound is synthesized with WebAudio
+  // at the moment of unlock, and the animation is a CSS class already
+  // shipped in app.css (a few bytes, not a vendored library), so there is
+  // nothing to lazily fetch over the network. Mute is a persisted per-device
+  // choice (localStorage), defaulting to unmuted=false i.e. sound OFF - a
+  // parent logging beside a sleeping baby must opt in, not out.
+  function achievementMuted() {
+    try {
+      var v = localStorage.getItem("cradle_achv_muted");
+      // No stored choice yet -> sound defaults OFF (task notes): muted=true.
+      return v === null ? true : v === "1";
+    } catch (e) {
+      return true; // storage unavailable: default to the safe, silent choice
+    }
+  }
+
+  function setAchievementMuted(muted) {
+    try {
+      localStorage.setItem("cradle_achv_muted", muted ? "1" : "0");
+    } catch (e) {
+      // no persistence available; the toggle still works for this page view
+    }
+  }
+
+  function playUnlockSound() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      var ctx = new Ctx();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {
+      // WebAudio can throw in odd embedded contexts; a missed sound is fine
+    }
+  }
+
+  // Sound defaults OFF (task notes: "sound still defaults OFF"). Muted here
+  // means "do not play the WebAudio unlock chime"; the visual animation
+  // always plays regardless of mute, same as every other quick-entry toast.
+  function checkAchievementUnlock() {
+    var el = document.getElementById("achievement-unlock");
+    if (!el || !el.dataset.key || el.dataset.fired === el.dataset.key) return;
+    el.dataset.fired = el.dataset.key;
+    el.classList.add("unlock-fire-anim");
+    if (!achievementMuted()) playUnlockSound();
+    setTimeout(function () {
+      el.classList.remove("unlock-fire-anim");
+    }, 1600);
+  }
+
+  function bindMuteToggle() {
+    var btn = document.getElementById("achv-mute");
+    if (!btn || btn.dataset.bound) return;
+    btn.dataset.bound = "1";
+    function render() {
+      var muted = achievementMuted();
+      btn.textContent = muted ? "🔕" : "🔔";
+      btn.setAttribute("aria-pressed", muted ? "true" : "false");
+    }
+    render();
+    btn.addEventListener("click", function () {
+      setAchievementMuted(!achievementMuted());
+      render();
+    });
+  }
+
   function bindPickers(root) {
     bindPanelPickers(root);
     bindHistoryPickers(root);
@@ -473,6 +550,8 @@
     document.body.addEventListener("htmx:afterSwap", function (evt) {
       bindPickers(evt.target);
 
+      if (evt.target.id === "toast") checkAchievementUnlock();
+
       if (evt.target.id !== "toast" || !pendingCorrection) return;
       var combined = pendingCorrection;
       pendingCorrection = null;
@@ -502,5 +581,6 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     bindPickers(document);
+    bindMuteToggle();
   });
 })();

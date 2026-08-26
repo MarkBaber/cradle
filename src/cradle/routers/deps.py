@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from urllib.parse import unquote
 
 from cradle.services import (
+    AchievementsService,
     AlertsService,
     ExportService,
     GrowthService,
@@ -33,6 +34,7 @@ class Services:
     milk: MilkStockService
     projections: ProjectionService
     journal: JournalService
+    achievements: AchievementsService
 
 
 def device_name(cookie: str | None) -> str:

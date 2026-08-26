@@ -9,6 +9,7 @@ JavaScript disabled or htmx unvendored.
 import re
 import statistics
 import tomllib
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from html import escape
 from pathlib import Path
@@ -24,16 +25,23 @@ from cradle.models import (
     GrowthMeasure,
     MilkStore,
     NappyKind,
+    Rarity,
+    RuleType,
     StoolColour,
     StoolConsistency,
     UneditableFieldError,
     UnknownTableError,
+    UnlockEvent,
     to_local,
     to_utc,
 )
 from cradle.models.enums import ActivityCategory
 from cradle.routers.deps import Services, device_name
-from cradle.services import InvalidBatchTransitionError, UnknownBatchError
+from cradle.services import (
+    InvalidBatchTransitionError,
+    UnknownAchievementError,
+    UnknownBatchError,
+)
 from cradle.services.journal_service import (
     PhotoTooLargeError,
     UnknownJournalEntryError,
@@ -392,7 +400,13 @@ def _device_saved(name: str) -> str:
     return f'<span class="ok">Device name saved. Entries here are labelled "{escape(name)}".</span>'
 
 
-def _respond(request: Request, table: str, event_id: int, label: str) -> Response:
+def _respond(
+    request: Request,
+    table: str,
+    event_id: int,
+    label: str,
+    unlocks: Sequence[UnlockEvent] = (),
+) -> Response:
     if request.headers.get("HX-Request"):
         # quick_entry.html's Save buttons target #toast, which sits under the
         # #panel overlay (z-index 60, position:fixed) while a panel is open -
@@ -401,9 +415,33 @@ def _respond(request: Request, table: str, event_id: int, label: str) -> Respons
         # did nothing. An out-of-band swap collapses #panel back to its closed
         # (no "open" class, empty) markup regardless of what the primary
         # #toast target is, making the toast visible and the panel close on
-        # every quick-entry save in the same response.
-        return HTMLResponse(_toast(table, event_id, label) + _PANEL_CLOSE_OOB)
+        # every quick-entry save in the same response. A second OOB swap
+        # (task U42) carries any achievement unlock the same save produced,
+        # distinct from this toast - entry.js fires the celebration off it.
+        return HTMLResponse(
+            _toast(table, event_id, label) + _PANEL_CLOSE_OOB + _achievement_oob(unlocks)
+        )
     return RedirectResponse(f"/?logged={table}:{event_id}", status_code=303)
+
+
+def _achievement_oob(unlocks: Sequence[UnlockEvent]) -> str:
+    """Out-of-band swap into quick_entry.html's #achievement-unlock, distinct
+    from the undo-toast (task U42). Empty when nothing unlocked, or when a
+    repeatable badge only incremented silently (celebrate=False, task notes'
+    first-unlock-only default) - entry.js only fires the celebration/sound
+    when this div carries a data-key."""
+    celebrating = [u for u in unlocks if u.celebrate]
+    if not celebrating:
+        return '<div id="achievement-unlock" hx-swap-oob="true"></div>'
+    u = celebrating[0]
+    return (
+        f'<div id="achievement-unlock" hx-swap-oob="true" class="unlock-fire" '
+        f'data-key="{escape(u.key)}" data-name="{escape(u.name)}" '
+        f'data-icon="{escape(u.icon)}" data-rarity="{u.rarity.value}">'
+        f'<span class="unlock-icon">{escape(u.icon)}</span> '
+        f'<span class="unlock-name">{escape(u.name)} unlocked!</span>'
+        "</div>"
+    )
 
 
 def _milk_err() -> Response:
@@ -450,7 +488,8 @@ def build_api_router(svc: Services) -> APIRouter:
             duration_min=duration_min,
             volume_ml=volume_ml,
         )
-        return _respond(request, "feed", event_id, m.value.replace("_", " "))
+        unlocks = svc.achievements.evaluate_event("feed", {"method": m.value})
+        return _respond(request, "feed", event_id, m.value.replace("_", " "), unlocks)
 
     @router.post("/api/nappy")
     def post_nappy(
@@ -469,7 +508,11 @@ def build_api_router(svc: Services) -> APIRouter:
             logged_by=who(request),
             ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
         )
-        return _respond(request, "nappy", event_id, f"{k.value} nappy")
+        unlocks = svc.achievements.evaluate_event(
+            "nappy",
+            {"kind": k.value, "stool_colour": stool_colour, "consistency": consistency},
+        )
+        return _respond(request, "nappy", event_id, f"{k.value} nappy", unlocks)
 
     @router.post("/api/activity")
     def post_activity(
@@ -494,13 +537,17 @@ def build_api_router(svc: Services) -> APIRouter:
             logged_by=who(request),
             ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
         )
-        return _respond(request, "activity", event_id, cat.value.replace("_", " "))
+        unlocks = svc.achievements.evaluate_event("activity", {"category": cat.value})
+        return _respond(request, "activity", event_id, cat.value.replace("_", " "), unlocks)
 
     @router.post("/api/sleep/toggle")
     def post_sleep_toggle(request: Request) -> Response:
         was_running = svc.logging.running_sleep() is not None
         event_id = svc.logging.toggle_sleep(logged_by=who(request))
-        return _respond(request, "sleep", event_id, "wake" if was_running else "sleep start")
+        unlocks = svc.achievements.evaluate_event("sleep")
+        return _respond(
+            request, "sleep", event_id, "wake" if was_running else "sleep start", unlocks
+        )
 
     @router.post("/api/express")
     def post_express(request: Request) -> Response:
@@ -577,7 +624,8 @@ def build_api_router(svc: Services) -> APIRouter:
             logged_by=who(request),
             ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
         )
-        return _respond(request, "growth", event_id, measure)
+        unlocks = svc.achievements.evaluate_event("growth", {"measure": measure})
+        return _respond(request, "growth", event_id, measure, unlocks)
 
     @router.post("/api/temperature")
     def post_temperature(
@@ -590,7 +638,8 @@ def build_api_router(svc: Services) -> APIRouter:
         event_id = svc.logging.log_temperature(
             temp_c, site, logged_by=who(request), ts=_panel_ts(ts, ref_date=_parse_panel_date(date))
         )
-        return _respond(request, "temperature", event_id, f"{temp_c:.1f} C")
+        unlocks = svc.achievements.evaluate_event("temperature", {"site": site})
+        return _respond(request, "temperature", event_id, f"{temp_c:.1f} C", unlocks)
 
     @router.post("/api/milestone")
     def post_milestone(
@@ -608,7 +657,8 @@ def build_api_router(svc: Services) -> APIRouter:
             logged_by=who(request),
             ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
         )
-        return _respond(request, "milestone", event_id, "milestone")
+        unlocks = svc.achievements.evaluate_milestone(category)
+        return _respond(request, "milestone", event_id, "milestone", unlocks)
 
     @router.post("/api/note")
     def post_note(
@@ -850,6 +900,66 @@ def build_api_router(svc: Services) -> APIRouter:
             return HTMLResponse("")
         referer = request.headers.get("Referer")
         return RedirectResponse(referer or "/", status_code=303)
+
+    # -------------------------------------------------------- achievements
+    @router.post("/api/achievements/mark-earned")
+    def post_mark_earned(request: Request, key: Annotated[str, Form()]) -> Response:
+        """Manual achievement path (task U42): the user taps this to mark a
+        no-rule custom entry earned themselves; each tap increments its
+        count if it's flagged repeatable."""
+        try:
+            svc.achievements.mark_earned(key)
+        except UnknownAchievementError:
+            return HTMLResponse(
+                '<p class="err">Unknown or non-manual achievement.</p>', status_code=400
+            )
+        if request.headers.get("HX-Request"):
+            return HTMLResponse('<div class="toast">Marked earned</div>')
+        return RedirectResponse("/achievements", status_code=303)
+
+    @router.post("/api/achievements/custom")
+    def post_custom_achievement(
+        request: Request,
+        name: Annotated[str, Form()],
+        description: Annotated[str, Form()] = "",
+        icon: Annotated[str, Form()] = "",
+        rarity: Annotated[str, Form()] = Rarity.COMMON.value,
+        mode: Annotated[str, Form()] = "manual",
+        domain: Annotated[str, Form()] = "",
+        rule_type: Annotated[str, Form()] = RuleType.COUNT.value,
+        field: Annotated[str, Form()] = "",
+        match_value: Annotated[str, Form()] = "",
+        threshold: Annotated[int, Form()] = 1,
+        repeatable: Annotated[str | None, Form()] = None,
+    ) -> Response:
+        """Custom authoring (task U42): a hybrid rule-based (pick a domain +
+        condition, auto-evaluated like a predefined rule) or manual (no
+        rule, mark-earned only) path."""
+        try:
+            r = Rarity(rarity)
+            if mode == "rule":
+                svc.achievements.create_custom_rule(
+                    name,
+                    description,
+                    icon,
+                    r,
+                    RuleType(rule_type),
+                    domain=domain,
+                    field=field,
+                    match_value=match_value,
+                    threshold=threshold,
+                    repeatable=repeatable is not None,
+                )
+            else:
+                svc.achievements.create_custom_manual(
+                    name, description, icon, r, repeatable=repeatable is not None
+                )
+        except ValueError:  # includes DuplicateAchievementKeyError (a ValueError subclass)
+            msg = '<p class="err">Check the name (must be unique) and field values.</p>'
+            return HTMLResponse(msg, status_code=400)
+        if request.headers.get("HX-Request"):
+            return HTMLResponse('<span class="ok">Achievement created.</span>')
+        return RedirectResponse("/achievements", status_code=303)
 
     # ----------------------------------------------------------- settings
     @router.post("/api/settings/profile")
