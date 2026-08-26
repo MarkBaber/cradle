@@ -284,6 +284,27 @@ def test_manual_achievement_is_earned_only_by_explicit_mark_earned() -> None:
     assert entry.count == 1
 
 
+def test_non_repeatable_manual_achievement_repeat_taps_stay_one_shot() -> None:
+    """House-review regression: mark_earned must enforce the same one-shot
+    invariant _maybe_award already does for rule-based badges."""
+    _, svc, notifier = _build()
+    d = svc.create_custom_manual("Tap Once", "", "🎉", Rarity.COMMON, repeatable=False)
+
+    first = svc.mark_earned(d.key)
+    assert first.newly_unlocked is True
+    assert first.count == 1
+    sent_after_first = len(notifier.sent)
+
+    second = svc.mark_earned(d.key)
+    assert second.newly_unlocked is False
+    assert second.celebrate is False
+    assert second.count == 1
+    assert len(notifier.sent) == sent_after_first, "a repeat tap must not re-push"
+
+    entry = next(e for e in svc.catalog() if e.definition.key == d.key)
+    assert entry.count == 1
+
+
 def test_manual_achievement_repeat_taps_increment_count_when_repeatable() -> None:
     _, svc, _ = _build()
     d = svc.create_custom_manual("Tap Me", "", "🎉", Rarity.COMMON, repeatable=True)

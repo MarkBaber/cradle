@@ -143,6 +143,23 @@ def test_achievement_celebration_adds_no_new_quick_entry_network_asset() -> None
     assert "AudioContext" in js, "sound must be synthesized, not fetched"
 
 
+def test_achievement_sound_defaults_off_and_stays_off_once_muted() -> None:
+    """Task U42 exit criterion: sound defaults off, and once muted, no
+    further sounds play. There is no JS test harness in this repo (every
+    other entry.js behaviour test in tests/routes/test_quick_entry.py is
+    source-inspection style too, e.g. test_picker_opens_with_time_as_the_
+    default_tab), so this checks the source directly: achievementMuted()
+    must treat "no stored choice yet" as muted=true (sound off out of the
+    box), and playUnlockSound() must only ever be called from behind an
+    achievementMuted() check (never unconditionally)."""
+    js = (STATIC / "entry.js").read_text(encoding="utf-8")
+    assert 'v === null ? true : v === "1"' in js, (
+        "an absent stored choice must default to muted (sound off)"
+    )
+    assert js.count("playUnlockSound();") == 1, "must be called from exactly one gated call site"
+    assert "if (!achievementMuted()) playUnlockSound();" in js
+
+
 def test_quick_entry_still_within_budget_after_achievements() -> None:
     """Task U42 exit criterion: re-measure after the achievement changes -
     entry.js/app.css both grew (celebration + mute toggle + trophy grid

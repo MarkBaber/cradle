@@ -358,14 +358,14 @@ def build_pages_router(svc: Services) -> APIRouter:
     def achievements(request: Request) -> Response:
         if not svc.settings.has_profile():
             return RedirectResponse("/settings?first_run=1", status_code=303)
-        unlocked, total = svc.achievements.completion()
+        entries = svc.achievements.catalog()
         return TEMPLATES.TemplateResponse(
             request,
             "achievements.html",
             {
-                "entries": svc.achievements.catalog(),
-                "unlocked": unlocked,
-                "total": total,
+                "entries": entries,
+                "unlocked": sum(1 for e in entries if e.earned),
+                "total": len(entries),
                 "rarities": list(Rarity),
                 "rule_types": (RuleType.COUNT, RuleType.STREAK, RuleType.SINGLE),
                 "domains": ("feed", "nappy", "sleep", "growth", "temperature", "activity"),

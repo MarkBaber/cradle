@@ -26,6 +26,7 @@ surfacing genuinely new unlocks.
 """
 
 import re
+import sqlite3
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -159,6 +160,16 @@ class UnknownAchievementError(ValueError):
     """mark_earned referenced a badge key that isn't a MANUAL entry."""
 
 
+class DuplicateAchievementKeyError(ValueError):
+    """A custom achievement's name slugs to a key that already exists.
+
+    Translates badges_repo.insert_custom's sqlite3.IntegrityError into a
+    domain-specific exception at the service boundary, the same convention
+    milk_service/journal_service already use (UnknownBatchError,
+    UnsupportedPhotoTypeError, ...) rather than letting a router catch a raw
+    sqlite3 exception two layers below it."""
+
+
 def _slug_key(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
     return f"custom.{slug or 'achievement'}"
@@ -233,7 +244,7 @@ class AchievementsService:
             icon=icon or "🏆",
             source=AchievementSource.CUSTOM,
         )
-        self._badges.insert_custom(d)
+        self._insert_custom(d)
         return d
 
     def create_custom_manual(
@@ -254,13 +265,24 @@ class AchievementsService:
             icon=icon or "🏆",
             source=AchievementSource.CUSTOM,
         )
-        self._badges.insert_custom(d)
+        self._insert_custom(d)
         return d
+
+    def _insert_custom(self, d: AchievementDef) -> None:
+        try:
+            self._badges.insert_custom(d)
+        except sqlite3.IntegrityError as exc:
+            raise DuplicateAchievementKeyError(d.key) from exc
 
     def mark_earned(self, key: str) -> UnlockEvent:
         d = self._badges.get_definition(key)
         if d is None or d.rule_type != RuleType.MANUAL:
             raise UnknownAchievementError(key)
+        existing = self._badges.get_award(BABY_ID, key)
+        if existing is not None and not d.repeatable:
+            # one-shot: already earned, further taps are no-ops (same
+            # invariant _maybe_award enforces for the rule-based paths).
+            return self._snapshot(d, existing, newly_unlocked=False, celebrate=False)
         return self._award(d, increment=1)
 
     # ---------------------------------------------------------- evaluation
@@ -311,7 +333,16 @@ class AchievementsService:
         newly_unlocked = existing is None
         award = self._badges.record_award(BABY_ID, d.key, self._clock.now(), increment)
         celebrate = newly_unlocked or award.count in d.celebrate_every
-        event = UnlockEvent(
+        event = self._snapshot(d, award, newly_unlocked=newly_unlocked, celebrate=celebrate)
+        if celebrate:
+            self._notify(event)
+        return event
+
+    @staticmethod
+    def _snapshot(
+        d: AchievementDef, award: AchievementAward, *, newly_unlocked: bool, celebrate: bool
+    ) -> UnlockEvent:
+        return UnlockEvent(
             key=d.key,
             name=d.name,
             message=f"Achievement unlocked: {d.name} - {d.description}",
@@ -321,9 +352,6 @@ class AchievementsService:
             newly_unlocked=newly_unlocked,
             celebrate=celebrate,
         )
-        if celebrate:
-            self._notify(event)
-        return event
 
     def _notify(self, event: UnlockEvent) -> None:
         finding = Finding(

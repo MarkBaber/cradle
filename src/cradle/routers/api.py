@@ -7,7 +7,6 @@ JavaScript disabled or htmx unvendored.
 """
 
 import re
-import sqlite3
 import statistics
 import tomllib
 from collections.abc import Sequence
@@ -955,7 +954,7 @@ def build_api_router(svc: Services) -> APIRouter:
                 svc.achievements.create_custom_manual(
                     name, description, icon, r, repeatable=repeatable is not None
                 )
-        except (ValueError, sqlite3.IntegrityError):
+        except ValueError:  # includes DuplicateAchievementKeyError (a ValueError subclass)
             msg = '<p class="err">Check the name (must be unique) and field values.</p>'
             return HTMLResponse(msg, status_code=400)
         if request.headers.get("HX-Request"):

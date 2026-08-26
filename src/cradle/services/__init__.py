@@ -3,6 +3,7 @@
 from cradle.services.achievements_service import (
     AchievementsService,
     CatalogEntry,
+    DuplicateAchievementKeyError,
     UnknownAchievementError,
 )
 from cradle.services.activity_service import ActivityService, ActivitySummary
@@ -36,9 +37,10 @@ __all__ = [
     "ActivityService",
     "ActivitySummary",
     "AlertsService",
-    "CatalogEntry",
     "BatchAge",
+    "CatalogEntry",
     "ChartSeries",
+    "DuplicateAchievementKeyError",
     "GrowthAssessment",
     "GrowthService",
     "HistoryRow",

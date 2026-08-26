@@ -16,8 +16,11 @@
   --growth:#2eb88f; --temp:#e0629a; --milestone:#9ec93f; --note:#d17fc9;
   --expression:#3f7fd1; --milk-batch:#a67c52; --activity:#2bc4c4; --journal:#b06fd6;
   /* achievement/trophy hue (task U42): its own token, never --warn/--err -
-     an achievement is never a health signal (A7/U42 note). */
-  --achievement:#f0b93a;
+     an achievement is never a health signal (A7/U42 note). A violet/purple,
+     the same family as --sleep/--journal, deliberately far from --warn's
+     golden amber (#e3a008) rather than a near-miss gold that would risk
+     reading as the same clinical signal by hue alone. */
+  --achievement:#c77dff;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
