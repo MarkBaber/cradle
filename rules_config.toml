@@ -54,16 +54,16 @@ timezone = "Europe/London"
 # architect-only carve-out for this file. Pre-fills the bottle panel's
 # volume_ml and the breast panel's duration_min; the value can still be
 # changed before Save, so this is never an entry gate (T1).
-bottle_volume_ml = 60
+bottle_volume_ml = 70
 breast_duration_min = 20
 
 [wheel_steps]
 # UX convenience step sizes for AnyPicker scroll-wheels (task U37), editable from
 # /settings - NOT clinical thresholds, so outside CLAUDE.md's architect-only
 # carve-out for this file.
-weight = 25
-length = 5
-head_circ = 5
+weight = 10
+length = 1
+head_circ = 1
 temp_c = 0.1
 bottle_volume_ml = 5
 breast_duration_min = 5
