@@ -110,7 +110,7 @@ def test_history_grouped_by_day_newest_first() -> None:
     assert pos_today < pos_yesterday, "Most recent day must come first"
 
 
-def test_history_chronological_within_day() -> None:
+def test_history_most_recent_first_within_day() -> None:
     client = _client()
 
     # Log feed 1 at 14:00 (ID 1)
@@ -142,7 +142,7 @@ def test_history_chronological_within_day() -> None:
     p1 = page.find("14:00")
     p3 = page.find("20:30")
     assert p2 != -1 and p1 != -1 and p3 != -1
-    assert p2 < p1 < p3, "Events within a day must be ordered chronologically"
+    assert p3 < p1 < p2, "Events within a day must show most recent first"
 
 
 def test_history_compact_rows_all_domains() -> None:
