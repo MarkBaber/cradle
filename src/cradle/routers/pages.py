@@ -19,6 +19,8 @@ from cradle.models import (
     GrowthMeasure,
     MilkStore,
     NappyKind,
+    Rarity,
+    RuleType,
     to_local,
     to_utc,
 )
@@ -349,6 +351,24 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "cards": svc.milestones.timeline() or (),
                 "corrected": svc.milestones.uses_corrected_age(),
                 "categories": MILESTONE_CATEGORIES,
+            },
+        )
+
+    @router.get("/achievements", response_class=HTMLResponse)
+    def achievements(request: Request) -> Response:
+        if not svc.settings.has_profile():
+            return RedirectResponse("/settings?first_run=1", status_code=303)
+        unlocked, total = svc.achievements.completion()
+        return TEMPLATES.TemplateResponse(
+            request,
+            "achievements.html",
+            {
+                "entries": svc.achievements.catalog(),
+                "unlocked": unlocked,
+                "total": total,
+                "rarities": list(Rarity),
+                "rule_types": (RuleType.COUNT, RuleType.STREAK, RuleType.SINGLE),
+                "domains": ("feed", "nappy", "sleep", "growth", "temperature", "activity"),
             },
         )
 

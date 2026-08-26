@@ -1991,6 +1991,36 @@ def test_history_new_controls_submit_without_js() -> None:
     assert 'id="feed-1"' not in client.get("/history").text
 
 
+# --------------------------------------------------------------------- U42
+
+
+def test_achievement_unlock_swap_coexists_with_the_undo_toast_and_panel_close() -> None:
+    """Task U42: a fresh unlock adds a second OOB swap alongside the two
+    quick-entry already relies on (the toast itself and #panel's close) -
+    it must not replace or break either."""
+    client = _client()
+    r = client.post("/api/feed", data={"method": "breast_left"}, headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "Undo" in r.text
+    assert 'id="panel" class="overlay" hx-swap-oob="true"></div>' in r.text
+    assert 'id="achievement-unlock" hx-swap-oob="true" class="unlock-fire"' in r.text
+
+
+def test_undoing_a_logged_event_does_not_remove_its_achievement_award() -> None:
+    """Awards are additive-only (task U42 constraint): soft-deleting the
+    event that earned a badge must not delete, decrement, or otherwise take
+    back the award already recorded."""
+    client = _client()
+    client.post("/api/feed", data={"method": "breast_left"}, headers={"HX-Request": "true"})
+    services = client.app.state.services
+    before = services.achievements._badges.get_award(1, "engagement.first_feed")
+    assert before is not None and before.count == 1
+
+    client.post("/api/undo", data={"table": "feed", "event_id": 1}, headers={"HX-Request": "true"})
+    after = services.achievements._badges.get_award(1, "engagement.first_feed")
+    assert after is not None and after.count == 1
+
+
 
 
 

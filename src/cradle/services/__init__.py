@@ -1,5 +1,10 @@
 """Use-case layer. May import reference/alerts/repos/ports/models."""
 
+from cradle.services.achievements_service import (
+    AchievementsService,
+    CatalogEntry,
+    UnknownAchievementError,
+)
 from cradle.services.activity_service import ActivityService, ActivitySummary
 from cradle.services.alerts_service import AlertsService
 from cradle.services.export_service import ExportService
@@ -27,9 +32,11 @@ from cradle.services.settings_service import SettingsService
 from cradle.services.today_service import TodayService, TodaySummary
 
 __all__ = [
+    "AchievementsService",
     "ActivityService",
     "ActivitySummary",
     "AlertsService",
+    "CatalogEntry",
     "BatchAge",
     "ChartSeries",
     "GrowthAssessment",
@@ -56,5 +63,6 @@ __all__ = [
     "StoreStock",
     "TodayService",
     "TodaySummary",
+    "UnknownAchievementError",
     "UnknownBatchError",
 ]

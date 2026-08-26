@@ -129,6 +129,29 @@ def test_journal_book_is_self_contained_with_no_external_references() -> None:
     assert "https://" not in book
 
 
+def test_achievement_celebration_adds_no_new_quick_entry_network_asset() -> None:
+    """Task U42: the celebratory sound is synthesized with WebAudio at the
+    moment of unlock and the animation is a small CSS class already counted
+    in app.css above - so a badge unlocking fetches nothing extra over the
+    network, and QUICK_ENTRY_ASSETS' existing total already reflects the
+    whole cost (no separate audio/animation file to lazily fetch)."""
+    quick = (
+        ROOT / "src" / "cradle" / "routers" / "templates" / "quick_entry.html"
+    ).read_text(encoding="utf-8")
+    assert ".mp3" not in quick and ".wav" not in quick and ".ogg" not in quick
+    js = (STATIC / "entry.js").read_text(encoding="utf-8")
+    assert "AudioContext" in js, "sound must be synthesized, not fetched"
+
+
+def test_quick_entry_still_within_budget_after_achievements() -> None:
+    """Task U42 exit criterion: re-measure after the achievement changes -
+    entry.js/app.css both grew (celebration + mute toggle + trophy grid
+    styles) but stay well inside BUDGET_BYTES, so the ceiling is unchanged."""
+    total = sum(_size(n) for n in QUICK_ENTRY_ASSETS)
+    total += _vendored_or_allowance("htmx.min.js", HTMX_ALLOWANCE_BYTES)
+    assert total <= BUDGET_BYTES
+
+
 def test_vendored_plotly_is_the_smaller_cartesian_bundle() -> None:
     path = STATIC / "vendor" / "plotly.min.js"
     if not path.exists():

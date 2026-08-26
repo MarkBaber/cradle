@@ -19,12 +19,14 @@ from cradle.ports.notifier import ConsoleNotifier, Notifier, NtfyNotifier
 from cradle.reference.lms import LmsTable, load_table
 from cradle.repos.alert_log_repo import AlertLogRepo
 from cradle.repos.baby_repo import BabyRepo
+from cradle.repos.badges_repo import BadgesRepo
 from cradle.repos.db import Db
 from cradle.repos.events_repo import EventsRepo
 from cradle.routers.api import build_api_router
 from cradle.routers.deps import Services
 from cradle.routers.pages import build_pages_router
 from cradle.services import (
+    AchievementsService,
     AlertsService,
     ExportService,
     GrowthService,
@@ -131,6 +133,7 @@ def build_services(
 ) -> Services:
     events = EventsRepo(db)
     baby = BabyRepo(db)
+    badges = BadgesRepo(db)
     table, table_error = reference if reference is not None else load_reference()
     growth = GrowthService(events, baby, table, table_error)
     alert_log = AlertLogRepo(db)
@@ -147,6 +150,7 @@ def build_services(
         milk=MilkStockService(events, clock),
         projections=ProjectionService(events, clock, config_path),
         journal=JournalService(events, clock),
+        achievements=AchievementsService(events, badges, notifier, clock),
     )
 
 

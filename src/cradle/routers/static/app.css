@@ -15,6 +15,9 @@
      as-is for the UI elements that already used them outside .tag). */
   --growth:#2eb88f; --temp:#e0629a; --milestone:#9ec93f; --note:#d17fc9;
   --expression:#3f7fd1; --milk-batch:#a67c52; --activity:#2bc4c4; --journal:#b06fd6;
+  /* achievement/trophy hue (task U42): its own token, never --warn/--err -
+     an achievement is never a health signal (A7/U42 note). */
+  --achievement:#f0b93a;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -322,4 +325,37 @@ table.summary-table td.row-actions{width:100px;white-space:nowrap;text-align:rig
   text-decoration:none;font-size:1rem;line-height:1}
 
 .confirm-delete p{margin:0 0 8px}
+
+/* achievement celebration (task U42): distinct from the undo-toast, never
+   the alerts amber/red severity styling - an achievement is never a health
+   signal. */
+#achievement-unlock:empty{display:none}
+.unlock-fire{display:flex;align-items:center;gap:8px;background:var(--panel);
+  border:1px solid var(--achievement);border-radius:10px;padding:8px 10px;margin:10px 0;
+  font-size:.9rem}
+.unlock-icon{font-size:1.3rem}
+.unlock-fire-anim{animation:unlock-pop .5s ease-out}
+@keyframes unlock-pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.mute-toggle{position:fixed;top:8px;right:8px;z-index:50;width:36px;height:36px;
+  border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:1rem}
+
+/* trophy grid (task U42): a headline completion bar (progress-toward-
+   completion, no deadline/countdown framing) and a grid of tiles, locked
+   ones visibly greyed out rather than hidden. */
+.progress-bar{height:10px;border-radius:6px;background:var(--panel);border:1px solid var(--line);
+  overflow:hidden;margin-bottom:4px}
+.progress-fill{height:100%;background:var(--achievement)}
+.progress-label{color:var(--dim);font-size:.8rem;margin:0 0 12px}
+.trophy-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.trophy{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.trophy.locked{opacity:.45;filter:grayscale(.6)}
+.trophy summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none}
+.trophy summary::-webkit-details-marker{display:none}
+.trophy-icon{font-size:1.4rem}
+.trophy-name{font-size:.85rem}
+.trophy-detail{margin-top:8px;font-size:.8rem;color:var(--dim)}
+.trophy-detail form{margin-top:6px}
+.trophy.rarity-rare .trophy-icon{filter:drop-shadow(0 0 4px var(--feed))}
+.trophy.rarity-epic .trophy-icon{filter:drop-shadow(0 0 4px var(--sleep))}
+.trophy.rarity-legendary .trophy-icon{filter:drop-shadow(0 0 6px var(--achievement))}
 

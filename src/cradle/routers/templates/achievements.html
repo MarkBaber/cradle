@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% set nav = 'achievements' %}
+{% block title %}Trophies · CRADLE{% endblock %}
+{% block content %}
+<h1>Trophies</h1>
+
+<div class="progress-bar" role="progressbar" aria-valuenow="{{ unlocked }}" aria-valuemin="0"
+     aria-valuemax="{{ total }}">
+  <div class="progress-fill" style="width: {{ ((unlocked / total * 100) if total else 0) | round(1) }}%"></div>
+</div>
+<p class="progress-label">{{ unlocked }} of {{ total }} unlocked</p>
+
+<div id="toast" class="toastwrap" aria-live="polite"></div>
+
+<div class="trophy-grid">
+{% for e in entries %}
+  <details class="trophy {{ 'earned' if e.earned else 'locked' }} rarity-{{ e.definition.rarity.value }}">
+    <summary>
+      <span class="trophy-icon">{{ e.definition.icon }}</span>
+      <span class="trophy-name">{{ e.definition.name }}</span>
+    </summary>
+    <div class="trophy-detail">
+      <p class="trophy-desc">{{ e.definition.description }}</p>
+      <p class="trophy-rarity">Rarity: {{ e.definition.rarity.value }}</p>
+      {% if e.definition.repeatable %}
+      <p class="trophy-count">Earned {{ e.count }} time{{ 's' if e.count != 1 else '' }}</p>
+      {% endif %}
+      {% if not e.earned and e.progress_current is not none %}
+      <p class="trophy-progress">{{ e.progress_current }} of {{ e.progress_target }}
+        {{ e.definition.domain }} logged</p>
+      {% endif %}
+      {% if e.definition.rule_type.value == 'manual' %}
+      <form method="post" action="/api/achievements/mark-earned"
+            hx-post="/api/achievements/mark-earned" hx-target="#toast" hx-swap="innerHTML">
+        <input type="hidden" name="key" value="{{ e.definition.key }}">
+        <button type="submit" class="primary">Mark earned</button>
+      </form>
+      {% endif %}
+    </div>
+  </details>
+{% else %}
+  <p class="empty">No achievements yet.</p>
+{% endfor %}
+</div>
+
+<h2>Craft your own</h2>
+<form method="post" action="/api/achievements/custom" class="stack">
+  <label>Name<input type="text" name="name" required></label>
+  <label>Description<input type="text" name="description"></label>
+  <label>Icon<input type="text" name="icon" maxlength="4" placeholder="🏆"></label>
+  <label>Rarity
+    <select name="rarity">
+      {% for r in rarities %}<option value="{{ r.value }}">{{ r.value }}</option>{% endfor %}
+    </select>
+  </label>
+  <label><input type="checkbox" name="repeatable" value="1"> Repeatable</label>
+  <fieldset>
+    <legend>How is it earned?</legend>
+    <label><input type="radio" name="mode" value="manual" checked> I'll mark it myself</label>
+    <label><input type="radio" name="mode" value="rule"> Automatically, from a rule</label>
+    <label>Domain
+      <select name="domain">
+        {% for d in domains %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Condition
+      <select name="rule_type">
+        {% for rt in rule_types %}<option value="{{ rt.value }}">{{ rt.value }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Field (for "single")<input type="text" name="field" placeholder="e.g. method"></label>
+    <label>Match value (for "single")<input type="text" name="match_value" placeholder="e.g. breast_left"></label>
+    <label>Threshold (count / streak days)<input type="number" name="threshold" value="1" min="1"></label>
+  </fieldset>
+  <button type="submit" class="primary">Create achievement</button>
+</form>
+{% endblock %}
