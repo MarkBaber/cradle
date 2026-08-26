@@ -5,13 +5,25 @@ from datetime import timedelta
 from _helpers import NOW, clock, make_db, make_repo
 
 from cradle.models import FeedMethod, GrowthMeasure, NappyKind, StoolColour, StoolConsistency
-from cradle.services.history_service import HistoryService
+from cradle.models.enums import ActivityCategory, BatchState, BottleColour, BreastSide, MilkStore
+from cradle.models.events import ActivityEvent, ExpressionEvent, JournalEntry, MilkBatch
+from cradle.repos.events_repo import EDITABLE, EventsRepo
+from cradle.services.history_service import DOMAINS, HistoryService
 from cradle.services.logging_service import LoggingService
 
 
 def _build() -> tuple[LoggingService, HistoryService]:
     repo = make_repo(make_db())
     return LoggingService(repo, clock()), HistoryService(repo)
+
+
+def _build_with_repo() -> tuple[HistoryService, EventsRepo]:
+    """Some of these new domains' fields (expression's volume_ml/duration_min,
+    milk_batch's whole shape) are only settable post-hoc or via a different
+    service (MilkStockService/JournalService, out of this task's touches) -
+    insert straight through the repo for full field coverage in one call."""
+    repo = make_repo(make_db())
+    return HistoryService(repo), repo
 
 
 def test_merged_and_ordered_newest_first() -> None:
@@ -127,4 +139,118 @@ def test_get_row_returns_none_for_unknown_event_deleted_event_or_bad_table() -> 
 
     log.undo("feed", fid)
     assert hist.get_row("feed", fid) is None, "a soft-deleted event must not resurface"
+
+
+def test_domains_covers_every_editable_table() -> None:
+    """U46: /history must cover every EventsRepo.EDITABLE domain, not just
+    the original seven - this is the contract the four tests below check
+    row-by-row."""
+    assert set(DOMAINS) == set(EDITABLE)
+
+
+def test_expression_row() -> None:
+    hist, repo = _build_with_repo()
+    eid = repo.insert_expression(
+        ExpressionEvent(
+            event_id=None,
+            baby_id=1,
+            ts=NOW,
+            logged_by="mum",
+            side=BreastSide.LEFT,
+            volume_ml=90,
+            duration_min=15,
+            note="pumped after feed",
+        )
+    )
+
+    rows = hist.rows(domains=("expression",))
+    assert [r.table for r in rows] == ["expression"]
+    row = rows[0]
+    assert row.event_id == eid
+    assert row.side == "left"
+    assert row.volume_ml == 90
+    assert row.duration_min == 15
+    assert row.note == "pumped after feed"
+    assert row.activity_kind == "Left"
+
+
+def test_milk_batch_row_anchored_to_stored_at() -> None:
+    """U46 notes: milk_batch has no single ts (expressed_at/stored_at/
+    thawed_at/opened_at/used_at) - anchored to stored_at."""
+    hist, repo = _build_with_repo()
+    expressed = NOW - timedelta(hours=2)
+    stored = NOW - timedelta(hours=1)
+    bid = repo.insert_milk_batch(
+        MilkBatch(
+            batch_id=None,
+            baby_id=1,
+            expressed_at=expressed,
+            stored_at=stored,
+            store=MilkStore.FRIDGE,
+            colour=BottleColour.BLUE,
+            volume_ml=120,
+            state=BatchState.STORED,
+            logged_by="dad",
+        )
+    )
+
+    rows = hist.rows(domains=("milk_batch",))
+    assert [r.table for r in rows] == ["milk_batch"]
+    row = rows[0]
+    assert row.event_id == bid
+    assert row.ts == stored
+    assert row.volume_ml == 120
+    assert row.store == "fridge"
+    assert row.colour == "blue"
+    assert row.state == "stored"
+    assert row.activity_kind == "Stored"
+    assert "blue bottle" in row.detail and "120 ml" in row.detail
+
+
+def test_activity_row() -> None:
+    hist, repo = _build_with_repo()
+    aid = repo.insert_activity(
+        ActivityEvent(
+            event_id=None,
+            baby_id=1,
+            ts=NOW,
+            logged_by="mum",
+            category=ActivityCategory.TUMMY_TIME,
+            duration_min=10,
+            note="on the mat",
+        )
+    )
+
+    rows = hist.rows(domains=("activity",))
+    assert [r.table for r in rows] == ["activity"]
+    row = rows[0]
+    assert row.event_id == aid
+    assert row.category == "tummy_time"
+    assert row.duration_min == 10
+    assert row.note == "on the mat"
+    assert row.activity_kind == "Tummy Time"
+
+
+def test_journal_row() -> None:
+    hist, repo = _build_with_repo()
+    jid = repo.insert_journal_entry(
+        JournalEntry(
+            event_id=None,
+            baby_id=1,
+            ts=NOW,
+            logged_by="mum",
+            title="First giggle",
+            story="Couldn't stop laughing at the dog.",
+            temperament=("giggly", "curious"),
+        )
+    )
+
+    rows = hist.rows(domains=("journal",))
+    assert [r.table for r in rows] == ["journal"]
+    row = rows[0]
+    assert row.event_id == jid
+    assert row.title == "First giggle"
+    assert row.text == "Couldn't stop laughing at the dog."
+    assert row.tags == ("giggly", "curious")
+    assert row.detail == "First giggle"
 

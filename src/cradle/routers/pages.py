@@ -212,24 +212,12 @@ def build_pages_router(svc: Services) -> APIRouter:
         return TEMPLATES.TemplateResponse(
             request,
             "history.html",
-            {
-                "day_groups": _day_grouped_rows(request, svc),
-                "domains": DOMAINS,
-                "selected": _selected(request),
-                "focus": request.query_params.get("focus", ""),
-            },
+            {**_history_ctx(request, svc), "domains": DOMAINS},
         )
 
     @router.get("/history/fragment", response_class=HTMLResponse)
     def history_fragment(request: Request) -> Response:
-        return TEMPLATES.TemplateResponse(
-            request,
-            "day_summary.html",
-            {
-                "day_groups": _day_grouped_rows(request, svc),
-                "focus": request.query_params.get("focus", ""),
-            },
-        )
+        return TEMPLATES.TemplateResponse(request, "day_summary.html", _history_ctx(request, svc))
 
     @router.get("/day-summary")
     @router.get("/summary")
@@ -613,18 +601,53 @@ def _selected(request: Request) -> tuple[str, ...]:
     return tuple(d for d in raw if d in DOMAINS) or DOMAINS
 
 
-def _day_grouped_rows(request: Request, svc: Services) -> list[object]:
-    def parse(name: str) -> datetime | None:
-        raw = request.query_params.get(name)
-        if not raw:
-            return None
-        try:
-            return to_utc(datetime.fromisoformat(raw))
-        except ValueError:
-            return None
+def _week_start(d: date) -> date:
+    """Monday of the calendar week containing d."""
+    return d - timedelta(days=d.weekday())
 
-    return list(
-        svc.history.day_grouped_rows(
-            domains=_selected(request), since=parse("since"), until=parse("until")
-        )
-    )
+
+def _requested_week_start(request: Request, now_local: datetime) -> date:
+    raw = request.query_params.get("week")
+    if raw:
+        try:
+            return _week_start(date.fromisoformat(raw))
+        except ValueError:
+            pass
+    return _week_start(now_local.date())
+
+
+def _week_of_life(dob: date, week_start_date: date) -> int:
+    """Extends today_service.py/series_service.py's "age_days 0 == day 1 of
+    life" convention one level to weeks - clamped to 1 rather than going to
+    0/negative for a paged-Prev week that starts before dob (task U46)."""
+    age_days_at_week_start = (week_start_date - dob).days
+    return max(1, age_days_at_week_start // 7 + 1)
+
+
+def _history_ctx(request: Request, svc: Services) -> dict[str, object]:
+    """Shared context for /history and /history/fragment (task U46): one
+    calendar week (Mon-Sun) of day-grouped rows at a time, plus the Prev/
+    Next week params and week-of-life label both templates render."""
+    summary = svc.today.summary()
+    now_local = to_local(summary.as_of) if summary else to_local(datetime.now(UTC))
+    week_start_date = _requested_week_start(request, now_local)
+    week_end_date = week_start_date + timedelta(days=6)
+    since = to_utc(datetime.combine(week_start_date, datetime.min.time()))
+    until = to_utc(datetime.combine(week_start_date + timedelta(days=7), datetime.min.time()))
+    selected = _selected(request)
+
+    profile = svc.settings.profile()
+    week_of_life = _week_of_life(profile.dob, week_start_date) if profile else None
+
+    return {
+        "day_groups": list(
+            svc.history.day_grouped_rows(domains=selected, since=since, until=until)
+        ),
+        "selected": selected,
+        "week_start": week_start_date,
+        "week_end": week_end_date,
+        "week_of_life": week_of_life,
+        "prev_week": (week_start_date - timedelta(days=7)).isoformat(),
+        "next_week": (week_start_date + timedelta(days=7)).isoformat(),
+        "focus": request.query_params.get("focus", ""),
+    }
