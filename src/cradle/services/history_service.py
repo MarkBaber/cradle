@@ -388,7 +388,7 @@ class HistoryService:
 
         result: list[tuple[date, list[HistoryRow]]] = []
         for d in sorted(groups.keys(), reverse=True):
-            day_rows = sorted(groups[d], key=lambda r: r.ts)
+            day_rows = sorted(groups[d], key=lambda r: r.ts, reverse=True)
             result.append((d, day_rows))
         return result
 
