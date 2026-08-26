@@ -8,7 +8,7 @@
   <label><input type="checkbox" name="domain" value="{{ d }}"
     {{ 'checked' if d in selected }}> {{ d }}</label>
   {% endfor %}
-  <input type="date" name="since" value="{{ request.query_params.get('since','') }}">
+  <input type="date" name="week" value="{{ week_start.isoformat() }}" aria-label="Jump to week containing date">
   <button type="submit">Filter</button>
 </form>
 <div id="toast" class="toastwrap" aria-live="polite"></div>

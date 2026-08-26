@@ -1,8 +1,30 @@
 {# Day-grouped compact history rows (task U40), now the merged /history page's
-   only view (task U43). A bare fragment - no {% extends %} - included by
-   history.html and also served standalone at /history/fragment, same dual
-   role _history_table.html carried for the old flat table. #}
+   only view (task U43), paginated one calendar week at a time with a week
+   pager and a week-of-life label (task U46). A bare fragment - no
+   {% extends %} - included by history.html and also served standalone at
+   /history/fragment, same dual role _history_table.html carried for the old
+   flat table.
+
+   Each day still gets its own <section><table> (unchanged from U40/U43) -
+   columns stay aligned across every day-group via table-layout:fixed with
+   matching column widths in app.css (one column-width recipe, applied
+   identically to every table), not by merging into a single table. #}
+{% macro domain_qs() -%}
+{%- for d in selected -%}&amp;domain={{ d }}{%- endfor -%}
+{%- endmacro %}
 <div class="day-summary" id="history">
+  <div class="week-nav">
+    <a class="week-prev" href="/history?week={{ prev_week }}{{ domain_qs() }}"
+       hx-get="/history/fragment?week={{ prev_week }}{{ domain_qs() }}"
+       hx-select="#history" hx-target="#history" hx-swap="outerHTML"
+       aria-label="Previous week">&larr; Prev</a>
+    <span class="week-label">{{ week_start.strftime('%d %b') }} &ndash; {{ week_end.strftime('%d %b %Y') }}
+      {%- if week_of_life %} &middot; Week {{ week_of_life }} of life{% endif %}</span>
+    <a class="week-next" href="/history?week={{ next_week }}{{ domain_qs() }}"
+       hx-get="/history/fragment?week={{ next_week }}{{ domain_qs() }}"
+       hx-select="#history" hx-target="#history" hx-swap="outerHTML"
+       aria-label="Next week">Next &rarr;</a>
+  </div>
   {% for day_date, rows in day_groups %}
   <section class="day-group">
     <h2>{{ day_date.strftime('%d %b %Y') }}
@@ -23,6 +45,10 @@
           <td class="detail">{{ r.short_detail }}
             {%- if r.logged_by %} <span class="by">by {{ r.logged_by }}</span>{% endif %}</td>
           <td class="row-actions">
+            {% if r.table == "journal" %}
+            <a class="row-action view" aria-label="View in Journal" href="/journal">&#128214;</a>
+            {% else %}
+            {% if r.table not in ("expression", "milk_batch", "activity") %}
             <a class="row-action edit" aria-label="Edit"
                href="/?panel=edit&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
                hx-get="/?panel=edit&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
@@ -33,10 +59,12 @@
                hx-get="/?panel=clone&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
                hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&#10697;</a>
             {% endif %}
+            {% endif %}
             <a class="row-action del" aria-label="Delete"
                href="/?panel=delete&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
                hx-get="/?panel=delete&amp;table={{ r.table }}&amp;event_id={{ r.event_id }}"
                hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&#10005;</a>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

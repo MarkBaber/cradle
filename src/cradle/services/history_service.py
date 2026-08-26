@@ -6,7 +6,19 @@ from datetime import date, datetime
 from cradle.models import to_local
 from cradle.repos.events_repo import EventsRepo
 
-DOMAINS = ("feed", "nappy", "sleep", "growth", "temperature", "milestone", "note")
+DOMAINS = (
+    "feed",
+    "nappy",
+    "sleep",
+    "growth",
+    "temperature",
+    "milestone",
+    "note",
+    "expression",
+    "milk_batch",
+    "activity",
+    "journal",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +51,12 @@ class HistoryRow:
     title: str | None = None
     text: str | None = None
     tags: tuple[str, ...] | None = None
+    # expression/milk_batch (task U46/M1): EDITABLE columns those two tables
+    # have that don't map onto any field above.
+    side: str | None = None
+    store: str | None = None
+    colour: str | None = None
+    state: str | None = None
 
     @property
     def activity(self) -> str:
@@ -55,6 +73,12 @@ class HistoryRow:
             return parts[0].title()
         if self.table == "milestone" and ":" in self.detail:
             return self.detail.split(":", 1)[0].strip().title()
+        if self.table == "activity" and self.category:
+            return self.category.replace("_", " ").title()
+        if self.table == "expression" and self.side:
+            return self.side.title()
+        if self.table == "milk_batch" and self.state:
+            return self.state.title()
         return ""
 
     @property
@@ -119,6 +143,10 @@ class HistoryService:
             title: str | None = None,
             text: str | None = None,
             tags: tuple[str, ...] | None = None,
+            side: str | None = None,
+            store: str | None = None,
+            colour: str | None = None,
+            state: str | None = None,
         ) -> None:
             if event_id is not None:
                 out.append(
@@ -146,8 +174,19 @@ class HistoryService:
                         title=title,
                         text=text,
                         tags=tags,
+                        side=side,
+                        store=store,
+                        colour=colour,
+                        state=state,
                     )
                 )
+
+        # growth/milestone/note/journal/milk_batch have no ts-indexed since/
+        # until filter in events_repo.py (it's outside this task's touches),
+        # so they only take a limit and are filtered in Python below. When a
+        # window is requested, widen what's fetched so an older week's rows
+        # aren't cut off by only ever seeing the newest `limit` rows overall.
+        wide_limit = max(limit, 1000) if since is not None or until is not None else limit
 
         if "feed" in wanted:
             for e in self._repo.list_feeds(limit, since, until):
@@ -199,7 +238,7 @@ class HistoryService:
                     location=s.location,
                 )
         if "growth" in wanted:
-            for g in self._repo.list_growth(limit=limit):
+            for g in self._repo.list_growth(limit=wide_limit):
                 unit = "g" if g.measure.value == "weight" else "mm"
                 add(
                     "growth",
@@ -223,7 +262,7 @@ class HistoryService:
                     site=t.site,
                 )
         if "milestone" in wanted:
-            for m in self._repo.list_milestones(limit):
+            for m in self._repo.list_milestones(wide_limit):
                 add(
                     "milestone",
                     m.event_id,
@@ -235,7 +274,7 @@ class HistoryService:
                     note=m.note,
                 )
         if "note" in wanted:
-            for nt in self._repo.list_notes(limit):
+            for nt in self._repo.list_notes(wide_limit):
                 add(
                     "note",
                     nt.event_id,
@@ -244,6 +283,68 @@ class HistoryService:
                     nt.logged_by,
                     text=nt.text,
                     tags=nt.tags,
+                )
+        if "expression" in wanted:
+            for x in self._repo.list_expressions(limit, since, until):
+                bits = [x.side.value]
+                if x.duration_min:
+                    bits.append(f"{x.duration_min} min")
+                if x.volume_ml:
+                    bits.append(f"{x.volume_ml} ml")
+                add(
+                    "expression",
+                    x.event_id,
+                    x.ts,
+                    ", ".join(bits),
+                    x.logged_by,
+                    side=x.side.value,
+                    volume_ml=x.volume_ml,
+                    duration_min=x.duration_min,
+                    note=x.note,
+                )
+        if "milk_batch" in wanted:
+            # No ts field (EDITABLE lists expressed_at/stored_at/thawed_at/
+            # opened_at/used_at): anchored to stored_at, "when it entered
+            # storage" - the day-group a parent would look for a bottle
+            # under (task U46 notes).
+            for b in self._repo.list_milk_batches(limit=wide_limit):
+                add(
+                    "milk_batch",
+                    b.batch_id,
+                    b.stored_at,
+                    f"{b.colour.value} bottle, {b.volume_ml} ml ({b.store.value}, {b.state.value})",
+                    b.logged_by,
+                    volume_ml=b.volume_ml,
+                    store=b.store.value,
+                    colour=b.colour.value,
+                    state=b.state.value,
+                )
+        if "activity" in wanted:
+            for a in self._repo.list_activities(limit, since, until):
+                bits = [a.category.value.replace("_", " ")]
+                if a.duration_min:
+                    bits.append(f"{a.duration_min} min")
+                add(
+                    "activity",
+                    a.event_id,
+                    a.ts,
+                    ", ".join(bits),
+                    a.logged_by,
+                    category=a.category.value,
+                    duration_min=a.duration_min,
+                    note=a.note,
+                )
+        if "journal" in wanted:
+            for j in self._repo.list_journal_entries(wide_limit):
+                add(
+                    "journal",
+                    j.event_id,
+                    j.ts,
+                    j.title,
+                    j.logged_by,
+                    title=j.title,
+                    text=j.story,
+                    tags=j.temperament,
                 )
 
         # Domain repos apply since/until only where indexed; enforce uniformly here.

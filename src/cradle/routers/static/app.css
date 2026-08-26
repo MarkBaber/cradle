@@ -8,6 +8,13 @@
      bordered icon buttons at a row's trailing edge - never on a full-width
      alert card - so it reads as a row control, not a severity signal. */
   --action:#ff7f2a;
+  /* history tag badge colours (task U46): one dedicated hue per domain, none
+     shared with another domain's badge and none matching --warn/--err's
+     alert severity hues. growth/temperature used to borrow --bottle/--warn
+     for their badge - those are now their own tokens (--bottle/--warn stay
+     as-is for the UI elements that already used them outside .tag). */
+  --growth:#2eb88f; --temp:#e0629a; --milestone:#9ec93f; --note:#d17fc9;
+  --expression:#3f7fd1; --milk-batch:#a67c52; --activity:#2bc4c4; --journal:#b06fd6;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -106,7 +113,10 @@ table#history{width:100%;border-collapse:collapse;font-size:.88rem}
 .tag{display:inline-block;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;
   border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--dim)}
 .tag.feed{color:var(--feed)} .tag.nappy{color:var(--wet)} .tag.sleep{color:var(--sleep)}
-.tag.growth{color:var(--bottle)} .tag.temperature{color:var(--warn)}
+.tag.growth{color:var(--growth)} .tag.temperature{color:var(--temp)}
+.tag.milestone{color:var(--milestone)} .tag.note{color:var(--note)}
+.tag.expression{color:var(--expression)} .tag.milk_batch{color:var(--milk-batch)}
+.tag.activity{color:var(--activity)} .tag.journal{color:var(--journal)}
 .tag.red{color:var(--err)} .tag.amber{color:var(--warn)} .tag.reminder,.tag.info{color:var(--dim)}
 
 /* misc */
@@ -268,18 +278,31 @@ sup{font-size:.6em}
 .ap-theme-ios #ap-button-set{background:var(--panel);color:var(--feed)}
 
 /* day summary (task U40), merged into /history with row actions + a
-   per-day add button (task U43) */
+   per-day add button (task U43). Each day-group still gets its own
+   <section><table> (HTML gives sibling tables no shared column-width
+   computation), but table-layout:fixed plus one identical width recipe
+   applied to every table (task U46) makes every day-group's Time/Activity/
+   Kind/Detail/Actions columns compute to the same widths regardless of that
+   day's own content, so they stay visually aligned down the page. */
 .day-group{margin-bottom:1.2rem}
 .day-group h2{font-size:1rem;margin:.8rem 0 .4rem;color:var(--dim);border-bottom:1px solid var(--line);
   padding-bottom:4px;display:flex;align-items:center;gap:8px}
-table.summary-table{width:100%;border-collapse:collapse;font-size:.88rem}
-table.summary-table td{padding:6px 4px;vertical-align:top;border-bottom:1px solid var(--line)}
+table.summary-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:.88rem}
+table.summary-table td{padding:6px 4px;vertical-align:top;border-bottom:1px solid var(--line);
+  overflow:hidden;text-overflow:ellipsis}
 table.summary-table td.time{width:54px;white-space:nowrap;color:var(--dim);font-variant-numeric:tabular-nums}
 table.summary-table td.activity{width:90px}
-table.summary-table td.kind{font-weight:500}
+table.summary-table td.kind{width:90px;font-weight:500}
 table.summary-table td.detail{color:var(--dim)}
 table.summary-table tr.focus{background:#1b2431}
 table.summary-table td.row-actions{width:100px;white-space:nowrap;text-align:right}
+
+/* week pager (task U46) */
+.week-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin:0 0 10px;font-size:.85rem}
+.week-nav a{color:var(--fg);text-decoration:none;padding:6px 10px;min-height:36px;
+  display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px}
+.week-label{flex:1;text-align:center;color:var(--dim)}
 
 /* Row actions: small bordered icon links, deliberately shaped like row
    controls (square, trailing-edge, icon-only) rather than the full-width
