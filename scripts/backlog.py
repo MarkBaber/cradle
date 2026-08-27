@@ -543,20 +543,28 @@ BACKEND_MODEL_HELP: dict[str, dict[str, str]] = {
 AGY_PRINT_TIMEOUT = "60m"
 
 #: Selectable `--effort` values for dispatch commands. "default" means the
-#: flag is omitted and the model falls back to its own default effort.
+#: flag is omitted and the CLI's own default applies -- which for Claude Code
+#: is `xhigh`, not the midpoint the name suggests. Naming a level below that
+#: is therefore a step *down* from omitting the flag; only "max" is a step up.
 EFFORT_LEVELS = ("default", "low", "medium", "high", "xhigh", "max")
 #: One-line rationale per EFFORT_LEVELS value, surfaced as a tooltip by the
 #: cockpit's dispatch picker.
 EFFORT_HELP: dict[str, str] = {
-    "default": "No --effort flag -- the model's own default reasoning effort.",
+    "default": "No --effort flag -- Claude Code's own default, which is xhigh.",
     "low": "Fastest and cheapest. Simple, mechanical changes.",
     "medium": "Balanced speed and thoroughness. A reasonable default when "
               "in doubt.",
     "high": "More deliberate reasoning. Multi-step or judgment-heavy work.",
-    "xhigh": "Extra thorough. Complex or high-stakes changes.",
+    "xhigh": "Extra thorough. Complex or high-stakes changes, and the best "
+             "setting for most coding and agentic work.",
     "max": "Maximum reasoning effort. Slowest and priciest -- hardest tasks "
            "only.",
 }
+#: Claude models that accept --effort at all. Haiku 4.5 has no effort control
+#: and the flag is an error against it rather than a no-op, so a haiku
+#: dispatch must omit it -- the same non-widening posture build_command
+#: already takes for a model slug belonging to the wrong backend.
+EFFORT_MODELS = ("sonnet", "opus")
 
 #: House subagents, in the order a task moves through them. Values are the
 #: fallback phrasing used when the definition is not present in the repo.
@@ -791,8 +799,11 @@ def build_command(task: Task, cfg: dict[str, Any], lay: dict[str, Any],
     grants (agy would exit non-zero on an unknown slug regardless).
     `effort` is a dispatch-time-only choice (see EFFORT_LEVELS) -- unlike
     `model`, tasks.toml carries no per-task field for it. None or "default"
-    omits --effort, so the model's own default applies. Ignored entirely for
-    the antigravity backend.
+    omits --effort, so the CLI's own default applies. A named level against a
+    model with no effort control (EFFORT_MODELS) is a hard failure here for
+    the same reason a wrong-backend slug is: the CLI rejects the flag, so
+    emitting it anyway trades a clear error here for a failed dispatch later.
+    Ignored entirely for the antigravity backend.
     """
     allowed_models = BACKEND_MODELS.get(backend)
     if allowed_models is None:
@@ -834,6 +845,9 @@ def build_command(task: Task, cfg: dict[str, Any], lay: dict[str, Any],
     if budget is not None:
         argv += ["--max-budget-usd", str(budget)]
     if effort and effort != "default":
+        if chosen_model not in EFFORT_MODELS:
+            raise ValueError(f"model {chosen_model!r} does not accept --effort "
+                             f"(expected one of {EFFORT_MODELS})")
         argv += ["--effort", effort]
     return [*argv, prompt]
 
