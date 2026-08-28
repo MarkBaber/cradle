@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from fastapi.testclient import TestClient  # noqa: E402
-from test_settings import _config_copy, _entry_defaults_config_path  # noqa: E402
+from test_settings import _config_copy, _entry_defaults_config_path, config_value  # noqa: E402
 
 from cradle.app import create_app  # noqa: E402
 from cradle.models import to_local  # noqa: E402
@@ -414,13 +414,20 @@ PANEL_SAVE_WITH_BLANK_OPTIONAL_FIELDS = [
 def test_panel_time_field_combines_with_todays_display_zone_date() -> None:
     """ts carries no date (native <input type=time> only, per this task's notes);
     the server must attach today's date in the *configured* display zone
-    (models/timefmt, task U9), not the process's OS zone."""
+    (models/timefmt, task U9), not the process's OS zone.
+
+    "Today" means the injected Clock's today, not the OS wall clock (task Q5).
+    This assertion used to read `to_local(datetime.now(UTC)).date()`, which
+    passed only because _panel_ts read the wall clock too -- the test encoded
+    the defect rather than catching it. NOW is deliberately a different date
+    from any real run date, so this fails against the old behaviour.
+    """
     client = _client()
     client.post("/api/feed", data={"method": "breast_left", "ts": "09:30"})
     feeds = client.app.state.services.logging.recent_feeds(1)
     local = to_local(feeds[0].ts)
     assert (local.hour, local.minute) == (9, 30)
-    assert local.date() == to_local(datetime.now(UTC)).date()
+    assert local.date() == to_local(NOW).date()
 
 
 def test_panel_save_with_every_optional_field_blank_never_4xxs() -> None:
@@ -439,21 +446,31 @@ def test_panel_save_with_every_optional_field_blank_never_4xxs() -> None:
 
 
 def test_bottle_panel_prefills_the_configured_volume_default() -> None:
-    """Out of the box, rules_config.toml's [entry_defaults] ships 60ml - never
-    an entry gate (T1), just a starting value the parent can still change."""
+    """The panel pre-fills whatever rules_config.toml's [entry_defaults] ships
+    - never an entry gate (T1), just a starting value the parent can change.
+
+    Read from config rather than pinned to a number (task Q5): those values are
+    architect-owned and change without a test's involvement, which is exactly
+    how commit 135b072 broke this test by moving 60ml to 70ml.
+    """
     client = _client()
     page = client.get("/?panel=feed&method=bottle_expressed").text
     match = re.search(r'name="volume_ml"[^>]*>', page)
     assert match is not None
-    assert 'value="60"' in match.group(0)
+    expected = config_value("entry_defaults", "bottle_volume_ml")
+    assert f'value="{expected}"' in match.group(0)
 
 
 def test_breast_panel_prefills_the_configured_duration_default() -> None:
+    # Config-derived for the same reason as the bottle panel above (task Q5).
+    # This one still passed at 20 min only because 135b072 happened not to
+    # touch it -- pinning the number leaves the same trap set for next time.
     client = _client()
     page = client.get("/?panel=feed&method=breast_left").text
     match = re.search(r'name="duration_min"[^>]*>', page)
     assert match is not None
-    assert 'value="20"' in match.group(0)
+    expected = config_value("entry_defaults", "breast_duration_min")
+    assert f'value="{expected}"' in match.group(0)
 
 
 def test_every_panel_time_field_prefills_with_now_in_the_display_zone() -> None:
@@ -575,7 +592,9 @@ def test_history_edit_corrects_both_date_and_time() -> None:
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    page = client.get("/history").text
+    # /history paginates one calendar week at a time since U46, so a row moved
+    # to a date outside NOW's week has to be asked for by week (task Q5).
+    page = client.get("/history?week=2026-07-10").text
     assert "10 Jul 2026" in page
     assert "06:45" in page
 
@@ -1123,7 +1142,9 @@ def test_growth_temperature_milestone_save_with_picked_time_persists_that_exact_
         r = client.post(url, data={**payload, "ts": "09:30"}, headers={"HX-Request": "true"})
         assert r.status_code == 200, f"{url} -> {r.status_code}"
     hist = client.get("/history").text
-    today_local = to_local(datetime.now(UTC)).strftime("%d %b %Y")
+    # The clock's today, not the OS wall clock's -- see task Q5 and
+    # test_panel_time_field_combines_with_todays_display_zone_date.
+    today_local = to_local(NOW).strftime("%d %b %Y")
     assert today_local in hist
     assert hist.count("09:30") >= 3
 
@@ -1150,7 +1171,8 @@ def test_growth_temperature_milestone_time_field_round_trips_through_adjust_time
         )
         assert r2.status_code == 303
 
-    hist = client.get("/history").text
+    # Week-paginated since U46 -- see test_history_edit_corrects_both_date_and_time.
+    hist = client.get("/history?week=2026-07-10").text
     assert "10 Jul 2026" in hist
     assert hist.count("23:15") >= 3
 
@@ -1799,10 +1821,16 @@ def test_history_edit_saving_updates_the_same_event_and_moving_ts_relocates_the_
     assert (moved.year, moved.month, moved.day) == (2026, 7, 10)
     assert (moved.hour, moved.minute) == (8, 0)
 
-    page = client.get("/history").text
+    # Week-paginated since U46, so the moved row and its old day now live in
+    # two different views. Asserting "15 Jul 2026" is absent from the 10 Jul
+    # week would prove nothing -- a different week never renders it either way
+    # -- so the old week is fetched and checked on its own (task Q5).
+    page = client.get("/history?week=2026-07-10").text
     assert "10 Jul 2026" in page
-    assert "15 Jul 2026" not in page, "no stale duplicate left under the row's old day"
     assert page.count('id="feed-1"') == 1
+
+    old_week = client.get("/history?week=2026-07-15").text
+    assert 'id="feed-1"' not in old_week, "no stale duplicate left under the row's old day"
 
 
 def test_history_clone_always_creates_a_new_event_leaving_the_source_untouched() -> None:
@@ -1905,7 +1933,8 @@ def test_history_day_add_button_seeds_that_days_own_date_and_nine_am() -> None:
     )
     assert r.status_code == 303
 
-    page = client.get("/history").text
+    # Week-paginated since U46 -- see test_history_edit_corrects_both_date_and_time.
+    page = client.get("/history?week=2026-07-10").text
     assert 'panel=add&amp;date=2026-07-10' in page
 
     chooser = client.get("/?panel=add&date=2026-07-10").text

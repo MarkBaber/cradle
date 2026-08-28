@@ -10,7 +10,7 @@ import re
 import statistics
 import tomllib
 from collections.abc import Sequence
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from html import escape
 from pathlib import Path
 from typing import Annotated, Any
@@ -32,7 +32,6 @@ from cradle.models import (
     UneditableFieldError,
     UnknownTableError,
     UnlockEvent,
-    to_local,
     to_utc,
 )
 from cradle.models.enums import ActivityCategory
@@ -333,17 +332,26 @@ def _coerce_field_value(field: str, raw: str) -> object:
     return raw
 
 
-def _panel_ts(raw: str | None, ref_date: date | None = None) -> datetime | None:
+def _panel_ts(raw: str | None, ref_date: date | None, today: date) -> datetime | None:
     """Parse the quick-entry panel's <input type=time> value (U18, U43).
 
     It carries no date of its own, so a provided "HH:MM" is combined with a
     reference date in the *configured* display zone (models/timefmt, task
     U9) - not the server's OS zone, which would risk the wrong calendar day
-    near local midnight. *ref_date* defaults to today so ordinary quick-entry
-    keeps working unchanged; the history page's day-group "+" (U43) passes
-    that day's own date instead, so a bottle logged from a past day's group
-    lands under that day, not today's. Blank or unparseable input means "use
-    the clock's now", same as ts=None.
+    near local midnight. *ref_date* falls back to *today* so ordinary
+    quick-entry keeps working unchanged; the history page's day-group "+"
+    (U43) passes that day's own date instead, so a bottle logged from a past
+    day's group lands under that day, not today's. Blank or unparseable input
+    means "use the clock's now", same as ts=None.
+
+    *today* is required rather than defaulted (task Q5). It used to default to
+    `to_local(datetime.now(UTC)).date()` -- the OS wall clock, not the Clock
+    the rest of the app reads time through, so a panel entry was filed against
+    real today regardless of the injected clock. Taking it as a parameter, with
+    no fallback, means mypy names any call site that forgets rather than one
+    silently reintroducing the wall clock. Callers pass
+    `svc.today.local_today()`; routers cannot hold a Clock themselves without
+    importing cradle.ports, which the layering gate forbids.
     """
     if not raw:
         return None
@@ -351,7 +359,7 @@ def _panel_ts(raw: str | None, ref_date: date | None = None) -> datetime | None:
         hour, minute = (int(p) for p in raw.split(":"))
     except ValueError:
         return None
-    day = ref_date or to_local(datetime.now(UTC)).date()
+    day = ref_date or today
     return to_utc(datetime(day.year, day.month, day.day, hour, minute))
 
 
@@ -484,7 +492,7 @@ def build_api_router(svc: Services) -> APIRouter:
         event_id = svc.logging.log_feed(
             m,
             logged_by=who(request),
-            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
+            ts=_panel_ts(ts, _parse_panel_date(date), svc.today.local_today()),
             duration_min=duration_min,
             volume_ml=volume_ml,
         )
@@ -506,7 +514,7 @@ def build_api_router(svc: Services) -> APIRouter:
             StoolColour(stool_colour),
             StoolConsistency(consistency),
             logged_by=who(request),
-            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
+            ts=_panel_ts(ts, _parse_panel_date(date), svc.today.local_today()),
         )
         unlocks = svc.achievements.evaluate_event(
             "nappy",
@@ -535,7 +543,7 @@ def build_api_router(svc: Services) -> APIRouter:
             duration_min=dur,
             note=note,
             logged_by=who(request),
-            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
+            ts=_panel_ts(ts, _parse_panel_date(date), svc.today.local_today()),
         )
         unlocks = svc.achievements.evaluate_event("activity", {"category": cat.value})
         return _respond(request, "activity", event_id, cat.value.replace("_", " "), unlocks)
@@ -622,7 +630,7 @@ def build_api_router(svc: Services) -> APIRouter:
             value,
             source,
             logged_by=who(request),
-            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
+            ts=_panel_ts(ts, _parse_panel_date(date), svc.today.local_today()),
         )
         unlocks = svc.achievements.evaluate_event("growth", {"measure": measure})
         return _respond(request, "growth", event_id, measure, unlocks)
@@ -636,7 +644,10 @@ def build_api_router(svc: Services) -> APIRouter:
         date: Annotated[str | None, Form()] = None,
     ) -> Response:
         event_id = svc.logging.log_temperature(
-            temp_c, site, logged_by=who(request), ts=_panel_ts(ts, ref_date=_parse_panel_date(date))
+            temp_c,
+            site,
+            logged_by=who(request),
+            ts=_panel_ts(ts, _parse_panel_date(date), svc.today.local_today()),
         )
         unlocks = svc.achievements.evaluate_event("temperature", {"site": site})
         return _respond(request, "temperature", event_id, f"{temp_c:.1f} C", unlocks)
@@ -655,7 +666,7 @@ def build_api_router(svc: Services) -> APIRouter:
             title,
             note,
             logged_by=who(request),
-            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
+            ts=_panel_ts(ts, _parse_panel_date(date), svc.today.local_today()),
         )
         unlocks = svc.achievements.evaluate_milestone(category)
         return _respond(request, "milestone", event_id, "milestone", unlocks)
@@ -670,7 +681,10 @@ def build_api_router(svc: Services) -> APIRouter:
     ) -> Response:
         parsed = tuple(t.strip() for t in tags.split(",") if t.strip())
         event_id = svc.logging.log_note(
-            text, parsed, logged_by=who(request), ts=_panel_ts(ts, ref_date=_parse_panel_date(date))
+            text,
+            parsed,
+            logged_by=who(request),
+            ts=_panel_ts(ts, _parse_panel_date(date), svc.today.local_today()),
         )
         return _respond(request, "note", event_id, "note")
 
@@ -690,7 +704,7 @@ def build_api_router(svc: Services) -> APIRouter:
             story,
             parsed,
             logged_by=who(request),
-            ts=_panel_ts(ts, ref_date=_parse_panel_date(date)),
+            ts=_panel_ts(ts, _parse_panel_date(date), svc.today.local_today()),
         )
         return RedirectResponse(f"/journal?logged=journal:{entry_id}", status_code=303)
 
@@ -853,7 +867,7 @@ def build_api_router(svc: Services) -> APIRouter:
                 combined = (
                     to_utc(datetime.fromisoformat(ts))
                     if "T" in ts
-                    else _panel_ts(ts, ref_date=_parse_panel_date(date))
+                    else _panel_ts(ts, _parse_panel_date(date), svc.today.local_today())
                 )
                 if combined is not None:
                     fields["ts"] = combined
