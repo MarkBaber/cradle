@@ -27,9 +27,9 @@ class ActivitySummary:
     """
 
     category: ActivityCategory
-    duration_min: int          # cumulative minutes in the trailing 24h; 0 if none
-    session_count: int         # number of sessions in the trailing 24h; 0 if none
-    target_text: str           # verbatim from rules_config.toml, or "" if absent
+    duration_min: int  # cumulative minutes in the trailing 24h; 0 if none
+    session_count: int  # number of sessions in the trailing 24h; 0 if none
+    target_text: str  # verbatim from rules_config.toml, or "" if absent
 
 
 class ActivityService:

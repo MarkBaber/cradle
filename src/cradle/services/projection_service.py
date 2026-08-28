@@ -153,8 +153,10 @@ class ProjectionService:
         mess_level_fraction = 0.0
         if nappies_chrono:
             last_nappy = nappies_chrono[-1]
-            gap = mess_interval_h if mess_interval_h is not None else _gap_median_hours(
-                nappies_chrono
+            gap = (
+                mess_interval_h
+                if mess_interval_h is not None
+                else _gap_median_hours(nappies_chrono)
             )
             if gap is not None:
                 mess_due_at = last_nappy.ts + timedelta(hours=gap)

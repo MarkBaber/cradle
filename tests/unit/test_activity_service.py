@@ -124,9 +124,7 @@ def test_target_text_carried_verbatim_from_config() -> None:
     assert summaries[ActivityCategory.READING_TALKING].target_text == (
         "15-20 min cumulative per day"
     )
-    assert summaries[ActivityCategory.SENSORY_PLAY].target_text == (
-        "1-2 brief sessions of 2-5 min"
-    )
+    assert summaries[ActivityCategory.SENSORY_PLAY].target_text == ("1-2 brief sessions of 2-5 min")
     # foreign_language is the UNVERIFIED entry - check verbatim anyway
     assert "10-15 min" in summaries[ActivityCategory.FOREIGN_LANGUAGE].target_text
 
@@ -134,7 +132,7 @@ def test_target_text_carried_verbatim_from_config() -> None:
 def test_target_text_absent_key_returns_empty_string() -> None:
     """If the config has no [activity_targets] at all, target_text is ''."""
     with tempfile.NamedTemporaryFile(suffix=".toml", delete=False) as fh:
-        fh.write(b"[display]\ntimezone = \"UTC\"\n")
+        fh.write(b'[display]\ntimezone = "UTC"\n')
         empty_config = Path(fh.name)
 
     db = make_db()

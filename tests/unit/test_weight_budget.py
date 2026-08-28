@@ -107,22 +107,22 @@ def test_journal_page_reuses_the_existing_picker_assets_only() -> None:
     (PICKER_ASSETS_EXEMPT_FROM_BUDGET). Neither entry.js nor app.css itself
     changed size for this task, so BUDGET_BYTES is unaffected - nothing to
     re-measure."""
-    journal = (
-        ROOT / "src" / "cradle" / "routers" / "templates" / "journal.html"
-    ).read_text(encoding="utf-8")
-    assert '/static/vendor/jquery.min.js' in journal
-    assert '/static/vendor/anypicker.min.js' in journal
-    assert '/static/vendor/anypicker-all.min.css' in journal
-    assert '/static/entry.js' in journal
+    journal = (ROOT / "src" / "cradle" / "routers" / "templates" / "journal.html").read_text(
+        encoding="utf-8"
+    )
+    assert "/static/vendor/jquery.min.js" in journal
+    assert "/static/vendor/anypicker.min.js" in journal
+    assert "/static/vendor/anypicker-all.min.css" in journal
+    assert "/static/entry.js" in journal
     assert "plotly" not in journal.lower()
 
 
 def test_journal_book_is_self_contained_with_no_external_references() -> None:
     """The exported book (task U44) must open standalone with no server: no
     /static asset, no external stylesheet or script, no http(s) reference."""
-    book = (
-        ROOT / "src" / "cradle" / "routers" / "templates" / "journal_book.html"
-    ).read_text(encoding="utf-8")
+    book = (ROOT / "src" / "cradle" / "routers" / "templates" / "journal_book.html").read_text(
+        encoding="utf-8"
+    )
     assert "/static/" not in book
     assert "<script" not in book
     assert "http://" not in book
@@ -135,9 +135,9 @@ def test_achievement_celebration_adds_no_new_quick_entry_network_asset() -> None
     in app.css above - so a badge unlocking fetches nothing extra over the
     network, and QUICK_ENTRY_ASSETS' existing total already reflects the
     whole cost (no separate audio/animation file to lazily fetch)."""
-    quick = (
-        ROOT / "src" / "cradle" / "routers" / "templates" / "quick_entry.html"
-    ).read_text(encoding="utf-8")
+    quick = (ROOT / "src" / "cradle" / "routers" / "templates" / "quick_entry.html").read_text(
+        encoding="utf-8"
+    )
     assert ".mp3" not in quick and ".wav" not in quick and ".ogg" not in quick
     js = (STATIC / "entry.js").read_text(encoding="utf-8")
     assert "AudioContext" in js, "sound must be synthesized, not fetched"

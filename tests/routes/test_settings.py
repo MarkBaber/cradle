@@ -573,4 +573,3 @@ def test_settings_page_carries_scroll_wheel_increments_section(tmp_path: Path) -
         assert 'name="sensory_play_duration_min"' in page
         assert 'name="foreign_language_duration_min"' in page
         assert '"/api/settings/wheel-steps"' in page
-

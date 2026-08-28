@@ -65,6 +65,7 @@ class _HasTs(Protocol):
     @property
     def ts(self) -> datetime: ...
 
+
 # Starter catalog (task U42 exit criteria): first use of each quick-entry
 # domain, plus the baby "moment" family. Mark Baber's fuller predefined-copy
 # list is a deferred fast-follow (task notes) - this stays a flat tuple of

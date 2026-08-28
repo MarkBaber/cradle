@@ -1022,10 +1022,12 @@ def build_api_router(svc: Services) -> APIRouter:
     @router.get("/api/settings/entry-defaults")
     def get_entry_defaults() -> JSONResponse:
         defs = entry_defaults(CONFIG_PATH)
-        return JSONResponse({
-            "bottle_volume_ml": defs["bottle_volume_ml"],
-            "breast_duration_min": defs["breast_duration_min"],
-        })
+        return JSONResponse(
+            {
+                "bottle_volume_ml": defs["bottle_volume_ml"],
+                "breast_duration_min": defs["breast_duration_min"],
+            }
+        )
 
     @router.post("/api/settings/entry-defaults")
     def post_entry_defaults(

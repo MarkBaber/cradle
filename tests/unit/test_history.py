@@ -253,4 +253,3 @@ def test_journal_row() -> None:
     assert row.text == "Couldn't stop laughing at the dog."
     assert row.tags == ("giggly", "curious")
     assert row.detail == "First giggle"
-

@@ -144,9 +144,7 @@ class SeriesService:
         return [start_day + timedelta(days=i) for i in range(days)], since
 
     # --------------------------------------------------------- C5: targets
-    def _build_targets(
-        self, buckets: list[date], age_per_bucket: list[int]
-    ) -> DailyTargets:
+    def _build_targets(self, buckets: list[date], age_per_bucket: list[int]) -> DailyTargets:
         cfg = self._cfg
 
         # --- Feed volume target (ml_per_kg_per_day * weight_kg) ---
@@ -291,17 +289,19 @@ class SeriesService:
 
         # C5: chronological age per bucket (NOT corrected age).
         baby = self._baby_repo.get()
-        age_per_bucket = (
-            [(bucket - baby.dob).days for bucket in buckets] if baby else [0] * size
-        )
-        targets = self._build_targets(buckets, age_per_bucket) if baby else DailyTargets(
-            feed_volume_ml=(None,) * size,
-            wet_min=(None,) * size,
-            wet_max=(None,) * size,
-            dirty_min=(None,) * size,
-            dirty_max=(None,) * size,
-            sleep_min_hours=(None,) * size,
-            sleep_max_hours=(None,) * size,
+        age_per_bucket = [(bucket - baby.dob).days for bucket in buckets] if baby else [0] * size
+        targets = (
+            self._build_targets(buckets, age_per_bucket)
+            if baby
+            else DailyTargets(
+                feed_volume_ml=(None,) * size,
+                wet_min=(None,) * size,
+                wet_max=(None,) * size,
+                dirty_min=(None,) * size,
+                dirty_max=(None,) * size,
+                sleep_min_hours=(None,) * size,
+                sleep_max_hours=(None,) * size,
+            )
         )
 
         return DailySeries(

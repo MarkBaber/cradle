@@ -69,6 +69,7 @@ EDITABLE: dict[str, frozenset[str]] = {
     "journal": frozenset({"ts", "title", "story", "temperament"}),
 }
 
+
 class RestoreTargetNotEmptyError(ValueError):
     """restore() was called against a table that already has rows."""
 
