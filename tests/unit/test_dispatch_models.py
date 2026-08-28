@@ -51,9 +51,11 @@ def _task(**overrides: object) -> dict[str, object]:
 
 def _big_task(**overrides: object) -> dict[str, object]:
     """A task over recommend_dispatch's L threshold (touches + criteria > 7)."""
-    return _task(touches=[f"src/f{n}.py" for n in range(6)],
-                 exit_criteria=[f"criterion {n}" for n in range(4)],
-                 **overrides)
+    return _task(
+        touches=[f"src/f{n}.py" for n in range(6)],
+        exit_criteria=[f"criterion {n}" for n in range(4)],
+        **overrides,
+    )
 
 
 def _effort_of(argv: list[str]) -> str | None:
@@ -64,10 +66,10 @@ def _effort_of(argv: list[str]) -> str | None:
 # build_command: --effort is model-gated
 # ---------------------------------------------------------------------------
 
+
 def test_effort_is_emitted_for_models_that_have_an_effort_control() -> None:
     for model in bl.EFFORT_MODELS:
-        argv = bl.build_command(_task(), _CFG, _LAYOUT, model=model,
-                                effort="xhigh")
+        argv = bl.build_command(_task(), _CFG, _LAYOUT, model=model, effort="xhigh")
         assert _effort_of(argv) == "xhigh", f"{model} lost its --effort"
 
 
@@ -88,8 +90,7 @@ def test_effort_against_an_effortless_model_is_refused_not_silently_dropped() ->
 
 def test_an_effortless_model_still_dispatches_without_an_effort_level() -> None:
     for model in bl.MODELS:
-        argv = bl.build_command(_task(), _CFG, _LAYOUT, model=model,
-                                effort="default")
+        argv = bl.build_command(_task(), _CFG, _LAYOUT, model=model, effort="default")
         assert _effort_of(argv) is None
         assert argv[argv.index("--model") + 1] == model
 
@@ -97,6 +98,7 @@ def test_an_effortless_model_still_dispatches_without_an_effort_level() -> None:
 # ---------------------------------------------------------------------------
 # recommend_dispatch: the size-derived seed
 # ---------------------------------------------------------------------------
+
 
 def test_largest_tasks_are_recommended_at_xhigh_not_below_the_cli_default() -> None:
     """Omitting --effort already runs at Claude Code's own default of xhigh,
@@ -115,25 +117,25 @@ def test_a_task_pinning_an_effortless_model_is_recommended_no_effort() -> None:
     assert rec.model == effortless
     assert rec.effort is None
     # The seed must be dispatchable as recommended.
-    bl.build_command(_big_task(model=effortless), _CFG, _LAYOUT,
-                     model=rec.model, effort=rec.effort or "default")
+    bl.build_command(
+        _big_task(model=effortless), _CFG, _LAYOUT, model=rec.model, effort=rec.effort or "default"
+    )
 
 
 def test_every_recommended_effort_is_one_the_command_builder_accepts() -> None:
     """Whatever size a task is, the seed and the argv builder must agree."""
-    for task in (_task(), _task(exit_criteria=[f"c{n}" for n in range(5)]),
-                 _big_task()):
+    for task in (_task(), _task(exit_criteria=[f"c{n}" for n in range(5)]), _big_task()):
         rec = cockpit.recommend_dispatch(bl, task, {})
         if rec.backend != "claude":
             continue
         assert rec.effort is None or rec.effort in bl.EFFORT_LEVELS
-        bl.build_command(task, _CFG, _LAYOUT, model=rec.model,
-                         effort=rec.effort or "default")
+        bl.build_command(task, _CFG, _LAYOUT, model=rec.model, effort=rec.effort or "default")
 
 
 # ---------------------------------------------------------------------------
 # usage: the price and context tables those choices are judged by
 # ---------------------------------------------------------------------------
+
 
 def test_a_dated_model_id_prices_and_windows_as_its_undated_self() -> None:
     """Transcripts record the id the CLI invoked, which for Haiku carries a
@@ -144,18 +146,28 @@ def test_a_dated_model_id_prices_and_windows_as_its_undated_self() -> None:
     assert usage.base_model("claude-opus-5") == "claude-opus-5"
 
     dated = usage.Turn(
-        model="claude-haiku-4-5-20251001", timestamp="",
-        input_tokens=1_000_000, output_tokens=0,
-        cache_read_tokens=0, cache_creation_tokens=0,
-        cache_creation_1h_tokens=0, cache_creation_5m_tokens=0,
-        web_search_requests=0, web_fetch_requests=0, duration_ms=0,
-        session_id="s", git_branch="", cwd="", is_sidechain=False,
+        model="claude-haiku-4-5-20251001",
+        timestamp="",
+        input_tokens=1_000_000,
+        output_tokens=0,
+        cache_read_tokens=0,
+        cache_creation_tokens=0,
+        cache_creation_1h_tokens=0,
+        cache_creation_5m_tokens=0,
+        web_search_requests=0,
+        web_fetch_requests=0,
+        duration_ms=0,
+        session_id="s",
+        git_branch="",
+        cwd="",
+        is_sidechain=False,
         tool_names=(),
     )
     assert usage._turn_cost(dated) == 1.0  # 1M input tokens at $1.00/1M
 
-    windowed = cockpit.Usage(model="claude-haiku-4-5-20251001", input=0,
-                             output=0, cache_read=0, cache_write=0)
+    windowed = cockpit.Usage(
+        model="claude-haiku-4-5-20251001", input=0, output=0, cache_read=0, cache_write=0
+    )
     assert windowed.window == 200_000
 
 
