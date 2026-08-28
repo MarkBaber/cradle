@@ -37,7 +37,7 @@ import sys
 import textwrap
 import time
 import tomllib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from importlib import util as importutil
 from pathlib import Path
@@ -395,6 +395,7 @@ CACHE_READ_RATE: float
 CACHE_WRITE_RATE: float
 CONTEXT_WINDOWS: dict[str, int]
 DEFAULT_WINDOW: int
+base_model: Callable[[str], str]
 
 _own_usage = load_usage(Path(__file__).resolve().parent.parent)
 if _own_usage is not None:
@@ -403,9 +404,11 @@ if _own_usage is not None:
     CACHE_WRITE_RATE = _own_usage.CACHE_WRITE_RATE
     CONTEXT_WINDOWS = _own_usage.CONTEXT_WINDOWS
     DEFAULT_WINDOW = _own_usage.DEFAULT_WINDOW
+    base_model = _own_usage.base_model
 else:
     MODEL_PRICES, CONTEXT_WINDOWS = {}, {}
     CACHE_READ_RATE, CACHE_WRITE_RATE, DEFAULT_WINDOW = 0.1, 1.25, 1_000_000
+    base_model = str  # identity, matching the other no-usage.py fallbacks
 
 
 class Usage(NamedTuple):
@@ -422,11 +425,11 @@ class Usage(NamedTuple):
 
     @property
     def window(self) -> int:
-        return CONTEXT_WINDOWS.get(self.model, DEFAULT_WINDOW)
+        return CONTEXT_WINDOWS.get(base_model(self.model), DEFAULT_WINDOW)
 
     @property
     def cost(self) -> float:
-        rate = MODEL_PRICES.get(self.model)
+        rate = MODEL_PRICES.get(base_model(self.model))
         if rate is None:
             return 0.0
         inp, out = rate
@@ -2656,7 +2659,13 @@ def recommend_dispatch(bl: ModuleType, task: Any,
     docstring) and this mapping is its own reviewer-tunable heuristic (task
     CK-06 notes), not a share of policy.py's. S -> antigravity (Gemini
     family, no effort field); M -> antigravity-other (the bundled
-    allotment, no effort field either); L -> claude, opus, high effort.
+    allotment, no effort field either); L -> claude, opus, xhigh effort.
+
+    L's effort is xhigh rather than high because omitting --effort already
+    gets Claude Code's own default of xhigh (EFFORT_HELP): recommending
+    "high" for the largest tasks quietly dialled the hardest work *down*
+    from what an unflagged dispatch would have run at, which is the opposite
+    of what a size-derived recommendation should do.
 
     A task's own `model` key, if present, still wins for `.model` -- same
     precedence EF-01 gives a nightshift.toml model override -- but never
@@ -2674,7 +2683,13 @@ def recommend_dispatch(bl: ModuleType, task: Any,
     override = task.get("model")
 
     if size == "L":
-        return DispatchRecommendation("claude", override or "opus", "high")
+        model = override or "opus"
+        # A task pinning `model = "haiku"` still lands here on size alone, and
+        # haiku takes no --effort at all (bl.EFFORT_MODELS) -- recommending a
+        # level for it would seed the picker with a combination build_command
+        # refuses to emit.
+        effort = "xhigh" if model in getattr(bl, "EFFORT_MODELS", ()) else None
+        return DispatchRecommendation("claude", model, effort)
     if size == "M":
         default_model = getattr(bl, "AGY_OTHER_MODEL", "claude-sonnet-4-6")
         return DispatchRecommendation("antigravity-other", override or default_model, None)
@@ -4847,13 +4862,14 @@ class _State:
         The picker opens seeded from `recommend_dispatch()` (CK-06): Backend/
         Model/Effort default to whichever of the three quotas this task's
         size points at, not always 'claude'. Model's and Permission's legal
-        options depend on Backend; Effort is claude-only and absent from
-        the field list otherwise. `_settings()` is handed `_dispatch_fields`
-        itself as a `rebuild` callback, so highlighting a different Backend
-        updates Model/Permission/Effort immediately rather than only once
-        confirmed -- one continuous widget, not a round-trip per gating
-        change. `size_variants` covers every Backend choice's field shape up
-        front so the popup does not resize as the operator moves through it.
+        options depend on Backend; Effort depends on both Backend and Model,
+        and is absent from the field list otherwise. `_settings()` is handed
+        `_dispatch_fields` itself as a `rebuild` callback, so highlighting a
+        different Backend updates Model/Permission/Effort immediately rather
+        than only once confirmed -- one continuous widget, not a round-trip
+        per gating change. `size_variants` covers every Backend choice's
+        field shape up front so the popup does not resize as the operator
+        moves through it.
         """
         snap = self.snap
         assert snap is not None
@@ -5287,12 +5303,13 @@ def _dispatch_fields(bl: ModuleType, task: Any, families: dict[str, str],
     family) plus one 'antigravity-<name>' per other family, instead of a
     separate Family row -- one fewer row to navigate, and every other field
     keys off Backend alone. Model's option list depends on Backend;
-    Permission's vocabulary depends on Backend; Effort is claude-only and
-    simply absent from the returned field list otherwise. Pure and
-    curses-free on purpose -- _settings() calls this again as a `rebuild`
-    callback on every value change, so the Model/Permission/Effort rows
-    update live as the operator moves through Backend rather than only once
-    confirmed.
+    Permission's vocabulary depends on Backend; Effort depends on Backend
+    *and* Model -- claude-only, and within claude only for the models that
+    have an effort control at all -- and is simply absent from the returned
+    field list otherwise. Pure and curses-free on purpose -- _settings()
+    calls this again as a `rebuild` callback on every value change, so the
+    Model/Permission/Effort rows update live as the operator moves through
+    Backend and Model rather than only once confirmed.
     """
     agy_models = bl.BACKEND_MODELS["antigravity"]
     groups = agy_family_groups(agy_models, families)
@@ -5350,7 +5367,10 @@ def _dispatch_fields(bl: ModuleType, task: Any, families: dict[str, str],
     fields.append(Setting("Permission", perm_modes, perm_help))
     defaults.append(perm_modes.index(perm))
 
-    if backend_cli == "claude":
+    # Effort is claude-only, and within claude it is model-only: haiku has no
+    # effort control, so the row is absent for it exactly as it is absent for
+    # antigravity -- an option the CLI would reject is worse than no option.
+    if backend_cli == "claude" and chosen_model in getattr(bl, "EFFORT_MODELS", ()):
         picked_effort = picks.get("Effort")
         effort = picked_effort if picked_effort in bl.EFFORT_LEVELS else "default"
         fields.append(Setting("Effort", bl.EFFORT_LEVELS, bl.EFFORT_HELP))

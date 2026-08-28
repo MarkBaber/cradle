@@ -90,7 +90,7 @@ MODEL_PRICES: dict[str, tuple[float, float]] = {
     "claude-opus-4-8": (5.0, 25.0),
     "claude-opus-4-7": (5.0, 25.0),
     "claude-opus-4-6": (5.0, 25.0),
-    "claude-sonnet-5": (3.0, 15.0),
+    "claude-sonnet-5": (2.0, 10.0),
     "claude-sonnet-4-6": (3.0, 15.0),
     "claude-haiku-4-5": (1.0, 5.0),
 }
@@ -99,6 +99,25 @@ CACHE_WRITE_RATE = 1.25
 #: Context window per model. Anything unlisted falls back to DEFAULT_WINDOW.
 CONTEXT_WINDOWS: dict[str, int] = {"claude-haiku-4-5": 200_000}
 DEFAULT_WINDOW = 1_000_000
+
+#: A dated-snapshot suffix on a model id, e.g. the trailing -20251001 of
+#: `claude-haiku-4-5-20251001`.
+_DATED_MODEL_SUFFIX = re.compile(r"-\d{8}$")
+
+
+def base_model(model: str) -> str:
+    """A recorded model id reduced to the undated id the tables are keyed by.
+
+    Transcripts record whatever id the CLI actually invoked, and some of those
+    carry a release date (`claude-haiku-4-5-20251001`) while the tables above
+    are keyed by the bare id. Both lookups are exact-match `.get`, so an
+    unlisted key fails silently rather than loudly: a real Haiku turn priced
+    at $0.00, and a 200K-window model measured against the 1M default -- a
+    context gauge reading five times emptier than the session really is.
+    Every price and window lookup goes through here so neither table has to
+    enumerate snapshot ids that only exist in transcripts.
+    """
+    return _DATED_MODEL_SUFFIX.sub("", model)
 
 
 class Turn(NamedTuple):
@@ -456,7 +475,7 @@ def _turn_context(turn: Turn) -> int:
 
 def _turn_cost(turn: Turn) -> float:
     """Same formula as cockpit.Usage.cost. Advisory only."""
-    rate = MODEL_PRICES.get(turn.model)
+    rate = MODEL_PRICES.get(base_model(turn.model))
     if rate is None:
         return 0.0
     inp, out = rate
