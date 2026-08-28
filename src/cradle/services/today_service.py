@@ -6,10 +6,10 @@ engine uses, so the strip and the alerts can never disagree.
 
 import tomllib
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from cradle.models import Baby, NappyKind, SleepEvent
+from cradle.models import Baby, NappyKind, SleepEvent, to_local
 from cradle.ports.clock import Clock
 from cradle.repos.baby_repo import BabyRepo
 from cradle.repos.events_repo import EventsRepo
@@ -61,6 +61,22 @@ class TodayService:
         self._baby_repo = baby_repo
         self._clock = clock
         self._config_path = config_path
+
+    def local_today(self) -> date:
+        """Today's date in the configured display zone, per the injected clock.
+
+        Exists for the routers (task Q5). A router may import only models and
+        services (SPEC 3), never cradle.ports, so it cannot hold a Clock of its
+        own and cannot be handed one through Services without failing the
+        layering gate. Reading the wall clock instead is what this fixes:
+        routers/api.py's panel-timestamp helper defaulted its reference date
+        from datetime.now(UTC), so a panel entry was filed against real today
+        rather than the clock the rest of the app agrees on -- untestable under
+        FixedClock, and wrong near local midnight for a real parent, which is
+        the same calendar-day hazard _panel_ts already guards against for
+        timezones.
+        """
+        return to_local(self._clock.now()).date()
 
     def _config(self) -> dict[str, object]:
         if not self._config_path.exists():

@@ -12,6 +12,7 @@ import tomllib
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
@@ -33,6 +34,28 @@ PROFILE = {
     "due_date": "2026-07-01",
     "birth_weight_g": 3400,
 }
+
+
+def config_value(*path: str) -> Any:
+    """The out-of-the-box value at *path* in the repo's own rules_config.toml.
+
+    A test named "reflects config out of the box" is asserting a property, not
+    a constant, and the constants it used to hard-code were architect-owned
+    (CLAUDE.md makes rules_config.toml's values theirs to change without any
+    test's involvement). Commit 135b072 changed bottle_volume_ml 60 -> 70 and
+    wheel_steps.weight 25 -> 10 and broke seven tests that had pinned the old
+    numbers; reading the file is what stops the next such change from doing it
+    again (task Q5).
+
+    Deliberately parsed here rather than borrowed from api.wheel_steps() /
+    api.entry_defaults(): comparing an endpoint's output to the very helper
+    that endpoint calls would assert nothing about the values, only that the
+    call happened. This reads the file the app reads, independently.
+    """
+    node: Any = tomllib.loads((ROOT / "rules_config.toml").read_text(encoding="utf-8"))
+    for key in path:
+        node = node[key]
+    return node
 
 
 @contextmanager
@@ -151,8 +174,8 @@ def test_get_entry_defaults_reflects_config_out_of_the_box(tmp_path: Path) -> No
     with _entry_defaults_config_path(config_path):
         client = _client(config_path)
         assert client.get("/api/settings/entry-defaults").json() == {
-            "bottle_volume_ml": 60,
-            "breast_duration_min": 20,
+            "bottle_volume_ml": config_value("entry_defaults", "bottle_volume_ml"),
+            "breast_duration_min": config_value("entry_defaults", "breast_duration_min"),
         }
 
 
@@ -202,7 +225,9 @@ def test_post_entry_defaults_rejects_non_positive_values(tmp_path: Path) -> None
             headers={"HX-Request": "true"},
         )
         assert r.status_code == 400
-        assert client.get("/api/settings/entry-defaults").json()["bottle_volume_ml"] == 60
+        assert client.get("/api/settings/entry-defaults").json()[
+            "bottle_volume_ml"
+        ] == config_value("entry_defaults", "bottle_volume_ml")
 
 
 def test_settings_page_shows_the_current_entry_defaults(tmp_path: Path) -> None:
@@ -212,8 +237,10 @@ def test_settings_page_shows_the_current_entry_defaults(tmp_path: Path) -> None:
         page = client.get("/settings").text
         bottle = re.search(r'name="bottle_volume_ml"[^>]*>', page)
         breast = re.search(r'name="breast_duration_min"[^>]*>', page)
-        assert bottle is not None and 'value="60"' in bottle.group(0)
-        assert breast is not None and 'value="20"' in breast.group(0)
+        bottle_default = config_value("entry_defaults", "bottle_volume_ml")
+        breast_default = config_value("entry_defaults", "breast_duration_min")
+        assert bottle is not None and f'value="{bottle_default}"' in bottle.group(0)
+        assert breast is not None and f'value="{breast_default}"' in breast.group(0)
 
 
 def test_new_entry_default_appears_on_the_next_panel_open(tmp_path: Path) -> None:
@@ -229,7 +256,7 @@ def test_new_entry_default_appears_on_the_next_panel_open(tmp_path: Path) -> Non
             return re.search(r'value="(\d*)"', match.group(0)).group(1) if match else None
 
         before = client.get("/?panel=feed&method=bottle_expressed").text
-        assert volume_value(before) == "60"
+        assert volume_value(before) == str(config_value("entry_defaults", "bottle_volume_ml"))
 
         r = client.post(
             "/api/settings/entry-defaults",
@@ -413,18 +440,7 @@ def test_get_wheel_steps_reflects_config_out_of_the_box(tmp_path: Path) -> None:
     config_path = _config_copy(tmp_path)
     with _entry_defaults_config_path(config_path):
         client = _client(config_path)
-        assert client.get("/api/settings/wheel-steps").json() == {
-            "weight": 25,
-            "length": 5,
-            "head_circ": 5,
-            "temp_c": 0.1,
-            "bottle_volume_ml": 5,
-            "breast_duration_min": 5,
-            "tummy_time_duration_min": 1,
-            "reading_talking_duration_min": 1,
-            "sensory_play_duration_min": 1,
-            "foreign_language_duration_min": 1,
-        }
+        assert client.get("/api/settings/wheel-steps").json() == config_value("wheel_steps")
 
 
 def test_post_wheel_steps_persists_and_is_reflected(tmp_path: Path) -> None:
@@ -535,7 +551,9 @@ def test_post_wheel_steps_rejects_non_positive_values(tmp_path: Path) -> None:
             headers={"HX-Request": "true"},
         )
         assert r.status_code == 400
-        assert client.get("/api/settings/wheel-steps").json()["weight"] == 25
+        assert client.get("/api/settings/wheel-steps").json()["weight"] == config_value(
+            "wheel_steps", "weight"
+        )
 
 
 def test_settings_page_carries_scroll_wheel_increments_section(tmp_path: Path) -> None:
