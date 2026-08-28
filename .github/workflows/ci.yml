@@ -1,0 +1,131 @@
+# CRADLE CI (task O3). The authoritative pipeline: .gitlab-ci.yml is retired in
+# the same diff, because the only remote is GitHub and two pipelines that drift
+# apart are worse than one.
+#
+# Every job shells out to the scripts/ entry point that already defines the
+# gate. No gate logic is reimplemented here, so a contributor running
+# scripts/test.sh locally sees exactly what CI sees -- change the gate in one
+# place, not two.
+#
+# Deliberate deviation from the ported GitLab pipeline: those four stages ran
+# sequentially, so a red validate hid whatever test and quality would have
+# said. Here the four run as independent jobs. One push then reports the whole
+# truth about a branch in one round trip instead of one failure at a time,
+# which is the entire point of a gate that nobody was watching.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      risk:
+        description: "Also run the oracle parity stage (RISK=1 in the GitLab pipeline)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python3 scripts/validate_tasks.py
+      - run: pip install -e ".[dev]"
+      - run: ruff format --check src tests
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      # scripts/test.sh falls back to the stdlib offline runner when pytest is
+      # missing, so a failed install degrades the gate instead of failing it.
+      # Install failure must be loud here: || true would let CI pass on the
+      # fallback while reporting no junit.xml at all.
+      - run: pip install -e ".[dev]"
+      - run: bash scripts/test.sh
+      # CLAUDE.md asks for CI to be consumed as a digest of failing test names,
+      # never as full logs. This turns scripts/test.sh's junit.xml into exactly
+      # that, on the run's own summary page. Reporting only -- the gate above
+      # has already decided pass or fail, and nothing here can change it.
+      - name: Test report
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          report = Path("junit.xml")
+          if not report.exists():
+              print("No junit.xml -- scripts/test.sh did not get far enough to write one.")
+              raise SystemExit(0)
+
+          suite = ET.parse(report).getroot()
+          totals = suite.attrib if suite.tag == "testsuite" else suite[0].attrib
+          bad = [case for case in suite.iter("testcase")
+                 if case.find("failure") is not None or case.find("error") is not None]
+
+          print(f"**{totals.get('tests', '?')} tests**, "
+                f"{totals.get('failures', '?')} failed, "
+                f"{totals.get('errors', '?')} errored, "
+                f"{totals.get('skipped', '?')} skipped\n")
+          if bad:
+              print("Failing tests:\n")
+              for case in bad:
+                  print(f"- `{case.get('classname', '')}::{case.get('name', '')}`")
+          PY
+      - name: Upload junit.xml
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit
+          path: junit.xml
+          if-no-files-found: warn
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: bash scripts/lint.sh
+      - run: bash scripts/check_layers.sh
+
+  # Deep checks: main or an explicit opt-in only, matching the GitLab rule
+  # `$CI_COMMIT_BRANCH == "main" || $RISK == "1"`. Keeps the PR loop fast.
+  oracle-full:
+    if: github.ref == 'refs/heads/main' || inputs.risk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest tests/oracle -q
