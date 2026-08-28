@@ -85,8 +85,7 @@ class AlertLogRepo:
     def auto_dismiss(self, older_than: datetime, as_of: datetime | None = None) -> int:
         ack_str = (as_of or datetime.now(UTC)).isoformat()
         cur = self._db.conn.execute(
-            "UPDATE alert_log SET acknowledged_at = ?"
-            " WHERE acknowledged_at IS NULL AND ts < ?",
+            "UPDATE alert_log SET acknowledged_at = ? WHERE acknowledged_at IS NULL AND ts < ?",
             (ack_str, older_than.isoformat()),
         )
         self._db.conn.commit()

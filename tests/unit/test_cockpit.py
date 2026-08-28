@@ -39,8 +39,13 @@ def _make_snapshot(**overrides: Any) -> Snapshot:
         cfg={"project": "test"},
         by_id={},
         buckets={
-            "ready": [], "in_progress": [], "blocked": [], "done": [],
-            "review": [], "deferred": [], "needs_routing": [],
+            "ready": [],
+            "in_progress": [],
+            "blocked": [],
+            "done": [],
+            "review": [],
+            "deferred": [],
+            "needs_routing": [],
         },
         findings=[],
         lanes=[],
@@ -56,8 +61,7 @@ def _make_snapshot(**overrides: Any) -> Snapshot:
 
 
 def _make_args(**overrides: Any) -> argparse.Namespace:
-    defaults = dict(lanes=None, no_git=True, capture_usage=False,
-                    claude_bin=None)
+    defaults = dict(lanes=None, no_git=True, capture_usage=False, claude_bin=None)
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
 
@@ -81,11 +85,11 @@ def _make_state(
 
     with (
         patch("cockpit.load_usage", return_value=None),
-        patch("cockpit.active_panes", return_value=("BACKLOG", "DOCTOR", "FLEET",
-                                                      "NEXT")),
-        patch("cockpit.get_subprocess_pool", return_value=MagicMock(
-            submit=lambda fn, *a, **kw: Future()
-        )),
+        patch("cockpit.active_panes", return_value=("BACKLOG", "DOCTOR", "FLEET", "NEXT")),
+        patch(
+            "cockpit.get_subprocess_pool",
+            return_value=MagicMock(submit=lambda fn, *a, **kw: Future()),
+        ),
     ):
         state = _State(bl, _DUMMY_REPO, args, "claude", {})
 
@@ -100,6 +104,7 @@ def _make_state(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_poll_tick_refresh_does_not_block_on_the_agents_probe() -> None:
     """refresh(force=False) must not call probe_agents on the calling thread.
@@ -137,8 +142,7 @@ def test_poll_tick_refresh_does_not_block_on_the_agents_probe() -> None:
 
     # probe_agents must NOT have been called on this thread.
     assert not probe_agents_called, (
-        "refresh(force=False) called probe_agents synchronously -- "
-        "that blocks the input loop"
+        "refresh(force=False) called probe_agents synchronously -- that blocks the input loop"
     )
     # The pipeline must have been submitted to the pool exactly once.
     assert len(submitted_fns) == 1, (
@@ -178,9 +182,7 @@ def test_background_refresh_result_is_adopted_on_a_later_draw() -> None:
     state._poll_refresh()
 
     # Step 3: new snapshot is now adopted.
-    assert state.snap is new_snap, (
-        "background refresh result was not adopted after _poll_refresh()"
-    )
+    assert state.snap is new_snap, "background refresh result was not adopted after _poll_refresh()"
 
 
 def test_explicit_r_refresh_stays_synchronous() -> None:
@@ -207,12 +209,8 @@ def test_explicit_r_refresh_stays_synchronous() -> None:
     ):
         state.refresh(force=True)
 
-    assert probe_called, (
-        "refresh(force=True) did not call snapshot() on the calling thread"
-    )
-    assert state.snap is new_snap, (
-        "refresh(force=True) did not adopt the new snapshot"
-    )
+    assert probe_called, "refresh(force=True) did not call snapshot() on the calling thread"
+    assert state.snap is new_snap, "refresh(force=True) did not adopt the new snapshot"
     # No background future should be in flight.
     assert state._refresh_future is None or state._refresh_future.done(), (
         "refresh(force=True) left a pending background future"
@@ -241,6 +239,7 @@ def test_rows_cache_survives_a_refresh_that_changed_nothing() -> None:
 
     # Manually populate the rows cache for a few panes.
     from cockpit import Row
+
     sentinel_0 = [Row("backlog sentinel", "text")]
     sentinel_1 = [Row("doctor sentinel", "text")]
     sentinel_2 = [Row("fleet sentinel", "text")]
@@ -253,9 +252,12 @@ def test_rows_cache_survives_a_refresh_that_changed_nothing() -> None:
     # empty collections must leave all three cache entries intact.
     state._adopt_probe_result((fixed_snap, fixed_agents, fixed_daily, fixed_pending))
 
-    assert state._rows_cache.get(0) is sentinel_0, \
+    assert state._rows_cache.get(0) is sentinel_0, (
         "pane 0 cache was evicted even though no source data changed"
-    assert state._rows_cache.get(1) is sentinel_1, \
+    )
+    assert state._rows_cache.get(1) is sentinel_1, (
         "pane 1 cache was evicted even though snap did not change"
-    assert state._rows_cache.get(2) is sentinel_2, \
+    )
+    assert state._rows_cache.get(2) is sentinel_2, (
         "pane 2 cache was evicted even though snap/agents/daily did not change"
+    )

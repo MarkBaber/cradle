@@ -391,4 +391,3 @@ class HistoryService:
             day_rows = sorted(groups[d], key=lambda r: r.ts, reverse=True)
             result.append((d, day_rows))
         return result
-

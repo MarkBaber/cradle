@@ -203,7 +203,7 @@ def test_history_page_has_delete_confirmation_not_immediate_delete() -> None:
     # No row-level <form action="/api/delete"> firing on click any more...
     assert '<form method="post" action="/api/delete"' not in page
     # ...instead a link opens the confirm panel.
-    assert 'panel=delete&amp;table=feed&amp;event_id=1' in page
+    assert "panel=delete&amp;table=feed&amp;event_id=1" in page
 
     confirm = client.get("/?panel=delete&table=feed&event_id=1").text
     assert 'action="/api/delete"' in confirm
@@ -223,9 +223,7 @@ def test_history_covers_expression_domain() -> None:
 
 def test_history_covers_milk_batch_domain() -> None:
     client = _client()
-    client.post(
-        "/api/milk/store", data={"store": "fridge", "colour": "blue", "volume_ml": "100"}
-    )
+    client.post("/api/milk/store", data={"store": "fridge", "colour": "blue", "volume_ml": "100"})
     page = client.get("/history").text
     assert "Milk Batch" in page
     assert "blue bottle" in page and "100 ml" in page

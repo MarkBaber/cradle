@@ -123,9 +123,7 @@ class MilkStockService:
             result[store] = StoreStock(
                 store=store,
                 total_ml=sum(b.volume_ml for b in ordered),
-                batches=tuple(
-                    BatchAge(batch=b, age=now - _effective_clock(b)) for b in ordered
-                ),
+                batches=tuple(BatchAge(batch=b, age=now - _effective_clock(b)) for b in ordered),
             )
         return result
 
@@ -147,9 +145,7 @@ class MilkStockService:
         logged_by: str = "",
     ) -> int:
         if store not in (MilkStore.FRIDGE, MilkStore.FREEZER):
-            raise InvalidBatchTransitionError(
-                f"cannot store a fresh expression into {store.value}"
-            )
+            raise InvalidBatchTransitionError(f"cannot store a fresh expression into {store.value}")
         return self._repo.insert_milk_batch(
             MilkBatch(
                 batch_id=None,

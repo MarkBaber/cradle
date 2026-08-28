@@ -65,9 +65,7 @@ class ChartSeries:
     unavailable_reason: str | None
 
 
-ChartCacheKey = tuple[
-    int, str, date, date, tuple[tuple[int | None, datetime, int], ...]
-]
+ChartCacheKey = tuple[int, str, date, date, tuple[tuple[int | None, datetime, int], ...]]
 
 
 class GrowthService:

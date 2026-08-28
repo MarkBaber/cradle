@@ -207,9 +207,7 @@ def test_dial_window_autoscales_past_window_max_h_for_both_rings() -> None:
         ml_per_hour=60, typical_feed_ml=60, mess_interval_min=150, window_max_h=2
     )
     client = _client(config)
-    client.app.state.services.logging.log_feed(
-        FeedMethod.BOTTLE_FORMULA, ts=NOW, volume_ml=60
-    )
+    client.app.state.services.logging.log_feed(FeedMethod.BOTTLE_FORMULA, ts=NOW, volume_ml=60)
     client.app.state.services.logging.log_nappy(NappyKind.WET, ts=NOW)
 
     html = client.get("/today").text

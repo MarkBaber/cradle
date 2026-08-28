@@ -1889,9 +1889,9 @@ def test_history_clone_is_not_offered_for_sleep() -> None:
     client.post("/api/sleep/toggle")
 
     row = client.get("/history").text
-    assert 'panel=edit&amp;table=sleep&amp;event_id=1' in row
-    assert 'panel=delete&amp;table=sleep&amp;event_id=1' in row
-    assert 'panel=clone&amp;table=sleep&amp;event_id=1' not in row
+    assert "panel=edit&amp;table=sleep&amp;event_id=1" in row
+    assert "panel=delete&amp;table=sleep&amp;event_id=1" in row
+    assert "panel=clone&amp;table=sleep&amp;event_id=1" not in row
 
     clone_attempt = client.get("/?panel=clone&table=sleep&event_id=1").text
     assert '<div id="panel" class="overlay open">' not in clone_attempt
@@ -1935,11 +1935,11 @@ def test_history_day_add_button_seeds_that_days_own_date_and_nine_am() -> None:
 
     # Week-paginated since U46 -- see test_history_edit_corrects_both_date_and_time.
     page = client.get("/history?week=2026-07-10").text
-    assert 'panel=add&amp;date=2026-07-10' in page
+    assert "panel=add&amp;date=2026-07-10" in page
 
     chooser = client.get("/?panel=add&date=2026-07-10").text
     assert "2026-07-10" in chooser
-    assert 'panel=feed&amp;method=bottle_expressed&amp;date=2026-07-10' in chooser
+    assert "panel=feed&amp;method=bottle_expressed&amp;date=2026-07-10" in chooser
 
     feed_panel = client.get("/?panel=feed&method=bottle_expressed&date=2026-07-10").text
     assert 'name="date" value="2026-07-10"' in feed_panel
@@ -2048,8 +2048,3 @@ def test_undoing_a_logged_event_does_not_remove_its_achievement_award() -> None:
     client.post("/api/undo", data={"table": "feed", "event_id": 1}, headers={"HX-Request": "true"})
     after = services.achievements._badges.get_award(1, "engagement.first_feed")
     assert after is not None and after.count == 1
-
-
-
-
-
