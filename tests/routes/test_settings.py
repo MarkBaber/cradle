@@ -166,6 +166,60 @@ def test_test_send_button_reaches_the_configured_topic(tmp_path: Path) -> None:
     assert url == "https://ntfy.sh/household-a1b2"
 
 
+# ---------------------------------------------------------------------- N5
+# WhatsApp echo chat_id: DB-backed (not TOML), so no _config_copy needed --
+# see chat_log_repo.py / migration 0008 for why this differs from N3's
+# ntfy topic (task N5 notes: touches has no room for rules_config.toml).
+
+
+def test_get_whatsapp_chat_id_defaults_to_empty(tmp_path: Path) -> None:
+    client = _client(_config_copy(tmp_path))
+    assert client.get("/api/settings/whatsapp").json() == {"chat_id": ""}
+
+
+def test_post_whatsapp_chat_id_persists_and_is_reflected(tmp_path: Path) -> None:
+    client = _client(_config_copy(tmp_path))
+
+    r = client.post(
+        "/api/settings/whatsapp", data={"chat_id": "447700900000"}, headers={"HX-Request": "true"}
+    )
+    assert r.status_code == 200
+
+    assert client.get("/api/settings/whatsapp").json() == {"chat_id": "447700900000"}
+
+
+def test_post_whatsapp_chat_id_without_htmx_redirects_to_settings(tmp_path: Path) -> None:
+    client = _client(_config_copy(tmp_path))
+    r = client.post("/api/settings/whatsapp", data={"chat_id": "447700900000"})
+    assert r.status_code == 303
+    assert r.headers["location"] == "/settings"
+
+
+def test_post_whatsapp_chat_id_rejects_invalid_characters(tmp_path: Path) -> None:
+    client = _client(_config_copy(tmp_path))
+    client.post(
+        "/api/settings/whatsapp", data={"chat_id": "old-id"}, headers={"HX-Request": "true"}
+    )
+
+    r = client.post(
+        "/api/settings/whatsapp", data={"chat_id": "bad id!"}, headers={"HX-Request": "true"}
+    )
+    assert r.status_code == 400
+    assert client.get("/api/settings/whatsapp").json() == {"chat_id": "old-id"}
+
+
+def test_post_whatsapp_chat_id_empty_clears_it_and_disables_echo(tmp_path: Path) -> None:
+    client = _client(_config_copy(tmp_path))
+    client.post(
+        "/api/settings/whatsapp", data={"chat_id": "old-id"}, headers={"HX-Request": "true"}
+    )
+
+    r = client.post("/api/settings/whatsapp", data={"chat_id": ""}, headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "disabled" in r.text.lower()
+    assert client.get("/api/settings/whatsapp").json() == {"chat_id": ""}
+
+
 # --------------------------------------------------------------------- U22
 
 
