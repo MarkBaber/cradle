@@ -59,6 +59,24 @@ fetch("/api/settings/ntfy").then((r) => r.json()).then((d) => {
 });
 </script>
 
+<h2>WhatsApp echo</h2>
+<form method="post" action="/api/settings/whatsapp" class="stack"
+      hx-post="/api/settings/whatsapp" hx-target="#whatsapp-chat-id-result" hx-swap="innerHTML">
+  <label>WhatsApp chat id <input type="text" name="chat_id" id="whatsapp-chat-id"
+    pattern="[A-Za-z0-9_+\-]{0,64}" placeholder="leave blank to disable"></label>
+  <button type="submit">Save chat id</button>
+</form>
+<p id="whatsapp-chat-id-result" class="note"></p>
+<p class="note">Every logged entry is echoed to this WhatsApp chat as a brief line, so the
+household can scroll a running log without opening the app. The access token and phone number
+id needed to send are set on the server via environment variables, not here — leave the chat id
+blank to turn the echo off.</p>
+<script>
+fetch("/api/settings/whatsapp").then((r) => r.json()).then((d) => {
+  document.getElementById("whatsapp-chat-id").value = d.chat_id || "";
+});
+</script>
+
 <h2>Quick-entry defaults</h2>
 <form method="post" action="/api/settings/entry-defaults" class="stack"
       hx-post="/api/settings/entry-defaults" hx-target="#entry-defaults-result" hx-swap="innerHTML">
