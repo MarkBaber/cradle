@@ -188,8 +188,9 @@ def build_services(
     growth = GrowthService(events, baby, table, table_error)
     alert_log = AlertLogRepo(db)
     history = HistoryService(events)
+    logging_service = LoggingService(events, clock, history, whatsapp, chat_log)
     return Services(
-        logging=LoggingService(events, clock, history, whatsapp, chat_log),
+        logging=logging_service,
         today=TodayService(events, baby, clock, config_path),
         history=history,
         settings=SettingsService(baby, notifier),
@@ -198,7 +199,7 @@ def build_services(
         milestones=MilestoneService(events, baby),
         export=ExportService(events, baby, alert_log, __version__),
         series=SeriesService(events, baby, clock, config_path),
-        milk=MilkStockService(events, clock),
+        milk=MilkStockService(events, clock, logging_service),
         projections=ProjectionService(events, clock, config_path),
         journal=JournalService(events, clock),
         achievements=AchievementsService(events, badges, notifier, clock),
