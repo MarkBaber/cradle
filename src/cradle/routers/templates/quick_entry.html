@@ -16,6 +16,11 @@
 <div id="achievement-unlock" aria-live="polite"></div>
 <button type="button" id="achv-mute" class="mute-toggle" aria-pressed="false">🔔</button>
 
+{% block logging_body %}
+<div class="logging-toggle-bar">
+  <a href="/radial" class="toggle-view-link">Switch to radial dial</a>
+</div>
+
 <p class="note feed-echo">{{ feed_echo }}</p>
 
 <h2>Feed</h2>
@@ -135,14 +140,15 @@
     <i>📝</i><span>Note</span>
   </a>
 </section>
+{% endblock %}
 
 <div id="panel" class="overlay{{ ' open' if open_panel else '' }}">
 {% if open_panel %}
-  <a class="overlay-backdrop" href="/" aria-label="Close"
-     hx-get="/" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"></a>
+  <a class="overlay-backdrop" href="{{ base_path or '/' }}" aria-label="Close"
+     hx-get="{{ base_path or '/' }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"></a>
   <div class="modal">
-    <a class="modal-close" href="/" aria-label="Close"
-       hx-get="/" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&times;</a>
+    <a class="modal-close" href="{{ base_path or '/' }}" aria-label="Close"
+       hx-get="{{ base_path or '/' }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">&times;</a>
 {% if open_panel == "add" %}
   <div class="stack panel add-chooser">
     <p class="note">Add an entry for {{ open_date }}</p>
@@ -217,7 +223,7 @@
       <input type="hidden" name="event_id" value="{{ open_event_id }}">
       <button class="del primary" type="submit">Delete</button>
     </form>
-    <a class="modal-cancel" href="/" hx-get="/" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">Cancel</a>
+    <a class="modal-cancel" href="{{ base_path or '/' }}" hx-get="{{ base_path or '/' }}" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">Cancel</a>
   </div>
 {% elif open_panel == "feed" and open_mode in ("edit", "clone") %}
   <form class="stack panel" method="post"
