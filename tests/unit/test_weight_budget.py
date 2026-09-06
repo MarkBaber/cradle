@@ -46,10 +46,27 @@ def _vendored_or_allowance(name: str, allowance: int) -> int:
     return path.stat().st_size if path.exists() else allowance
 
 
+QUICK_ENTRY_RADIAL_ASSETS = (
+    "app.css",
+    "pwa.js",
+    "manifest.json",
+    "icon.svg",
+    "radial.js",
+    "entry.js",
+)
+
+
 def test_quick_entry_within_budget() -> None:
     total = sum(_size(n) for n in QUICK_ENTRY_ASSETS)
     total += _vendored_or_allowance("htmx.min.js", HTMX_ALLOWANCE_BYTES)
     assert total <= BUDGET_BYTES, f"quick-entry payload {total} bytes exceeds {BUDGET_BYTES}"
+
+
+def test_radial_entry_within_budget() -> None:
+    """Task U47: radial page static payload must also fit within the weight budget."""
+    total = sum(_size(n) for n in QUICK_ENTRY_RADIAL_ASSETS)
+    total += _vendored_or_allowance("htmx.min.js", HTMX_ALLOWANCE_BYTES)
+    assert total <= BUDGET_BYTES, f"radial-entry payload {total} bytes exceeds {BUDGET_BYTES}"
 
 
 def test_picker_assets_are_exempt_from_the_budget() -> None:

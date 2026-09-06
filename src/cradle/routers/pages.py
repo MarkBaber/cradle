@@ -183,6 +183,31 @@ def build_pages_router(svc: Services) -> APIRouter:
                 "entry_defaults": api_module.entry_defaults(api_module.CONFIG_PATH),
                 "activity_targets": api_module.activity_targets(api_module.CONFIG_PATH),
                 "feed_echo": _feed_echo(svc.projections.projections()),
+                "base_path": "/",
+            },
+        )
+
+    @router.get("/radial", response_class=HTMLResponse)
+    @router.get("/log/radial", response_class=HTMLResponse)
+    def quick_entry_radial(request: Request) -> Response:
+        if not svc.settings.has_profile():
+            return RedirectResponse("/settings?first_run=1", status_code=303)
+        summary = svc.today.summary()
+        now_local = to_local(summary.as_of) if summary else to_local(datetime.now(UTC))
+        panel_ctx = _open_panel(request, svc, now_local)
+        return TEMPLATES.TemplateResponse(
+            request,
+            "quick_entry_radial.html",
+            {
+                "summary": summary,
+                "pinned": svc.alerts.pinned(),
+                "outstanding": svc.alerts.outstanding(),
+                "logged": request.query_params.get("logged", ""),
+                **panel_ctx,
+                "entry_defaults": api_module.entry_defaults(api_module.CONFIG_PATH),
+                "activity_targets": api_module.activity_targets(api_module.CONFIG_PATH),
+                "feed_echo": _feed_echo(svc.projections.projections()),
+                "base_path": request.url.path,
             },
         )
 

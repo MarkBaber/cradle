@@ -1,0 +1,167 @@
+{% extends "quick_entry.html" %}
+{% set nav = 'home' %}
+{% block head %}
+{{ super() }}
+<script src="/static/radial.js" defer></script>
+{% endblock %}
+
+{% block logging_body %}
+<div class="logging-toggle-bar">
+  <a href="/" class="toggle-view-link">Switch to button grid</a>
+</div>
+
+<p class="note feed-echo">{{ feed_echo }}</p>
+
+<div class="radial-container" id="radial-container">
+  <svg class="radial-dial" viewBox="0 0 320 320" aria-label="Radial logging dial">
+    <circle cx="160" cy="160" r="39" class="radial-center-hub" />
+    <text x="160" y="160" text-anchor="middle" dominant-baseline="central" class="radial-center-text">Drag to select</text>
+
+    <!-- Wedge 0: Breast (feed) -->
+    <g class="radial-wedge wedge-feed" data-index="0" data-title="Breast" aria-label="Breast"
+       href="/radial?panel=feed&amp;method=breast_left" hx-get="/radial?panel=feed&amp;method=breast_left" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 160.00 2.00 A 158 158 0 0 1 228.55 17.65 L 177.36 123.96 A 40 40 0 0 0 160.00 120.00 Z" />
+      <text x="182.03" y="63.48" text-anchor="middle" dominant-baseline="central" class="wedge-icon">🤱</text>
+    </g>
+
+    <!-- Wedge 1: Bottle (feed) -->
+    <g class="radial-wedge wedge-feed" data-index="1" data-title="Bottle" aria-label="Bottle"
+       href="/radial?panel=feed&amp;method=bottle_expressed" hx-get="/radial?panel=feed&amp;method=bottle_expressed" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 228.55 17.65 A 158 158 0 0 1 283.53 61.49 L 191.27 135.06 A 40 40 0 0 0 177.36 123.96 Z" />
+      <text x="221.73" y="82.60" text-anchor="middle" dominant-baseline="central" class="wedge-icon">🍼</text>
+    </g>
+
+    <!-- Wedge 2: Wet (mess) -->
+    <g class="radial-wedge wedge-mess" data-index="2" data-title="Wet" aria-label="Wet"
+       href="/radial?panel=nappy&amp;kind=wet" hx-get="/radial?panel=nappy&amp;kind=wet" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 283.53 61.49 A 158 158 0 0 1 314.04 124.84 L 199.00 151.10 A 40 40 0 0 0 191.27 135.06 Z" />
+      <text x="249.20" y="117.05" text-anchor="middle" dominant-baseline="central" class="wedge-icon">💧</text>
+    </g>
+
+    <!-- Wedge 3: Dirty (mess) -->
+    <g class="radial-wedge wedge-mess" data-index="3" data-title="Dirty" aria-label="Dirty"
+       href="/radial?panel=nappy&amp;kind=dirty" hx-get="/radial?panel=nappy&amp;kind=dirty" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 314.04 124.84 A 158 158 0 0 1 314.04 195.16 L 199.00 168.90 A 40 40 0 0 0 199.00 151.10 Z" />
+      <text x="259.00" y="160.00" text-anchor="middle" dominant-baseline="central" class="wedge-icon">💩</text>
+    </g>
+
+    <!-- Wedge 4: Sleep (sleep) -->
+    <g class="radial-wedge wedge-sleep" data-index="4" data-title="Sleep" aria-label="Sleep"
+       data-post="/api/sleep/toggle">
+      <path d="M 314.04 195.16 A 158 158 0 0 1 283.53 258.51 L 191.27 184.94 A 40 40 0 0 0 199.00 168.90 Z" />
+      <text x="249.20" y="202.95" text-anchor="middle" dominant-baseline="central" class="wedge-icon">{{ '☀' if summary and summary.running_sleep else '☾' }}</text>
+    </g>
+
+    <!-- Wedge 5: Express (milk) -->
+    <g class="radial-wedge wedge-milk" data-index="5" data-title="Express" aria-label="Express"
+       data-post="/api/express">
+      <path d="M 283.53 258.51 A 158 158 0 0 1 228.55 302.35 L 177.36 196.04 A 40 40 0 0 0 191.27 184.94 Z" />
+      <text x="221.73" y="237.40" text-anchor="middle" dominant-baseline="central" class="wedge-icon">🥛</text>
+    </g>
+
+    <!-- Wedge 6: Tummy Time (activity) -->
+    <g class="radial-wedge wedge-activity" data-index="6" data-title="Tummy Time" aria-label="Tummy Time"
+       href="/radial?panel=activity&amp;category=tummy_time" hx-get="/radial?panel=activity&amp;category=tummy_time" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 228.55 302.35 A 158 158 0 0 1 160.00 318.00 L 160.00 200.00 A 40 40 0 0 0 177.36 196.04 Z" />
+      <text x="182.03" y="256.52" text-anchor="middle" dominant-baseline="central" class="wedge-icon">🐢</text>
+    </g>
+
+    <!-- Wedge 7: Reading (activity) -->
+    <g class="radial-wedge wedge-activity" data-index="7" data-title="Reading" aria-label="Reading"
+       href="/radial?panel=activity&amp;category=reading_talking" hx-get="/radial?panel=activity&amp;category=reading_talking" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 160.00 318.00 A 158 158 0 0 1 91.45 302.35 L 142.64 196.04 A 40 40 0 0 0 160.00 200.00 Z" />
+      <text x="137.97" y="256.52" text-anchor="middle" dominant-baseline="central" class="wedge-icon">📚</text>
+    </g>
+
+    <!-- Wedge 8: Sensory (activity) -->
+    <g class="radial-wedge wedge-activity" data-index="8" data-title="Sensory" aria-label="Sensory"
+       href="/radial?panel=activity&amp;category=sensory_play" hx-get="/radial?panel=activity&amp;category=sensory_play" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 91.45 302.35 A 158 158 0 0 1 36.47 258.51 L 128.73 184.94 A 40 40 0 0 0 142.64 196.04 Z" />
+      <text x="98.27" y="237.40" text-anchor="middle" dominant-baseline="central" class="wedge-icon">🎨</text>
+    </g>
+
+    <!-- Wedge 9: Foreign Lang (activity) -->
+    <g class="radial-wedge wedge-activity" data-index="9" data-title="Foreign Lang" aria-label="Foreign Lang"
+       href="/radial?panel=activity&amp;category=foreign_language" hx-get="/radial?panel=activity&amp;category=foreign_language" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 36.47 258.51 A 158 158 0 0 1 5.96 195.16 L 121.00 168.90 A 40 40 0 0 0 128.73 184.94 Z" />
+      <text x="70.80" y="202.95" text-anchor="middle" dominant-baseline="central" class="wedge-icon">🌐</text>
+    </g>
+
+    <!-- Wedge 10: Growth (more) -->
+    <g class="radial-wedge wedge-more" data-index="10" data-title="Growth" aria-label="Growth"
+       href="/radial?panel=growth" hx-get="/radial?panel=growth" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 5.96 195.16 A 158 158 0 0 1 5.96 124.84 L 121.00 151.10 A 40 40 0 0 0 121.00 168.90 Z" />
+      <text x="61.00" y="160.00" text-anchor="middle" dominant-baseline="central" class="wedge-icon">⚖️</text>
+    </g>
+
+    <!-- Wedge 11: Temp (more) -->
+    <g class="radial-wedge wedge-more" data-index="11" data-title="Temp" aria-label="Temp"
+       href="/radial?panel=temperature" hx-get="/radial?panel=temperature" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 5.96 124.84 A 158 158 0 0 1 36.47 61.49 L 128.73 135.06 A 40 40 0 0 0 121.00 151.10 Z" />
+      <text x="70.80" y="117.05" text-anchor="middle" dominant-baseline="central" class="wedge-icon">🌡️</text>
+    </g>
+
+    <!-- Wedge 12: Milestone (more) -->
+    <g class="radial-wedge wedge-more" data-index="12" data-title="Milestone" aria-label="Milestone"
+       href="/radial?panel=milestone" hx-get="/radial?panel=milestone" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 36.47 61.49 A 158 158 0 0 1 91.45 17.65 L 142.64 123.96 A 40 40 0 0 0 128.73 135.06 Z" />
+      <text x="98.27" y="82.60" text-anchor="middle" dominant-baseline="central" class="wedge-icon">🏅</text>
+    </g>
+
+    <!-- Wedge 13: Note (more) -->
+    <g class="radial-wedge wedge-more" data-index="13" data-title="Note" aria-label="Note"
+       href="/radial?panel=note" hx-get="/radial?panel=note" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML">
+      <path d="M 91.45 17.65 A 158 158 0 0 1 160.00 2.00 L 160.00 120.00 A 40 40 0 0 0 142.64 123.96 Z" />
+      <text x="137.97" y="63.48" text-anchor="middle" dominant-baseline="central" class="wedge-icon">📝</text>
+    </g>
+  </svg>
+</div>
+
+<!-- Fallback link list for no-JS environments -->
+<div class="radial-no-js-list">
+  <h2>Feed</h2>
+  <section class="grid">
+    <a class="big feed" href="/radial?panel=feed&amp;method=breast_left" hx-get="/radial?panel=feed&amp;method=breast_left" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>🤱</i><span>Breast</span></a>
+    <a class="big bottle" href="/radial?panel=feed&amp;method=bottle_expressed" hx-get="/radial?panel=feed&amp;method=bottle_expressed" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>🍼</i><span>Bottle</span></a>
+  </section>
+
+  <h2>Mess</h2>
+  <section class="grid">
+    <a class="big wet" href="/radial?panel=nappy&amp;kind=wet" hx-get="/radial?panel=nappy&amp;kind=wet" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>💧</i><span>Wet</span></a>
+    <a class="big dirty" href="/radial?panel=nappy&amp;kind=dirty" hx-get="/radial?panel=nappy&amp;kind=dirty" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>💩</i><span>Dirty</span></a>
+  </section>
+
+  <h2>Sleep</h2>
+  <section class="grid">
+    <form method="post" action="/api/sleep/toggle" hx-post="/api/sleep/toggle" hx-target="#toast" hx-swap="innerHTML">
+      <button class="big sleep {{ 'running' if summary and summary.running_sleep }}">
+        <i>{{ '☀' if summary and summary.running_sleep else '☾' }}</i>
+        <span>{{ 'Wake' if summary and summary.running_sleep else 'Sleep' }}</span>
+      </button>
+    </form>
+  </section>
+
+  <h2>Milk</h2>
+  <section class="grid">
+    <form method="post" action="/api/express" hx-post="/api/express" hx-target="#toast" hx-swap="innerHTML">
+      <button class="big express"><i>🥛</i><span>Express</span></button>
+    </form>
+  </section>
+
+  <h2>Activity</h2>
+  <section class="grid">
+    <a class="big activity" href="/radial?panel=activity&amp;category=tummy_time" hx-get="/radial?panel=activity&amp;category=tummy_time" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>🐢</i><span>Tummy Time</span></a>
+    <a class="big activity" href="/radial?panel=activity&amp;category=reading_talking" hx-get="/radial?panel=activity&amp;category=reading_talking" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>📚</i><span>Reading &amp; Talking</span></a>
+    <a class="big activity" href="/radial?panel=activity&amp;category=sensory_play" hx-get="/radial?panel=activity&amp;category=sensory_play" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>🎨</i><span>Sensory Play</span></a>
+    <a class="big activity" href="/radial?panel=activity&amp;category=foreign_language" hx-get="/radial?panel=activity&amp;category=foreign_language" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>🌐</i><span>Foreign Language</span></a>
+  </section>
+
+  <h2>More</h2>
+  <section class="grid">
+    <a class="big" href="/radial?panel=growth" hx-get="/radial?panel=growth" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>⚖️</i><span>Growth</span></a>
+    <a class="big" href="/radial?panel=temperature" hx-get="/radial?panel=temperature" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>🌡️</i><span>Temp</span></a>
+    <a class="big" href="/radial?panel=milestone" hx-get="/radial?panel=milestone" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>🏅</i><span>Milestone</span></a>
+    <a class="big" href="/radial?panel=note" hx-get="/radial?panel=note" hx-select="#panel" hx-target="#panel" hx-swap="outerHTML"><i>📝</i><span>Note</span></a>
+  </section>
+</div>
+{% endblock %}
