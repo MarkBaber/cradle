@@ -631,13 +631,13 @@ notes = "No auth (D7) means anyone on the LAN can send this, including a mistype
 id = "Q3"
 phase = 2
 title = "Oracle parity test must fail, not pass, while unpopulated"
-status = "todo"
+status = "review"
 routing = "tester"
 depends = []
 touches = ["tests/oracle/test_ukwho_parity.py"]
 description = "tests/oracle/test_ukwho_parity.py returns early when the vector file holds no rows, so it reports PASS. The suite is therefore green while the single quality target with a number attached - centiles matching the UK-WHO reference to +/-0.01 z - is entirely unverified, and the risk-stage oracle-full job passes for the same empty reason. Make the unpopulated state visibly not-passing: skip explicitly with a message naming R2, so the pipeline reports a skip rather than a pass."
 exit_criteria = ["unpopulated vector file produces a skip with a message naming R2, never a pass", "skip is visible in the CI junit report and in scripts/offline_runner.py output", "test still becomes a hard failure gate once vectors land (R4 unchanged)"]
-notes = "Deliberately independent of R2 and R4 so it can land immediately: the point is that the current green is misleading today, whoever eventually vendors the tables. R4 keeps its own exit criterion that the test fails on an empty vector file once the harness is real."
+notes = "Deliberately independent of R2 and R4 so it can land immediately: the point is that the current green is misleading today, whoever eventually vendors the tables. R4 keeps its own exit criterion that the test fails on an empty vector file once the harness is real. Implemented: test_ukwho_parity() and test_ukwho_parity_has_at_least_40_vectors() now route through _read_vectors_or_skip(), which raises via a _skip() helper - pytest.skip() naming R2 when PYTEST_CURRENT_TEST is set (real <skipped> junit entry), else ModuleNotFoundError(reason, name=\"R2\") so scripts/offline_runner.py's existing missing-dep SKIP path reports it (offline_runner has no fixture injection and can't be touched - out of this task's `touches`). test_empty_vector_file_fails is unchanged, still calling _assert_parity([]) directly, so R4's own empty-harness-fails guarantee is untouched. The real ukwho_vectors.csv already has 48 rows (R2/R4 done), so the skip path is exercised by 3 new tests that temporarily point the module-level VECTORS at a scratch empty CSV via a contextlib.contextmanager (not pytest's monkeypatch/tmp_path, so they still run with zero args under offline_runner.py). Verified in a throwaway copy with the real vectors file actually emptied: pytest shows 2 skipped with junit message naming R2, offline_runner.py prints 'SKIP test_ukwho_parity.py::test_ukwho_parity (missing dep: R2)'. scripts/test.sh (662 passed), lint.sh, check_layers.sh all green against the current populated file. Held at review per CLAUDE.md - only CI and a human reviewer flip this to done."
 
 # ================= Phase 6: expressed milk - production and stock =================
 # Raised by Mark Baber, 2026-08-15: track how much milk the mother expresses, and
