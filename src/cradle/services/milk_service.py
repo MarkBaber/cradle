@@ -21,6 +21,7 @@ from cradle.models import (
 )
 from cradle.ports.clock import Clock
 from cradle.repos.events_repo import EventsRepo
+from cradle.services.logging_service import LoggingService
 
 BABY_ID = 1  # single-baby v1 (D11), matches LoggingService
 
@@ -75,9 +76,12 @@ class StoreStock:
 
 
 class MilkStockService:
-    def __init__(self, repo: EventsRepo, clock: Clock) -> None:
+    def __init__(
+        self, repo: EventsRepo, clock: Clock, logging: LoggingService | None = None
+    ) -> None:
         self._repo = repo
         self._clock = clock
+        self._logging = logging
 
     def _at(self, ts: datetime | None) -> datetime:
         return ts if ts is not None else self._clock.now()
@@ -146,12 +150,13 @@ class MilkStockService:
     ) -> int:
         if store not in (MilkStore.FRIDGE, MilkStore.FREEZER):
             raise InvalidBatchTransitionError(f"cannot store a fresh expression into {store.value}")
-        return self._repo.insert_milk_batch(
+        at = stored_at if stored_at is not None else self._clock.now()
+        batch_id = self._repo.insert_milk_batch(
             MilkBatch(
                 batch_id=None,
                 baby_id=BABY_ID,
                 expressed_at=expressed_at,
-                stored_at=stored_at if stored_at is not None else self._clock.now(),
+                stored_at=at,
                 store=store,
                 colour=colour,
                 volume_ml=volume_ml,
@@ -160,6 +165,9 @@ class MilkStockService:
                 expression_id=expression_id,
             )
         )
+        if self._logging is not None:
+            self._logging.echo_event("milk_batch", batch_id, at)
+        return batch_id
 
     def store_now(
         self,

@@ -1,6 +1,6 @@
 """V2: MilkStockService - production totals, stock on hand, batch lifecycle."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from _helpers import NOW, clock, make_db, make_repo
 
@@ -12,8 +12,12 @@ from cradle.models import (
     FeedMethod,
     MilkBatch,
     MilkStore,
+    to_local,
 )
+from cradle.repos.chat_log_repo import ChatLogRepo
 from cradle.repos.events_repo import EventsRepo
+from cradle.services.history_service import HistoryService
+from cradle.services.logging_service import LoggingService
 from cradle.services.milk_service import (
     InvalidBatchTransitionError,
     MilkStockService,
@@ -570,3 +574,100 @@ def test_feed_exceeding_remaining_volume_raises_without_mutating_batch() -> None
 
     batch = _get(repo, bid)
     assert batch.volume_ml == 40, "a rejected over-request must not mutate the stored remainder"
+
+
+# --------------------------------------------------------------- N6: WhatsApp echo
+class WhatsAppRecorder:
+    """Test double for ports.whatsapp.WhatsAppNotifier (mirrors test_logging_service.py)."""
+
+    def __init__(self, ok: bool = True) -> None:
+        self.configured = True
+        self._ok = ok
+        self.sent: list[str] = []
+
+    def send(self, text: str) -> bool:
+        self.sent.append(text)
+        return self._ok
+
+
+class RaisingWhatsApp:
+    """A whatsapp double whose send() misbehaves by raising, not just failing."""
+
+    configured = True
+
+    def send(self, text: str) -> bool:
+        raise ConnectionError("boom")
+
+
+def _build_with_whatsapp(
+    ok: bool = True,
+) -> tuple[EventsRepo, MilkStockService, WhatsAppRecorder, HistoryService]:
+    db = make_db()
+    repo = make_repo(db)
+    history = HistoryService(repo)
+    chat_log = ChatLogRepo(db)
+    whatsapp = WhatsAppRecorder(ok=ok)
+    logging = LoggingService(repo, clock(), history, whatsapp, chat_log)
+    return repo, MilkStockService(repo, clock(), logging), whatsapp, history
+
+
+def _first_message(history: HistoryService, table: str, event_id: int, ts: datetime) -> str:
+    """The expected WhatsApp line for the first message of a fresh chat_log's day."""
+    row = history.get_row(table, event_id)
+    assert row is not None
+    local_dt = to_local(ts)
+    return f"{local_dt:%d/%m/%y}\n{local_dt:%H:%M} {row.detail}"
+
+
+def test_store_now_echoes_to_whatsapp() -> None:
+    _, svc, wa, history = _build_with_whatsapp()
+
+    bid = svc.store_now(MilkStore.FRIDGE, BottleColour.WHITE, 100)
+
+    assert wa.sent == [_first_message(history, "milk_batch", bid, NOW)]
+
+
+def test_store_expression_echoes_to_whatsapp() -> None:
+    _, svc, wa, history = _build_with_whatsapp()
+
+    bid = svc.store_expression(
+        MilkStore.FRIDGE,
+        BottleColour.BLUE,
+        80,
+        expressed_at=NOW - timedelta(hours=1),
+        stored_at=NOW,
+    )
+
+    assert wa.sent == [_first_message(history, "milk_batch", bid, NOW)]
+
+
+def test_no_logging_wired_is_a_no_op() -> None:
+    """Every existing MilkStockService(repo, clock()) call site above must keep
+    working: logging defaults to None => echo is inert."""
+    repo, svc = _build()
+    bid = svc.store_now(MilkStore.FRIDGE, BottleColour.GREEN, 60)
+    assert bid > 0
+
+
+def test_whatsapp_send_failure_does_not_raise_and_batch_is_still_recorded() -> None:
+    repo, svc, wa, _ = _build_with_whatsapp(ok=False)
+
+    bid = svc.store_now(MilkStore.FRIDGE, BottleColour.RED, 60)  # must not raise
+
+    assert bid > 0
+    assert _get(repo, bid).volume_ml == 60
+    assert len(wa.sent) == 1  # the send was attempted
+
+
+def test_whatsapp_exception_never_propagates_and_batch_is_still_recorded() -> None:
+    db = make_db()
+    repo = make_repo(db)
+    history = HistoryService(repo)
+    chat_log = ChatLogRepo(db)
+    logging = LoggingService(repo, clock(), history, RaisingWhatsApp(), chat_log)
+    svc = MilkStockService(repo, clock(), logging)
+
+    bid = svc.store_now(MilkStore.FRIDGE, BottleColour.PURPLE, 60)  # must not raise
+
+    assert bid > 0
+    assert _get(repo, bid).volume_ml == 60
