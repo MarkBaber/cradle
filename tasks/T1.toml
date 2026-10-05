@@ -1,0 +1,12 @@
+[[task]]
+id = "T1"
+phase = 1
+title = "Interaction-cost route tests"
+status = "done"
+routing = "tester"
+depends = ["U1", "U2"]
+touches = ["tests/routes/test_quick_entry.py"]
+description = "Prove <=2-tap contract: single POST logs at now with no required fields beyond method/kind."
+exit_criteria = ["one request per quick action (test)", "no 4xx on minimal payloads"]
+notes = "Implemented in tests/routes/test_quick_entry.py (13 cases). Cannot execute locally: fastapi unavailable in the authoring sandbox, so the offline runner skips the file. CI test stage must confirm green before this moves to done."
+

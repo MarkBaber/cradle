@@ -1,0 +1,12 @@
+[[task]]
+id = "A9"
+phase = 3
+title = "Weight rules must read weight measurements only"
+status = "done"
+routing = "impl"
+depends = ["A5"]
+touches = ["src/cradle/alerts/rules.py", "tests/unit/test_rules_weight.py", "tests/unit/test_rules_misc.py"]
+description = "alerts_service.facts() passes every growth row into FactSet.growth, and WEIGHT_LOSS_10PC, WEIGHT_NOT_REGAINED, CENTILE_CROSS and WEIGH_IN_DUE all took weights[-1] from that mixed list. Length and head circumference are stored in millimetres, so logging a 550mm length after a healthy 3600g weight produced a RED priority-5 push reading `Latest weight 550g is 83.8% below birth weight (3400g) ... seek medical advice now - call 111`. Filter to GrowthMeasure.WEIGHT inside the rules."
+exit_criteria = ["mixed-measure timeline: weight rules silent when the weight is healthy (test)", "genuine loss still fires when a length is logged alongside it (test)", "WEIGH_IN_DUE not reset by a non-weight measurement (test)"]
+notes = "Implemented at the 2026-08-04 review via a _weights(facts) helper in rules.py; every weight rule now goes through it. 208 tests pass (3 new), check_layers green, ruff and mypy clean on the touched files. Held at review rather than done because scripts/lint.sh is red repo-wide for the pre-existing reasons tracked by Q2 and no CI has ever run (O2). Moves to done on the first green pipeline. Fixed in the rules rather than in the FactSet assembly on purpose: MEASUREMENT_GAP legitimately counts a length as evidence the log is being kept up, so the service must keep passing every measure."
+

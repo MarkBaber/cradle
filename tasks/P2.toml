@@ -1,0 +1,11 @@
+[[task]]
+id = "P2"
+phase = 1
+title = "Repos: soft-delete + edit"
+status = "done"
+routing = "impl"
+depends = ["P1"]
+touches = ["src/cradle/repos/events_repo.py", "tests/unit/test_repos_edit.py"]
+description = "soft_delete/edit_event with table allow-list; edited_at set; deleted rows excluded from lists."
+exit_criteria = ["delete/edit tests incl. allow-list rejection", "lists exclude deleted (test)"]
+

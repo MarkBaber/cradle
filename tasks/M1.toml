@@ -1,0 +1,27 @@
+# ================= Phase 6: expressed milk - production and stock =================
+# Raised by Mark Baber, 2026-08-15: track how much milk the mother expresses, and
+# what is actually in the fridge and freezer, with a colour-coded bottle per batch
+# and an alert when a batch outlives its safe storage window.
+#
+# Nothing in the app covers this today. FeedMethod.BOTTLE_EXPRESSED records that a
+# bottle of expressed milk was given, but nothing records that it was expressed,
+# which bottle it came out of, when that bottle went in to cool, or when it must be
+# thrown away - so the fridge is tracked in the parents' heads at 3am, which is
+# exactly the failure mode this app exists to remove.
+#
+# Split along the layer boundaries the constitution enforces rather than shipped as
+# one diff: schema and models (M1), service (V2), UI (U14), alert rules (A11),
+# export (X2). M1 first - everything else reads its tables.
+
+[[task]]
+id = "M1"
+phase = 6
+title = "Expressed-milk domain: expression events, colour-coded milk batches, schema"
+status = "done"
+routing = "architect"
+depends = ["P2"]
+touches = ["src/cradle/models/enums.py", "src/cradle/models/events.py", "src/cradle/models/__init__.py", "src/cradle/repos/migrations/0003_milk.sql", "src/cradle/repos/events_repo.py", "tests/unit/test_repos_milk.py", "docs/SPEC.md"]
+description = "Two new domains and the schema under them. (1) expression: an ExpressionEvent per pumping session - ts, side (left|right|both), volume_ml, duration_min, note - which is what makes maternal supply measurable over a day and a week. (2) milk_batch: one row per physical bottle - expressed_at, stored_at, store (fridge|freezer|room), colour, volume_ml, state (stored|thawed|opened|used|discarded), thawed_at, opened_at, used_at, an optional expression_id FK, plus the shared logged_by/created_at/edited_at/deleted_at columns. Add BreastSide, MilkStore, BottleColour and BatchState as closed StrEnums beside the existing ones, insert/list/transition support in EventsRepo, and register both tables in EDITABLE with a column allow-list. stored_at is deliberately separate from expressed_at: the storage clock the expiry alert runs on starts when the bottle goes in to cool, not when it was expressed at the cot side an hour earlier. Colour identifies the bottle physically, so at most one batch of a given colour may be live (state stored|thawed|opened, not deleted) at a time - enforce it with a partial unique index, or a red alert naming the blue bottle points at two different bottles."
+exit_criteria = ["insert/list round-trip per domain incl. every BatchState (test)", "a second live batch of a colour already in the fridge is rejected (test)", "a colour becomes reusable once its batch is used or discarded (test)", "migration 0003 applies to a database already at 0001 and is recorded in schema_version (test)", "both tables in EDITABLE; a column outside the allow-list is rejected (test)", "mypy strict green on touched files"]
+notes = "Architect-routed for the usual two reasons: it adds public dataclasses and closed enums, which CLAUDE.md makes contracts, and it amends the SPEC 5.3 schema. No clinical value belongs in this task - how long a bottle may stay in each store is a threshold, it lives in rules_config.toml, and it is A11 under A8. Migration numbering: P3 owns 0002, so take 0003. The runner tracks applied migrations by filename and not by ordinal, so a 0002 that lands after this one still applies exactly once; do not renumber either file to keep them in order. State is stored on the batch rather than derived, because a bottle can be discarded for reasons the timestamps cannot show - dropped, left out, baby refused it."
+

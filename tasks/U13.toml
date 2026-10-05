@@ -1,0 +1,12 @@
+[[task]]
+id = "U13"
+phase = 4
+title = "Clamp unbounded range parameters"
+status = "done"
+routing = "impl"
+depends = ["C4"]
+touches = ["src/cradle/routers/pages.py", "tests/routes/test_patterns.py"]
+description = "_int_param parses the `days` query parameter with no upper bound, and both /patterns and /charts pass it straight into series_service.daily() and ribbon(), which build one row per day. /patterns?days=100000 constructs a hundred thousand day-rows and renders them, on a Pi with a 150MB RSS target. Clamp to a sane maximum, and reject non-positive values rather than silently producing an empty view."
+exit_criteria = ["days above the maximum is clamped, not honoured (route test)", "zero and negative days handled without a 500 (route test)", "response time for the maximum range stays within the Pi budget"]
+notes = "No auth (D7) means anyone on the LAN can send this, including a mistyped bookmark. Cheap to fix and it is the only unbounded allocation path in the app."
+

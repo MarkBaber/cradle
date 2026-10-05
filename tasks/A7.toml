@@ -1,0 +1,12 @@
+[[task]]
+id = "A7"
+phase = 3
+title = "Alert copy + sources"
+status = "done"
+routing = "architect"
+depends = ["A3", "A4", "A5", "A6"]
+touches = ["src/cradle/alerts/messages.py"]
+description = "Reviewed message per rule with NHS/NICE citation and fixed escalation phrasing (SPEC 1.1)."
+exit_criteria = ["every rule_id has message+source (test)", "red rules use ESCALATE_URGENT (test)"]
+notes = "Copy authored to state what the LOG shows, never the baby's condition, with fixed escalation wording per severity. test_engine.py asserts no message contains diagnostic language and that urgent rules carry urgent wording. NOT clinician-reviewed: see A8."
+

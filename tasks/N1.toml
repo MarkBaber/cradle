@@ -1,0 +1,11 @@
+[[task]]
+id = "N1"
+phase = 3
+title = "ntfy adapter"
+status = "done"
+routing = "impl"
+depends = ["S0"]
+touches = ["src/cradle/ports/notifier.py", "tests/unit/test_ntfy.py"]
+description = "POST to server/topic; severity->priority map; title/tags; timeout+failure logged, never raises into sweep."
+exit_criteria = ["httpx mock asserts URL/headers/priority", "network failure swallowed+logged (test)"]
+

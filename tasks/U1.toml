@@ -1,0 +1,11 @@
+[[task]]
+id = "U1"
+phase = 1
+title = "Quick-entry page (six buttons)"
+status = "done"
+routing = "impl"
+depends = ["V1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/", "src/cradle/routers/static/"]
+description = "Feed L / Feed R / Bottle / Wet / Dirty / Sleep-toggle oversized buttons; HTMX POST at now; vendored htmx+alpine; device_name cookie prompt on first visit."
+exit_criteria = ["route test: each button = 1 POST, 2xx, row persisted", "page weight <=150KB (test asserts static bundle size)"]
+

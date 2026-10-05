@@ -1,0 +1,32 @@
+[[task]]
+id = "U35"
+phase = 3
+title = "Dismiss notifications, auto-dismiss old alerts, and /messages page"
+status = "done"
+routing = "impl"
+depends = ["U6"]
+touches = [
+    "src/cradle/models/events.py",
+    "src/cradle/repos/alert_log_repo.py",
+    "src/cradle/services/alerts_service.py",
+    "src/cradle/routers/pages.py",
+    "src/cradle/routers/api.py",
+    "src/cradle/routers/templates/base.html",
+    "src/cradle/routers/templates/_alerts.html",
+    "src/cradle/routers/templates/messages.html",
+    "src/cradle/routers/static/app.css",
+    "tests/unit/test_alerts_sweep.py",
+    "tests/routes/test_alerts.py",
+    "tests/unit/test_activity_service.py",
+]
+description = "Allow notifications (both red and non-red/amber/reminder/info) to be dismissed from the active notification strip on / and /today. In addition, old unacknowledged notifications (older than the auto-dismiss window, 24h by default) are automatically dismissed during sweeps and when assembling active findings, so historical missing-data or stale alerts do not persist indefinitely across pages. A dedicated /messages page (added to the main tabbar) preserves the complete notification history so users can review active and dismissed messages. All notifications on the banner and in the message pane display the date/time they were raised in the left-hand margin."
+exit_criteria = [
+    "non-red findings (amber, reminder, info) render with a Dismiss button and can be dismissed via POST /api/alerts/acknowledge, removing them from active view (route test)",
+    "unacknowledged notifications older than the auto-dismiss window (24h) are automatically dismissed and excluded from pinned/outstanding on / and /today (route test)",
+    "GET /messages renders a dedicated message pane with all active and dismissed findings (route test)",
+    "notifications on / and /today and message cards on /messages display the date/time they were raised in the left-hand margin (route test)",
+    "GET /messages redirects to /settings?first_run=1 when no baby profile exists (route test)",
+    "scripts/test.sh, scripts/lint.sh, and scripts/check_layers.sh green",
+]
+notes = "Implemented 2026-08-23. Finding model gained optional acknowledged_at field (default None). AlertLogRepo extended with all() and auto_dismiss(older_than, as_of). AlertsService auto-dismisses unacknowledged alerts older than the configured window (24h default) on sweep and query. /messages added to tabbar and build_pages_router. _alerts.html and messages.html display the formatted local timestamp in the left margin and offer dismissal buttons. app.css updated with responsive flex layout for alerts and message cards."
+

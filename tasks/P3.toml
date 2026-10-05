@@ -1,0 +1,12 @@
+[[task]]
+id = "P3"
+phase = 1
+title = "Repo query correctness and restore precondition"
+status = "done"
+routing = "impl"
+depends = ["P2"]
+touches = ["src/cradle/repos/events_repo.py", "src/cradle/repos/migrations/", "tests/unit/test_repos.py"]
+description = "Three defects in EventsRepo. (1) list_growth applies the measure filter in Python after the SQL LIMIT, so list_growth(WEIGHT, limit=200) silently returns fewer than 200 weights once other measures are interleaved - and alerts_service relies on this call for the weight rules. Push the filter into the WHERE clause. (2) restore() documents `Target must be empty` but never checks, so re-importing into a populated database fails partway through on primary-key collisions with rows already written. Enforce the precondition or make the whole restore a single transaction. (3) temperature, milestone and note have no index on ts, while feed, nappy, sleep and growth do; add one in a new migration."
+exit_criteria = ["list_growth(measure, limit=n) returns n rows of that measure when n exist (test)", "restore into a non-empty table raises rather than partially writing (test)", "migration 0002 applies cleanly on an existing database and is recorded in schema_version (test)"]
+notes = "The list_growth truncation is the one that matters: it feeds the weight rules, which are red-severity, so a silent shortfall there changes what the household is told. The indexes are a nicety at newborn data volumes - do not let them hold up the other two."
+

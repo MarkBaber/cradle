@@ -1,0 +1,12 @@
+[[task]]
+id = "B1"
+phase = 5
+title = "Backup verification"
+status = "done"
+routing = "tester"
+depends = ["S0"]
+touches = ["scripts/backup.sh", "tests/unit/test_backup.py"]
+description = "Backup produces openable DB with row parity; retention prunes to 30."
+exit_criteria = ["restore-and-count test green", "retention test green"]
+notes = "backup.sh depended on the sqlite3 CLI, which is absent from minimal Raspberry Pi OS images; logic moved to scripts/backup.py using the stdlib sqlite3 module, with backup.sh as a wrapper. Restore parity and retention are tested."
+

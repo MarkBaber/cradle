@@ -1,0 +1,11 @@
+[[task]]
+id = "U4"
+phase = 1
+title = "/history table with inline edit"
+status = "done"
+routing = "impl"
+depends = ["P2", "U1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/"]
+description = "Unified filterable event table; inline edit + soft-delete per row."
+exit_criteria = ["filter by domain/date (route test)", "edit + delete flows (route test)"]
+

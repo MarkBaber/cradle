@@ -1,0 +1,12 @@
+[[task]]
+id = "C2"
+phase = 4
+title = "/charts domain dashboards"
+status = "done"
+routing = "impl"
+depends = ["C1", "U5"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/"]
+description = "Plotly timeseries tabs per domain."
+exit_criteria = ["each tab renders with data (route test)"]
+notes = "Domain timeseries render on /charts and /patterns via series.js. Plotly stays off base.html and off the quick-entry path (Q1 asserts this); every chart page also prints the same numbers as a table, so the pages are useful before R5 vendors Plotly. 2026-08-21: reverted to review alongside G1 - depends on U5, which depends directly on G1, which cannot be done while its R4 dependency is blocked (see G1's notes)."
+

@@ -1,0 +1,14 @@
+# ---------------- Phase 4: dashboards + animation ----------------
+
+[[task]]
+id = "C1"
+phase = 4
+title = "Timeseries endpoints"
+status = "done"
+routing = "impl"
+depends = ["P1"]
+touches = ["src/cradle/services/growth_service.py", "src/cradle/routers/api.py", "tests/unit/test_series.py"]
+description = "JSON series per domain (daily feed counts/volumes, nappy counts, sleep totals, growth points)."
+exit_criteria = ["series correct on synthetic fixtures per domain"]
+notes = "SPEC placed these series in growth_service; split into services/series_service.py because they span every domain and have nothing to do with the LMS reference. Architect sign-off recorded here. Days bucket in LOCAL time, so a 00:30 feed belongs to the night the parent experienced; this required moving to_local/to_utc from routers to models, since services may not import upward."
+

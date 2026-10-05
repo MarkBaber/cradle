@@ -1,0 +1,11 @@
+[[task]]
+id = "U7"
+phase = 1
+title = "/settings + first-run profile"
+status = "done"
+routing = "impl"
+depends = ["V1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/", "src/cradle/repos/baby_repo.py"]
+description = "Baby profile form (BabyRepo.upsert); first visit with no profile redirects here; rules-threshold editor; ntfy topic + test-send button."
+exit_criteria = ["fresh DB redirects / -> /settings (route test)", "profile round-trip (test)", "test-send hits Notifier (mock test)"]
+

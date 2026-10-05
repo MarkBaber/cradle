@@ -1,0 +1,12 @@
+[[task]]
+id = "U5"
+phase = 2
+title = "/charts growth centile view"
+status = "done"
+routing = "impl"
+depends = ["G1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/", "src/cradle/routers/static/"]
+description = "Plotly (vendored) chart: 0.4-99.6 centile curves + trajectory overlay."
+exit_criteria = ["series endpoint returns curves+trajectory JSON (test)", "page renders (route test)"]
+notes = "Page, /api/charts/{measure} endpoint, Plotly playback and the no-JS table fallback are implemented and route-tested against a synthetic reference table. Moves to done when R2 lands and the page is confirmed against real curves. Route tests unrunnable offline (fastapi absent); CI must confirm. 2026-08-21: reverted to review alongside G1 - depends directly on G1, which itself cannot be done while its R4 dependency is blocked (see G1's notes)."
+

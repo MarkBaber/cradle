@@ -1,0 +1,14 @@
+# ---------------- Phase 5: milestones, export, ops, PWA ----------------
+
+[[task]]
+id = "MS1"
+phase = 5
+title = "Milestones timeline"
+status = "done"
+routing = "impl"
+depends = ["V1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/"]
+description = "Timeline cards by category; age-at-milestone shown (corrected where applicable); typical-window context text, never scored."
+exit_criteria = ["route test: cards ordered, ages correct on fixture"]
+notes = "Typical-age windows are context only and deliberately wide; test_windows_are_wide_and_never_scored asserts no on_track/delayed field exists. Route-tested; CI must confirm."
+

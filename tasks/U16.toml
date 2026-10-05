@@ -1,0 +1,17 @@
+# ------- Structured quick-entry: U16 decides, U17 names, U18 builds, U19-U20 extend -------
+# Renumbered from the original U14-U18 (see notes below): U14 was taken by the Phase 6
+# milk-stock UI task and U15 by U12's device-banner follow-up, both landed on main while
+# this branch was open.
+
+[[task]]
+id = "U16"
+phase = 1
+title = "Entry model: quick-entry gains a confirm step"
+status = "done"
+routing = "architect"
+depends = []
+touches = ["docs/SPEC.md"]
+description = "SPEC 5.4 specifies quick-entry as six oversized buttons -> one confirm-free POST at now, with volume and duration as optional post-hoc edits that are never entry gates. U18 replaces that: a tap opens a panel pre-populated with sensible defaults, and nothing is written until Save, with side, volume, duration, colour and consistency offered at entry time. Product decision 2026-08-17: the confirm step is wanted, because a volume nobody enters is a bottle_ml series that is permanently zero, and the post-hoc edit path (U10) is the one nobody uses at 3am. Amend 5.4 so the SPEC describes the app being built rather than the one originally designed."
+exit_criteria = ["SPEC 5.4 describes the tap-panel-Save flow and no longer reads confirm-free", "the <=2-tap target in SPEC 2 restated against the new flow (tap + Save with defaults accepted) or explicitly re-set to a new number", "the abandoned-panel case specified: what a tap with no Save leaves behind", "rejected alternative recorded (write the row on tap, then refine it in place)"]
+notes = "Cheap to write, and it gates U18: an impl task whose diff contradicts a settled SPEC line is what gets reverted at review. This does not touch the D1-D11 table - D1's HTMX stack is exactly what the panel is built from. The one real cost to state plainly is the abandoned panel: today a tap is a row, and afterwards a tap can be nothing, which changes what a parent who is interrupted mid-feed ends up with. U10 stays valid either way; post-hoc editing is still needed for the taps that were never refined."
+

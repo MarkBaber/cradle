@@ -1,0 +1,14 @@
+# ---------------- Phase 2: growth engine (riskiest bet) ----------------
+
+[[task]]
+id = "R1"
+phase = 2
+title = "LMS z-score engine"
+status = "done"
+routing = "impl"
+depends = ["S0"]
+touches = ["src/cradle/reference/lms.py", "tests/unit/test_lms.py"]
+description = "LMS formula (L=0 branch incl.), linear L/M/S interpolation, LookupError outside range; loads vendored CSV once."
+exit_criteria = ["hand-computed unit vectors pass", "out-of-range raises (test)"]
+notes = "Arithmetic verified against hand-computed vectors with synthetic LMS tables. Agreement with the real UK-WHO reference is R4's gate, not this one."
+

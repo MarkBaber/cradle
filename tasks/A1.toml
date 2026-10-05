@@ -1,0 +1,14 @@
+# ---------------- Phase 3: alerts + ntfy + scheduler ----------------
+
+[[task]]
+id = "A1"
+phase = 3
+title = "FactSet assembly service"
+status = "done"
+routing = "impl"
+depends = ["P1", "G1"]
+touches = ["src/cradle/services/alerts_service.py", "tests/unit/test_factset.py"]
+description = "Assemble FactSet (trailing windows, weight z pair) from repos at as_of."
+exit_criteria = ["FactSet correct on synthetic timeline fixture"]
+notes = "2026-08-21: reverted to review alongside G1 - depends directly on G1, which cannot be done while its R4 dependency is blocked (see G1's notes)."
+

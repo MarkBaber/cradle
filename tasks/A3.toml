@@ -1,0 +1,12 @@
+[[task]]
+id = "A3"
+phase = 3
+title = "Rules: feeds"
+status = "done"
+routing = "impl"
+depends = ["A2"]
+touches = ["src/cradle/alerts/rules.py", "rules_config.toml", "tests/unit/test_rules_feeds.py"]
+description = "FEED_GAP, FEED_COUNT_LOW; thresholds from rules_config.toml; load_rules() config plumbing."
+exit_criteria = ["synthetic timelines: fire + no-fire cases per rule", "threshold change in config alters behaviour (test)"]
+notes = "SPEC 5.2 named this load_rules(config_path). Changed to build_rules(config: Mapping) so the alerts layer performs no file I/O and its purity claim is real rather than nominal; the service layer owns the file read. Architect sign-off recorded here."
+

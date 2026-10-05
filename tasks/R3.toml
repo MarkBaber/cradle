@@ -1,0 +1,11 @@
+[[task]]
+id = "R3"
+phase = 2
+title = "Corrected-age logic"
+status = "done"
+routing = "impl"
+depends = ["R1"]
+touches = ["src/cradle/reference/lms.py", "tests/unit/test_corrected_age.py"]
+description = "corrected_age_days per D5; correction applies only when gestation <37w."
+exit_criteria = ["term baby: corrected == chronological (test)", "preterm offset cases pass"]
+

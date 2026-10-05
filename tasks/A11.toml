@@ -1,0 +1,15 @@
+[[task]]
+id = "A11"
+phase = 6
+title = "Milk storage expiry rules: MILK_EXPIRING and MILK_EXPIRED"
+status = "todo"
+routing = "architect"
+depends = ["M1", "A8"]
+touches = ["src/cradle/alerts/facts.py", "src/cradle/alerts/rules.py", "src/cradle/alerts/messages.py", "src/cradle/services/alerts_service.py", "rules_config.toml", "tests/unit/test_rules_milk.py"]
+description = "Two rules over live batches. MILK_EXPIRED fires when a batch has been in its current store longer than that store allows; MILK_EXPIRING fires inside a warning window before that point, so a bottle can still be used rather than poured away. FactSet gains milk_batches, assembled by alerts_service from the repo like every other domain, and the rules stay pure over it (D6). Limits come from a new [milk_storage] table in rules_config.toml - one per store plus the shorter windows a batch moves onto once it is thawed or opened, and warn_before_hours - and the code hard-codes none of them. The window a batch is judged against follows its state: a thawed batch ages on the thawed window from thawed_at, an opened one on the opened window from opened_at, not on the window of the freezer it came out of. Fingerprint per batch id and rule id, so one bottle pages once rather than every five-minute sweep."
+exit_criteria = ["a fridge batch one hour past its limit fires MILK_EXPIRED and one hour before it does not - boundary asserted explicitly (test)", "MILK_EXPIRING fires inside the warning window and MILK_EXPIRED takes over past the limit, never both (test)", "every limit read from rules_config.toml (test: changing the config changes the firing time)", "a thawed batch ages on the thawed window from thawed_at, not the freezer window (test)", "an opened batch ages on the opened window from opened_at (test)", "used, discarded and soft-deleted batches never fire (no-fire test)", "message names the bottle colour and its store", "every window and every new string signed off under A8 against a named, dated source"]
+notes = "Architect-routed and gated on A8 for the reason the constitution gives: storage windows are clinical values and the copy is health copy, and A8 is the review that covers both. Mark asked for an alert at 1 day for fridge milk; published NHS guidance for a fridge at 4C or below is longer than that, so the request is a more conservative household choice rather than a contradiction - which is exactly why the number belongs in rules_config.toml and not in the rules. Ship whatever default the A8 reviewer sets, keep it editable, and record the source in SOURCES beside the other rules. Keep the copy inside the SPEC 1.1 line: it describes what the log shows about a bottle and what to do with the bottle, and it makes no claim about milk nobody has looked at. When Q4 and this both land, add a live in-date bottle to the healthy cross-domain fixture so these rules are covered by the no-fire guard too."
+value = 3
+value_category = "leverage"
+value_rationale = "milk-expiry alerts, blocked on A8"
+
