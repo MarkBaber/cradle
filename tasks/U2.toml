@@ -1,0 +1,11 @@
+[[task]]
+id = "U2"
+phase = 1
+title = "Undo toast + adjust-time"
+status = "done"
+routing = "impl"
+depends = ["U1", "P2"]
+touches = ["src/cradle/routers/api.py", "src/cradle/services/logging_service.py", "src/cradle/routers/templates/"]
+description = "10s undo toast (soft-delete); 'adjust time' inline edit posting new ts."
+exit_criteria = ["undo soft-deletes (test)", "ts edit persists + sets edited_at (test)"]
+

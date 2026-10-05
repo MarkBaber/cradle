@@ -1,0 +1,11 @@
+[[task]]
+id = "V1"
+phase = 1
+title = "Services: log/toggle for all domains"
+status = "done"
+routing = "impl"
+depends = ["P1"]
+touches = ["src/cradle/services/logging_service.py", "tests/unit/test_logging_service.py"]
+description = "Implement stubbed LoggingService methods; toggle_sleep starts if none running else ends."
+exit_criteria = ["FixedClock tests per method", "toggle_sleep both branches tested"]
+

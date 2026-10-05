@@ -1,0 +1,12 @@
+[[task]]
+id = "G1"
+phase = 2
+title = "Growth service"
+status = "done"
+routing = "impl"
+depends = ["R4", "P1"]
+touches = ["src/cradle/services/growth_service.py", "tests/unit/test_growth_service.py"]
+description = "assessment(): latest z/centile per measure, weight-loss % vs birth, corrected-age flag."
+exit_criteria = ["assessment correct on synthetic growth fixture", "weight-loss % matches hand calc"]
+notes = "Implemented and tested against synthetic LMS tables: weight-loss maths, corrected-age selection, baseline/latest z for CENTILE_CROSS, and honest degradation when reference data is absent. Cannot be done while R4 is blocked - the centile numbers are unverified against the real UK-WHO reference. 2026-08-21: status was incorrectly flipped back to done by a later individual review->done commit without re-checking this dependency; reverted to review here, restoring the state d1f3caf established (R4 is still blocked pending human-sourced oracle vectors, see R4's own notes)."
+

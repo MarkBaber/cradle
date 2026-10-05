@@ -1,0 +1,12 @@
+[[task]]
+id = "C3"
+phase = 4
+title = "Animated centile playback"
+status = "done"
+routing = "impl"
+depends = ["U5"]
+touches = ["src/cradle/services/growth_service.py", "src/cradle/routers/templates/", "src/cradle/routers/static/"]
+description = "Plotly frames: trajectory grows point-by-point over centile field; Play/scrub controls."
+exit_criteria = ["frames JSON one-per-measurement (test)", "playback route test green"]
+notes = "Frames were emitted by GrowthService in U5 and the Play control lives in chart.js; this task added the route-level assertion that frames are one-per-measurement. Visual confirmation needs a browser with Plotly vendored (R5). 2026-08-21: reverted to review alongside G1 - depends on U5, which depends directly on G1, which cannot be done while its R4 dependency is blocked (see G1's notes)."
+

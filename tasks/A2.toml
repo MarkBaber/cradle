@@ -1,0 +1,11 @@
+[[task]]
+id = "A2"
+phase = 3
+title = "Engine + fingerprint de-dup"
+status = "done"
+routing = "impl"
+depends = ["S0"]
+touches = ["src/cradle/alerts/engine.py", "src/cradle/repos/alert_log_repo.py", "tests/unit/test_engine.py"]
+description = "evaluate() deterministic; fingerprint '<rule>:<bucket>'; alert_log UNIQUE gates re-notification."
+exit_criteria = ["same FactSet => identical findings (test)", "second sweep notifies zero (test)"]
+

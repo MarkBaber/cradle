@@ -1,0 +1,12 @@
+[[task]]
+id = "C4"
+phase = 4
+title = "24h pattern ribbons"
+status = "done"
+routing = "impl"
+depends = ["C1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/templates/"]
+description = "Sleep/feed circadian ribbon view (day rows x 24h columns) - the 'is a pattern forming' view."
+exit_criteria = ["ribbon data endpoint tested on synthetic week"]
+notes = "Ribbon clips sleep spans at local midnight so a night split across two rows shows on both, with no hours invented or lost - tested at both the service and HTTP level. Night shading is fixed at 19:00-07:00."
+

@@ -55,7 +55,8 @@ STATUSES = {"todo", "in_progress", "review", "done", "blocked"}
 ROUTINGS = {"architect", "impl", "tester", "reviewer"}
 
 _FIELD_ORDER = ["id", "phase", "title", "status", "routing", "depends", "touches",
-                "description", "exit_criteria", "notes"]
+                "description", "exit_criteria", "notes", "value", "value_category",
+                "value_rationale"]
 
 # The two files this module must never be able to write, by construction
 # (task DX-14's notes: a structural guarantee, not a prompt instruction).
@@ -141,6 +142,8 @@ def render_task_block(task: dict[str, Any]) -> str:
             lines.append("exit_criteria = [")
             lines.extend(f"  {_toml_str(item)}," for item in value)
             lines.append("]")
+        elif key == "value":
+            lines.append(f"value = {int(value)}")
         elif key == "notes":
             if value:
                 lines.append(f"notes = {_toml_str(value)}")
@@ -166,6 +169,60 @@ def _split_task_blocks(text: str) -> list[tuple[int, int]]:
 
 def _existing_ids(text: str) -> set[str]:
     return set(re.findall(r'^\s*id\s*=\s*"([^"]+)"\s*$', text, re.M))
+
+
+def _manifest_target(repo: Path) -> tuple[bool, Path]:
+    """ADR 0065(b): `tasks/_meta.toml` present -> directory mode (returns
+    the `tasks/` dir); otherwise the monolithic `tasks.toml` path. Both
+    containers present at once is a hard error, named."""
+    tasks_dir = repo / "tasks"
+    meta_path = tasks_dir / "_meta.toml"
+    mono_path = repo / "tasks.toml"
+    conflicts = [p for p in (mono_path, repo / "tasks.archive.toml") if p.exists()]
+    if meta_path.exists() and conflicts:
+        raise RetroError(
+            f"both {meta_path} and {' and '.join(str(p) for p in conflicts)} exist")
+    if meta_path.exists():
+        return True, tasks_dir
+    return False, mono_path
+
+
+def _manifest_texts(repo: Path) -> list[str]:
+    """Every live task file's text: one blob (`tasks.toml`) in monolithic
+    mode, one per `tasks/<id>.toml` in directory mode (ADR 0065) --
+    unreadable/missing files contribute nothing, same as the single-file
+    `.exists()`/`OSError` guards this replaces."""
+    dir_mode, target = _manifest_target(repo)
+    if dir_mode:
+        if not target.is_dir():
+            return []
+        texts = []
+        for p in sorted(target.glob("*.toml")):
+            if p.name.startswith("_"):
+                continue
+            try:
+                texts.append(p.read_text(encoding="utf-8"))
+            except OSError:
+                continue
+        return texts
+    if not target.exists():
+        return []
+    try:
+        return [target.read_text(encoding="utf-8")]
+    except OSError:
+        return []
+
+
+def _append_task_directory(tasks_dir: Path, task: dict[str, Any]) -> Path:
+    """Directory-mode counterpart of `append_task()`: one `[[task]]` entry
+    per `tasks/<id>.toml`, created exclusively (ADR 0065(c)/(d)) -- never
+    touches an existing file's bytes, the same guarantee the monolithic
+    surgical append gives the shared file."""
+    task_path = tasks_dir / f"{task['id']}.toml"
+    if task_path.exists():
+        raise RetroError(f"task id {task['id']!r} already exists in {task_path}")
+    _write_text(task_path, render_task_block(task) + "\n")
+    return task_path
 
 
 def append_task(manifest_path: Path, task: dict[str, Any]) -> None:
@@ -233,15 +290,171 @@ def apply_review(manifest_path: Path, proposal_task_id: str, tasks: list[dict[st
 
 # -- provenance + the auto-appended proposal ---------------------------------
 
-def compose_provenance_notes(signals: list[str], session_id: str) -> str:
+def _signal_breakdown(events: list[dict[str, Any]]) -> list[str]:
+    """One descriptive line per tripped signal (DX-109): a per-detail
+    occurrence count drawn from each event's payload when it carries one --
+    today, only `hook_blocked`'s `{"hook": ..., "rule": ...}` does -- e.g.
+    'hook_blocked: 3x discovery_guard (unbounded_sweep)'; falls back to a
+    bare occurrence count for signals whose payload carries no such detail
+    (gate_failed, land_retried, ...). Every line still contains its bare
+    signal name as a substring, which proposed_signals_for_session()'s and
+    find_proposal_task_id()'s dedup scans depend on."""
+    by_signal: dict[str, list[dict[str, Any]]] = {}
+    for event in events:
+        signal = event.get("signal")
+        if not signal:
+            continue
+        by_signal.setdefault(signal, []).append(event)
+
+    lines: list[str] = []
+    for signal in sorted(by_signal):
+        occurrences = by_signal[signal]
+        detail_counts: dict[str, int] = {}
+        undetailed = 0
+        for event in occurrences:
+            payload = event.get("payload")
+            hook = payload.get("hook") if isinstance(payload, dict) else None
+            rule = payload.get("rule") if isinstance(payload, dict) else None
+            if hook and rule:
+                detail = f"{hook} ({rule})"
+            elif hook:
+                detail = str(hook)
+            else:
+                undetailed += 1
+                continue
+            detail_counts[detail] = detail_counts.get(detail, 0) + 1
+        parts = [f"{count}x {detail}" for detail, count in sorted(detail_counts.items())]
+        if undetailed:
+            if detail_counts:
+                # A mix of detailed and undetailed occurrences for the same
+                # signal -- account for the undetailed ones too, rather than
+                # silently dropping them and understating the trip count.
+                parts.append(f"{undetailed}x (unspecified)")
+            elif undetailed > 1:
+                parts = [f"{undetailed}x"]
+        if parts:
+            lines.append(f"{signal}: {', '.join(parts)}")
+        else:
+            lines.append(signal)
+    return lines
+
+
+def compose_provenance_notes(
+    signals: list[str], session_id: str, events: list[dict[str, Any]] | None = None,
+) -> str:
+    breakdown = "; ".join(_signal_breakdown(events)) if events else ", ".join(sorted(signals))
     return (f"Auto-appended by scripts/retro.py (DX-14) after session {session_id} "
-            f"tripped: {', '.join(sorted(signals))}.")
+            f"tripped: {breakdown}.")
+
+
+def proposed_signals_for_session(repo: Path, session_id: str) -> set[str]:
+    """Find friction signals for session_id already recorded in proposal
+    tasks -- across every live task file, mono or directory mode
+    (ADR 0065; `repo`, not a single pre-resolved manifest path)."""
+    proposed: set[str] = set()
+    for text in _manifest_texts(repo):
+        for start, end in _split_task_blocks(text):
+            block = text[start:end]
+            notes_match = re.search(
+                r'^\s*notes\s*=\s*"""(.*?)"""|^\s*notes\s*=\s*"(.*?)"',
+                block,
+                re.M | re.S,
+            )
+            notes_text = ""
+            if notes_match:
+                notes_text = notes_match.group(1) or notes_match.group(2) or ""
+            if session_id in notes_text or f"RETRO-{session_id}" in block:
+                for sig in (
+                    "gate_failed", "hook_blocked", "land_retried", "ci_status_still_running",
+                    "turn_cap_reached", "edit_outside_touches", "ci_failed_after_local_pass",
+                ):
+                    if sig in notes_text or sig in block:
+                        proposed.add(sig)
+    return proposed
+
+
+def find_proposal_task_id(repo: Path, session_id: str) -> str | None:
+    """Find the proposal task ID for session_id, across every live task
+    file, mono or directory mode (ADR 0065)."""
+    for text in _manifest_texts(repo):
+        for start, end in _split_task_blocks(text):
+            block = text[start:end]
+            notes_match = re.search(
+                r'^\s*notes\s*=\s*"""(.*?)"""|^\s*notes\s*=\s*"(.*?)"',
+                block,
+                re.M | re.S,
+            )
+            notes_text = (
+                notes_match.group(1) or notes_match.group(2) or "" if notes_match else ""
+            )
+            if session_id in notes_text or f"RETRO-{session_id}" in block:
+                id_match = re.search(r'^\s*id\s*=\s*"([^"]+)"\s*$', block, re.M)
+                if id_match:
+                    return id_match.group(1)
+    return None
+
+
+def _generate_unique_task_id(repo: Path, session_id: str) -> str:
+    base = f"RETRO-{session_id}"
+    existing: set[str] = set()
+    for text in _manifest_texts(repo):
+        existing |= _existing_ids(text)
+    if base not in existing:
+        return base
+    counter = 2
+    while f"{base}-{counter}" in existing:
+        counter += 1
+    return f"{base}-{counter}"
+
+
+def propose(
+    repo: Path,
+    *,
+    session_id: str,
+    signals: list[str] | None = None,
+    events: list[dict[str, Any]] | None = None,
+    task_id: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    exit_criteria: list[str] | None = None,
+    phase: int = 6,
+    routing: str = "impl",
+    depends: list[str] | None = None,
+    touches: list[str] | None = None,
+) -> RetroResult:
+    """Step 1 (unconditional append) + Step 2 (offered summary) for a set of
+    tripped signals -- or, given full `events` (DX-109: session_id/task_id/
+    payload preserved), the richer provenance those carry instead of just
+    their bare signal names. At least one of `signals`/`events` must be
+    given; when both are, `events` takes precedence and `signals` is
+    ignored."""
+    tid = task_id or _generate_unique_task_id(repo, session_id)
+    if events is None:
+        if signals is None:
+            raise RetroError("propose() needs signals or events")
+        events = [{"signal": s, "session_id": session_id} for s in signals]
+    return run(
+        repo,
+        session_id=session_id,
+        events=events,
+        task_id=tid,
+        title=title,
+        description=description,
+        exit_criteria=exit_criteria,
+        phase=phase,
+        routing=routing,
+        depends=depends,
+        touches=touches,
+    )
 
 
 def propose_task(*, task_id: str, title: str, signals: list[str], session_id: str,
                   phase: int, description: str, exit_criteria: list[str],
                   routing: str = "impl", depends: list[str] | None = None,
-                  touches: list[str] | None = None) -> dict[str, Any]:
+                  touches: list[str] | None = None,
+                  value: int = 3, value_category: str = "stability",
+                  value_rationale: str | None = None,
+                  events: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     if not signals:
         raise RetroError("a retro proposal needs at least one tripped signal")
     return {
@@ -254,7 +467,12 @@ def propose_task(*, task_id: str, title: str, signals: list[str], session_id: st
         "touches": list(touches or []),
         "description": description,
         "exit_criteria": list(exit_criteria),
-        "notes": compose_provenance_notes(signals, session_id),
+        "notes": compose_provenance_notes(signals, session_id, events=events),
+        "value": value,
+        "value_category": value_category,
+        "value_rationale": (
+            value_rationale or f"Auto-appended retro proposal for session {session_id}."
+        ),
     }
 
 
@@ -267,6 +485,22 @@ def signals_from_events(events: list[dict[str, Any]]) -> list[str]:
 def retro_summary_path(repo: Path, session_id: str, *, date: str | None = None) -> Path:
     d = date or datetime.now(UTC).strftime("%Y-%m-%d")
     return repo / "handoff" / f"retro-{d}-{session_id}.md"
+
+
+def _event_table_row(event: dict[str, Any]) -> str:
+    """One `| Timestamp | Signal | Hook | Rule | Context |` row (DX-109),
+    replacing the prior synthetic `f"- {event}"` raw-dict-repr bullet.
+    `Context` is whichever of task_id/session_id the event carries, in that
+    preference order -- a resolved task_id is the more useful anchor when
+    both are present."""
+    payload = event.get("payload")
+    payload = payload if isinstance(payload, dict) else {}
+    timestamp = event.get("timestamp") or ""
+    signal = event.get("signal") or ""
+    hook = payload.get("hook") or ""
+    rule = payload.get("rule") or ""
+    context = event.get("task_id") or event.get("session_id") or ""
+    return f"| {timestamp} | {signal} | {hook} | {rule} | {context} |"
 
 
 def write_retro_summary(
@@ -295,8 +529,9 @@ def write_retro_summary(
         "(see `retro.offer_opus_review`).",
     ]
     if events:
-        lines += ["", "## Events", ""]
-        lines.extend(f"- {event}" for event in events)
+        lines += ["", "## Events", "", "| Timestamp | Signal | Hook | Rule | Context |",
+                   "|---|---|---|---|---|"]
+        lines.extend(_event_table_row(event) for event in events)
     if claude_md_diff:
         lines += ["", "## Proposed CLAUDE.md amendment (NOT applied -- approve to apply)",
                    "", "```diff", claude_md_diff, "```"]
@@ -334,8 +569,11 @@ def _default_task_id(session_id: str) -> str:
     return f"RETRO-{session_id}"
 
 
-def _default_title(signals: list[str], session_id: str) -> str:
-    return f"Retro follow-up: {', '.join(signals)} (session {session_id})"
+def _default_title(
+    signals: list[str], session_id: str, events: list[dict[str, Any]] | None = None,
+) -> str:
+    breakdown = "; ".join(_signal_breakdown(events)) if events else ", ".join(signals)
+    return f"Retro follow-up: {breakdown} (session {session_id})"
 
 
 def _default_description() -> str:
@@ -367,14 +605,18 @@ def run(
         raise RetroError("no signals in the given events -- nothing to retro")
     tid = task_id or _default_task_id(session_id)
     task = propose_task(
-        task_id=tid, title=title or _default_title(signals, session_id),
+        task_id=tid, title=title or _default_title(signals, session_id, events=events),
         signals=signals, session_id=session_id, phase=phase,
         description=description or _default_description(),
         exit_criteria=exit_criteria or _default_exit_criteria(),
-        routing=routing, depends=depends, touches=touches,
+        routing=routing, depends=depends, touches=touches, events=events,
     )
-    manifest_path = repo / "tasks.toml"
-    append_task(manifest_path, task)
+    dir_mode, target = _manifest_target(repo)
+    if dir_mode:
+        manifest_path = _append_task_directory(target, task)
+    else:
+        manifest_path = target
+        append_task(manifest_path, task)
     summary_path = write_retro_summary(
         repo, session_id=session_id, signals=signals, proposal_task_id=tid, events=events,
     )

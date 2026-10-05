@@ -1,0 +1,13 @@
+# ---------------- Phase 1: core logging + quick-entry ----------------
+
+[[task]]
+id = "P1"
+phase = 1
+title = "Repos: all remaining event domains"
+status = "done"
+routing = "impl"
+depends = ["S0"]
+touches = ["src/cradle/repos/events_repo.py", "tests/unit/test_repos.py"]
+description = "Implement insert/list for nappy, sleep (start/end), growth, temperature, milestone, note per 0001_init.sql; running-sleep query."
+exit_criteria = ["round-trip test per domain", "mypy strict green on touched files"]
+

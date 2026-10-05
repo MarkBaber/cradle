@@ -6,6 +6,7 @@ the skills mount; see PATCHES.md). Stdlib only.
 
     python3 scripts/check_adr.py --all        # structure + index + staleness
     python3 scripts/check_adr.py --reindex    # regenerate docs/adr/README.md
+    python3 scripts/check_adr.py --merge-driver %O %A %B   # git merge driver
 
 Checks:
   numbering    sequential from 0001, no gaps (a gap means a record was
@@ -32,6 +33,7 @@ import argparse
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -170,11 +172,104 @@ def check_staleness(errors: list[str]) -> None:
                 "change as a new ADR instead of editing the reasoning in place")
 
 
+ROW_RE = re.compile(r"^\|\s*\[(\d{4})\]\(([^)]+)\)\s*\|.*\|$")
+
+
+def _split_index(text: str) -> tuple[str, list[str], list[str], str] | None:
+    """(text before the markers, header lines, row lines, text after), or None."""
+    if INDEX_START not in text or INDEX_END not in text:
+        return None
+    pre, rest = text.split(INDEX_START, 1)
+    table, post = rest.split(INDEX_END, 1)
+    lines = [ln.rstrip() for ln in table.strip("\n").splitlines()]
+    return pre, lines[:2], lines[2:], post
+
+
+def _rows_by_number(rows: list[str]) -> dict[str, str] | None:
+    keyed: dict[str, str] = {}
+    for row in rows:
+        m = ROW_RE.match(row)
+        if not m or m.group(1) in keyed:
+            return None
+        keyed[m.group(1)] = row
+    return keyed
+
+
+def _merge_file(ancestor: str, current: str, other: str) -> tuple[bool, str]:
+    """`git merge-file -p` over three strings: (merged cleanly, merged text)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = [Path(tmp) / name for name in ("o", "a", "b")]
+        for path, text in zip(paths, (ancestor, current, other), strict=True):
+            path.write_text(text, encoding="utf-8")
+        result = subprocess.run(
+            ["git", "merge-file", "-p", str(paths[1]), str(paths[0]), str(paths[2])],
+            capture_output=True, text=True)
+    return result.returncode == 0, result.stdout
+
+
+def _merge_rows(base: dict[str, str], ours: dict[str, str],
+                theirs: dict[str, str]) -> list[str] | None:
+    """Three-way merge by ADR number; None when a row cannot be merged."""
+    merged: list[str] = []
+    for num in sorted(base.keys() | ours.keys() | theirs.keys()):
+        o, a, b = base.get(num), ours.get(num), theirs.get(num)
+        if a == b or b == o:
+            row = a
+        elif a == o:
+            row = b
+        else:
+            return None   # changed differently on both sides, or a number collision
+        if row is not None:
+            merged.append(row)
+    return merged
+
+
+def _merge_index(texts: list[str]) -> str | None:
+    parts = [_split_index(t) for t in texts]
+    if None in parts:
+        return None
+    (o_pre, _, o_rows, o_post), (a_pre, a_head, a_rows, a_post), (b_pre, _, b_rows, b_post) = parts  # type: ignore[misc]
+    keyed = [_rows_by_number(r) for r in (o_rows, a_rows, b_rows)]
+    if None in keyed:
+        return None
+    pre_ok, pre = _merge_file(o_pre, a_pre, b_pre)
+    post_ok, post = _merge_file(o_post, a_post, b_post)
+    rows = _merge_rows(*keyed)  # type: ignore[arg-type]
+    if not (pre_ok and post_ok) or rows is None:
+        return None
+    table = "\n".join([*a_head, *rows])
+    return f"{pre}{INDEX_START}\n{table}\n{INDEX_END}{post}"
+
+
+def run_merge_driver(ancestor: str, current: str, other: str) -> int:
+    """Git merge driver (`%O %A %B`) for docs/adr/README.md (DX-160).
+
+    Works from the three inputs alone: git runs drivers before it checks the
+    merge result out, so the working tree is stale here. Text outside the
+    ADR-INDEX markers goes through `git merge-file`; the table merges by ADR
+    number. Writes the result to `current` (%A) and returns 0, or returns 1
+    leaving a plain whole-file merge in `current` for a human to resolve.
+    """
+    texts = [Path(p).read_text(encoding="utf-8") for p in (ancestor, current, other)]
+    if (merged := _merge_index(texts)) is not None:
+        Path(current).write_text(merged, encoding="utf-8")
+        return 0
+    Path(current).write_text(_merge_file(*texts)[1], encoding="utf-8")
+    print("check_adr: docs/adr/README.md index not merged row by row (a row changed "
+          "differently on both sides, a number collision, or text outside the markers "
+          "conflicts); resolve by hand, then run --reindex", file=sys.stderr)
+    return 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--all", action="store_true", help="structure + index + staleness")
     ap.add_argument("--reindex", action="store_true", help="regenerate the index")
+    ap.add_argument("--merge-driver", nargs=3, metavar=("ANCESTOR", "CURRENT", "OTHER"),
+                    help="git merge driver for docs/adr/README.md (%%O %%A %%B)")
     args = ap.parse_args()
+    if args.merge_driver:
+        return run_merge_driver(*args.merge_driver)
 
     errors: list[str] = []
     records = check_structure(errors)

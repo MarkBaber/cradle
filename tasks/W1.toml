@@ -1,0 +1,12 @@
+[[task]]
+id = "W1"
+phase = 5
+title = "PWA manifest + service worker"
+status = "done"
+routing = "impl"
+depends = ["U1"]
+touches = ["src/cradle/routers/static/", "src/cradle/routers/pages.py"]
+description = "Installable PWA; SW caches static assets only (no offline writes - SPEC 8)."
+exit_criteria = ["manifest served + valid (test)", "SW registers, caches static only (test)"]
+notes = "Service worker is served from / rather than /static/, because a worker's scope is capped by its own path and /static/sw.js could only control /static/*. Caches static GETs only - no offline writes (SPEC 8). Route-tested; CI must confirm."
+

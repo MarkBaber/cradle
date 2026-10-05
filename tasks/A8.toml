@@ -1,0 +1,15 @@
+[[task]]
+id = "A8"
+phase = 3
+title = "Clinician review of alert copy and thresholds"
+status = "todo"
+routing = "architect"
+depends = ["A7"]
+touches = ["src/cradle/alerts/messages.py", "rules_config.toml", "docs/SPEC.md"]
+description = "Have a midwife, health visitor or GP read every rule threshold in rules_config.toml and every string in messages.py against current NHS/NICE guidance, and confirm the SOURCES citations resolve to real, current documents. The copy was written to avoid diagnostic claims, but nobody clinically qualified has checked either the wording or the numbers."
+exit_criteria = ["each rule signed off against a named, dated source", "reviewer and date recorded in SPEC 1.1", "any disputed threshold changed in rules_config.toml with a test"]
+notes = "This gates real-world use. The app currently presents thresholds as if authoritative because they are drawn from published guidance, but the mapping from guidance to rule was made by an LLM and has not been verified by a human clinician."
+value = 5
+value_category = "stability"
+value_rationale = "clinician review gates real-world use of medical alert copy"
+

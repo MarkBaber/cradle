@@ -1,0 +1,14 @@
+[[task]]
+id = "U8"
+phase = 1
+title = "Pin vendored htmx checksum"
+status = "todo"
+routing = "impl"
+depends = ["U1"]
+touches = ["scripts/vendor_assets.sh", ".gitlab-ci.yml"]
+description = "Run vendor_assets.sh once, record HTMX_SHA256, and add a CI job that re-verifies the checksum. Left unpinned at scaffold time because the authoring sandbox had no network egress."
+exit_criteria = ["HTMX_SHA256 populated", "CI fails on checksum mismatch (test)"]
+value = 2
+value_category = "stability"
+value_rationale = "pin vendored htmx checksum: supply-chain hygiene, small"
+

@@ -1,0 +1,12 @@
+[[task]]
+id = "N2"
+phase = 3
+title = "Scheduler wiring + sweep"
+status = "done"
+routing = "impl"
+depends = ["A1", "A2", "N1"]
+touches = ["src/cradle/ports/scheduler.py", "src/cradle/services/alerts_service.py", "src/cradle/app.py"]
+description = "APScheduler 5-min sweep + reminder crons; attach in create_app; sweep = facts->evaluate->dedup->notify->log."
+exit_criteria = ["sweep integration test with FixedClock + ConsoleNotifier", "app startup registers jobs (test)"]
+notes = "2026-08-21: reverted to review alongside G1 - depends on A1, which depends directly on G1, which cannot be done while its R4 dependency is blocked (see G1's notes)."
+

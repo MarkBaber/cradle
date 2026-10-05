@@ -1,0 +1,12 @@
+[[task]]
+id = "X2"
+phase = 6
+title = "Export coverage for expression and milk_batch"
+status = "done"
+routing = "tester"
+depends = ["M1"]
+touches = ["src/cradle/services/export_service.py", "tests/unit/test_export.py"]
+description = "ExportService derives DOMAINS from EDITABLE, so registering the two new tables in M1 puts them into the JSON export and adds two CSVs with no code change - which is the right outcome and is currently asserted by nothing. X1s contract is that the export round-trips exactly and that CSV headers are stable, and both need to hold for the new domains before the first household relies on the export as the record. Extend the round-trip fixture to a database holding expressions and batches in every state including soft-deleted ones, and pin the new CSV headers."
+exit_criteria = ["JSON export -> restore round-trip equality with expression and milk_batch rows in every state, deleted rows included (test)", "CSV headers for both new domains pinned (test)", "restore precondition holds for the new tables (test)"]
+notes = "Tester-routed: if M1 registered the tables correctly this is assertions only, and if it did not, this is the task that says so. Do not fix the restore-into-non-empty behaviour here even if the round-trip test trips over it - that defect is P3s, and duplicating the fix across two branches is how a merge conflict in the repo layer starts."
+

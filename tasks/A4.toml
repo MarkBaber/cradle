@@ -1,0 +1,11 @@
+[[task]]
+id = "A4"
+phase = 3
+title = "Rules: nappies"
+status = "done"
+routing = "impl"
+depends = ["A3"]
+touches = ["src/cradle/alerts/rules.py", "tests/unit/test_rules_nappies.py"]
+description = "WET_NAPPY_LOW (day-of-life table), STOOL_ABSENT (d3-28), STOOL_COLOUR (black normal <=d5)."
+exit_criteria = ["day-of-life boundaries tested (d1..d5+)", "black-stool d4 vs d6 distinction (test)"]
+

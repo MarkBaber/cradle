@@ -1,0 +1,12 @@
+[[task]]
+id = "A5"
+phase = 3
+title = "Rules: weight"
+status = "done"
+routing = "impl"
+depends = ["A3"]
+touches = ["src/cradle/alerts/rules.py", "tests/unit/test_rules_weight.py"]
+description = "WEIGHT_LOSS_10PC, WEIGHT_NOT_REGAINED (>=14d), CENTILE_CROSS (>=1.33 z drop)."
+exit_criteria = ["boundary tests at 10%/14d/1.33z", "no baseline => CENTILE_CROSS silent (test)"]
+notes = "CENTILE_CROSS stays silent while R2 is blocked: no z pair means no claim. test_centile_cross_silent_without_reference_data pins that."
+

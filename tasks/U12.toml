@@ -1,0 +1,12 @@
+[[task]]
+id = "U12"
+phase = 1
+title = "Device-name attribution"
+status = "done"
+routing = "impl"
+depends = ["U1"]
+touches = ["src/cradle/routers/api.py", "src/cradle/routers/pages.py", "src/cradle/routers/templates/settings.html", "src/cradle/routers/templates/_history_table.html"]
+description = "SPEC 1 lists device-name attribution as a v1 IS, and D7 chose it over auth precisely because attribution is the thing that actually matters in a household. It is not implemented: no device_name cookie is ever set anywhere in the templates or JS, routers.deps.device_name therefore always returns an empty string, every row is written with logged_by='', and _history_table.html does not render the field even though HistoryService.rows already carries it. Prompt for a device name on first visit, persist it in the cookie, and show it in history."
+exit_criteria = ["first visit prompts for a device name and persists it (route test)", "logged_by populated on events created after the name is set (test)", "history renders who logged each row (route test)", "name editable in /settings"]
+notes = "Keep it a plain cookie with no auth semantics (D7): this labels rows, it does not protect them. Existing rows keep their empty logged_by - do not backfill. Implemented: the prompt lives on /settings, which is where the fresh-install redirect already lands, and it shows whenever the cookie is unset. A second device joining an already-configured household is not prompted until it opens /settings - forcing that needs a banner in base.html/quick_entry.html or a redirect gate on / that rewrites existing route tests, both outside these touches; raised as U15. Cookie values are latin-1 on the wire and reject control characters, so both are collapsed to a space in post_device rather than 500ing; full UTF-8 would need deps.device_name to decode (also U15). The attribution span carries class=\"by\" but app.css has no rule for it, so it renders as plain text next to the detail; app.css is outside these touches, so styling it is U15 as well."
+

@@ -1,0 +1,11 @@
+[[task]]
+id = "X1"
+phase = 5
+title = "Export CSV/JSON"
+status = "done"
+routing = "impl"
+depends = ["P1"]
+touches = ["src/cradle/services/export_service.py", "src/cradle/routers/api.py", "tests/unit/test_export.py"]
+description = "CSV per domain + one full JSON incl. baby profile + alert_log."
+exit_criteria = ["JSON export -> reimport round-trip equality (test)", "CSV headers stable (test)"]
+

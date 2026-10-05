@@ -1,0 +1,18 @@
+# ================= Remediation & hardening (2026-08-04 codebase review) =================
+# Ordering rationale: the priority set by the architect is "safe to use on a real
+# baby". That puts false alerts and unenterable clinical fields ahead of SPEC
+# completeness. O2/Q2 come first regardless, because the Definition of Done names
+# CI as the sole arbiter and no pipeline has ever run.
+
+[[task]]
+id = "O2"
+phase = 0
+title = "Initialise the git repository and .gitignore"
+status = "done"
+routing = "architect"
+depends = []
+touches = [".gitignore", "docs/SPEC.md"]
+description = "There is no .git directory. The constitution mandates one task per branch, squash-merge and a green main, and the Definition of Done makes CI the sole arbiter - none of which can hold without a repository, and the GitLab pipeline in .gitlab-ci.yml has therefore never run once. Initialise the repo, add a .gitignore, and push so the pipeline executes. Ignore at minimum: .venv/, __pycache__/, .pytest_cache/, .ruff_cache/, .idea/, data/*.db*, backups/, junit.xml. data/cradle.db and its -wal/-shm sidecars are live working files and a private health record; they must never enter history."
+exit_criteria = ["git repository initialised with a first commit that excludes every generated and private artefact above", "git status clean on a fresh checkout after scripts/test.sh runs", "pipeline runs on the remote and its result is recorded in the tasks it arbitrates"]
+notes = "Do this before Q2: the point of Q2 is a green pipeline, which cannot be observed until there is a repository to run it on. Check that data/cradle.db is absent from the first commit before pushing anywhere - a newborn's feeding and weight record is not something to un-publish later. 2026-08-04: repository initialised on main, .gitignore written before `git init` so no generated artefact was ever staged; 115 files in the initial commit, verified to exclude data/, backups/, .venv/, __pycache__/, junit.xml, .idea/ and the tool caches. Two decisions worth knowing: (1) the data/ and backups/ patterns are anchored to the repo root, because an unanchored `data/` also matches src/cradle/reference/data/ and would have silently excluded the UK-WHO LMS table R2 is about to populate; (2) vendored JS (static/vendor/*.js) is ignored rather than committed, consistent with README install step scripts/vendor_assets.sh and with U8/R5 pinning the fetch by checksum - vendor/README.md stays tracked so the directory survives a clone. Held at review: the third exit criterion needs a remote, which does not exist yet. Add one, push, and record the pipeline result before this moves to done."
+

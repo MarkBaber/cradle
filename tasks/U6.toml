@@ -1,0 +1,12 @@
+[[task]]
+id = "U6"
+phase = 3
+title = "Pinned red findings + acknowledge"
+status = "done"
+routing = "impl"
+depends = ["N2", "U3"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/routers/api.py", "src/cradle/routers/templates/"]
+description = "Red findings pinned on / and /today until acknowledged; ack persists to alert_log."
+exit_criteria = ["pin visible until ack (route test)", "ack sets acknowledged_at (test)"]
+notes = "Pinned red findings with acknowledge, amber/reminder findings shown without a button. Route-tested but unrunnable offline (fastapi absent); CI must confirm before done. 2026-08-21: reverted to review alongside G1 - depends on N2, which chains back to G1, which cannot be done while its R4 dependency is blocked (see G1's notes)."
+

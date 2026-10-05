@@ -1,0 +1,11 @@
+[[task]]
+id = "A6"
+phase = 3
+title = "Rules: fever + reminders"
+status = "done"
+routing = "impl"
+depends = ["A3"]
+touches = ["src/cradle/alerts/rules.py", "tests/unit/test_rules_misc.py"]
+description = "FEVER_U3M (>=38.0C, <90d), WEIGH_IN_DUE, MEASUREMENT_GAP."
+exit_criteria = ["37.9 vs 38.0 and 89d vs 90d boundaries (test)", "reminder cadence from config (test)"]
+

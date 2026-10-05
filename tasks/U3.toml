@@ -1,0 +1,11 @@
+[[task]]
+id = "U3"
+phase = 1
+title = "/today strip"
+status = "done"
+routing = "impl"
+depends = ["V1"]
+touches = ["src/cradle/routers/pages.py", "src/cradle/services/today_service.py", "tests/unit/test_today.py"]
+description = "Trailing-24h counts vs expected, time-since-last-feed, active sleep timer."
+exit_criteria = ["counts correct on synthetic day fixture", "active sleep rendered when running"]
+

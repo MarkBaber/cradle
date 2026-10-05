@@ -1,0 +1,12 @@
+[[task]]
+id = "Q1"
+phase = 5
+title = "Weight-budget gate"
+status = "done"
+routing = "tester"
+depends = ["W1", "C2"]
+touches = ["tests/unit/test_weight_budget.py"]
+description = "Assert quick-entry static payload <=150KB (charts pages exempt; Plotly loaded only there)."
+exit_criteria = ["budget test green and wired into CI quality stage"]
+notes = "Budget covers the quick-entry path only; Plotly is excluded because it loads solely on /charts, and a test asserts it never reaches base.html. Unvendored htmx is charged at its pinned size so the gate is meaningful before U8 lands. 2026-08-21: reverted to review alongside G1 - depends on C2, which chains back to G1, which cannot be done while its R4 dependency is blocked (see G1's notes)."
+

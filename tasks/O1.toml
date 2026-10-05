@@ -1,0 +1,12 @@
+[[task]]
+id = "O1"
+phase = 5
+title = "Pi deployment"
+status = "done"
+routing = "impl"
+depends = ["N2"]
+touches = ["scripts/deploy/cradle.service", "README.md"]
+description = "Finalise systemd unit, install docs, backup timer, ntfy topic setup incl. self-host note."
+exit_criteria = ["README deploy walkthrough complete", "unit file lints (systemd-analyze verify in CI risk job)"]
+notes = "systemd units hardened (ProtectSystem=strict, ReadWritePaths); nightly backup timer added; README covers install, verification, ntfy, backups and the LAN-only security model. Cannot be verified without a Pi: needs one real deploy before done. 2026-08-21: reverted to review alongside G1 - depends on N2, which chains back to G1, which cannot be done while its R4 dependency is blocked (see G1's notes)."
+

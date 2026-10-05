@@ -1,0 +1,16 @@
+# CRADLE task manifest. Exit criteria = DoD; CI is the sole arbiter.
+# Areas: S scaffold, M models, P repos, V services, U ui/routes, T route-tests,
+#        R reference, G growth, A alerts, N notify/schedule, C charts,
+#        X export, B backup, W pwa, O ops, Q quality, MS milestones.
+
+[[task]]
+id = "S0"
+phase = 0
+title = "Runnable Phase 0 skeleton"
+status = "done"
+routing = "architect"
+depends = []
+touches = ["src/", "tests/", "scripts/", "pyproject.toml", ".gitlab-ci.yml"]
+description = "Layered skeleton; walking path feed->sqlite->history; smoke green."
+exit_criteria = ["scripts/test.sh green", "scripts/check_layers.sh green"]
+
