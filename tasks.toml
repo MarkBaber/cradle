@@ -464,6 +464,9 @@ depends = ["U1"]
 touches = ["scripts/vendor_assets.sh", ".gitlab-ci.yml"]
 description = "Run vendor_assets.sh once, record HTMX_SHA256, and add a CI job that re-verifies the checksum. Left unpinned at scaffold time because the authoring sandbox had no network egress."
 exit_criteria = ["HTMX_SHA256 populated", "CI fails on checksum mismatch (test)"]
+value = 2
+value_category = "stability"
+value_rationale = "pin vendored htmx checksum: supply-chain hygiene, small"
 
 [[task]]
 id = "U9"
@@ -500,6 +503,9 @@ touches = ["src/cradle/alerts/messages.py", "rules_config.toml", "docs/SPEC.md"]
 description = "Have a midwife, health visitor or GP read every rule threshold in rules_config.toml and every string in messages.py against current NHS/NICE guidance, and confirm the SOURCES citations resolve to real, current documents. The copy was written to avoid diagnostic claims, but nobody clinically qualified has checked either the wording or the numbers."
 exit_criteria = ["each rule signed off against a named, dated source", "reviewer and date recorded in SPEC 1.1", "any disputed threshold changed in rules_config.toml with a test"]
 notes = "This gates real-world use. The app currently presents thresholds as if authoritative because they are drawn from published guidance, but the mapping from guidance to rule was made by an LLM and has not been verified by a human clinician."
+value = 5
+value_category = "stability"
+value_rationale = "clinician review gates real-world use of medical alert copy"
 
 [[task]]
 id = "N3"
@@ -701,6 +707,9 @@ touches = ["src/cradle/alerts/facts.py", "src/cradle/alerts/rules.py", "src/crad
 description = "Two rules over live batches. MILK_EXPIRED fires when a batch has been in its current store longer than that store allows; MILK_EXPIRING fires inside a warning window before that point, so a bottle can still be used rather than poured away. FactSet gains milk_batches, assembled by alerts_service from the repo like every other domain, and the rules stay pure over it (D6). Limits come from a new [milk_storage] table in rules_config.toml - one per store plus the shorter windows a batch moves onto once it is thawed or opened, and warn_before_hours - and the code hard-codes none of them. The window a batch is judged against follows its state: a thawed batch ages on the thawed window from thawed_at, an opened one on the opened window from opened_at, not on the window of the freezer it came out of. Fingerprint per batch id and rule id, so one bottle pages once rather than every five-minute sweep."
 exit_criteria = ["a fridge batch one hour past its limit fires MILK_EXPIRED and one hour before it does not - boundary asserted explicitly (test)", "MILK_EXPIRING fires inside the warning window and MILK_EXPIRED takes over past the limit, never both (test)", "every limit read from rules_config.toml (test: changing the config changes the firing time)", "a thawed batch ages on the thawed window from thawed_at, not the freezer window (test)", "an opened batch ages on the opened window from opened_at (test)", "used, discarded and soft-deleted batches never fire (no-fire test)", "message names the bottle colour and its store", "every window and every new string signed off under A8 against a named, dated source"]
 notes = "Architect-routed and gated on A8 for the reason the constitution gives: storage windows are clinical values and the copy is health copy, and A8 is the review that covers both. Mark asked for an alert at 1 day for fridge milk; published NHS guidance for a fridge at 4C or below is longer than that, so the request is a more conservative household choice rather than a contradiction - which is exactly why the number belongs in rules_config.toml and not in the rules. Ship whatever default the A8 reviewer sets, keep it editable, and record the source in SOURCES beside the other rules. Keep the copy inside the SPEC 1.1 line: it describes what the log shows about a bottle and what to do with the bottle, and it makes no claim about milk nobody has looked at. When Q4 and this both land, add a live in-date bottle to the healthy cross-domain fixture so these rules are covered by the no-fire guard too."
+value = 3
+value_category = "leverage"
+value_rationale = "milk-expiry alerts, blocked on A8"
 
 [[task]]
 id = "X2"
